@@ -1,0 +1,82 @@
+\hbadness=99999
+\usepackage{silence}
+
+% prevent splitting footnotes
+\interfootnotelinepenalty=10000
+
+% geometry
+\usepackage[margin=1in]{geometry}
+
+% math and symbols
+\usepackage{bbm}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsthm}
+\usepackage{thmtools}
+\usepackage{mathtools}
+\usepackage{mathpartir}
+\usepackage{stmaryrd}
+\WarningFilter{latexfont}{Font shape `U/stmry/b/n' undefined}
+\WarningFilter{latexfont}{Some font shapes were not available}
+
+% font
+\usepackage{iftex}
+\usepackage{fontspec}
+\ifPDFTeX
+  \usepackage{libertinust1math}
+  \usepackage{libertine}
+\else
+  \expandafter\def\csname ver@unicode-math.sty\endcsname{}
+  \usepackage[nomath]{libertinus}
+  \usepackage{libertinust1math}
+\fi
+\usepackage[scaled=0.8]{FiraMono}
+
+\usepackage{bm}
+\usepackage{relsize}
+\usepackage{centernot}
+
+% no indentation
+\usepackage{parskip}
+
+% hyperlinks
+\usepackage[colorlinks=true, linkcolor=purple]{hyperref}
+\usepackage[noabbrev]{cleveref}
+
+% code listings
+\usepackage{listings}
+
+% tables
+\usepackage{booktabs}
+
+% enumeration
+\usepackage{enumitem}
+
+% block quotes
+\usepackage{csquotes}
+
+% text scaling
+\usepackage{scalerel}
+
+% colors
+\usepackage{xcolor}
+
+% theorem types
+\declaretheorem[name=Theorem, parent=section]{theorem}
+\declaretheorem[name=Lemma, parent=theorem]{lemma}
+\declaretheorem[name=Lemma, sibling=theorem]{lemma*}
+\declaretheorem[name=Definition, parent=section, style=definition]{definition}
+
+% variadic macros
+\newcommand{\variadic}[6]{%
+  \expandafter\newcommand\csname Gobble#1Arg\endcsname[2]{%
+    \csname Check#1Arg\endcsname{##1#4##2}%
+  }%
+  \expandafter\newcommand\csname Check#1Arg\endcsname[1]{%
+    \csname @ifnextchar\endcsname\bgroup{\csname Gobble#1Arg\endcsname{##1}}{#2{##1#5}#6}%
+  }%
+  \expandafter\newcommand\csname #1\endcsname[1]{%
+    \csname Check#1Arg\endcsname{#3##1}%
+  }%
+}

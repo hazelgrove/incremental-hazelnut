@@ -1,0 +1,95 @@
+\documentclass[11pt]{article}
+
+\input{preamble}
+\input{symbols}
+
+\begin{document}
+
+\section{Syntax}
+The following gives the surface syntax and its action language. \(\THole\), \(\EHole\), and \(\BHole\)
+denote holes, and \(\Cursor{\ }\) denotes the cursor.
+
+\begin{grammar}
+  \syntax{\Typ}{\forms
+    {\THole}
+    {\TUnknown}
+    {\TNum}
+    {\TArrow{\Typ}{\Typ}}
+  }
+  \syntax{\Exp}{\forms
+    {\EHole}
+    {\EVar{x}}
+    {\ELam{\Bnd}{\Typ}{\Exp}}
+    {\EAp{\Exp}{\Exp}}
+    {\ENumN}
+    {\EPlus{\Exp}{\Exp}}
+  }
+  \syntax{\Bnd}{\forms
+    {\BHole}
+    {\BVar{x}}
+  }
+  \syntax{\ZTyp}{\forms
+    {\ZTCursor{\Typ}}
+    {\ZTArrowL{\ZTyp}{\Typ}}
+    {\ZTArrowR{\Typ}{\ZTyp}}
+  }
+  \syntax{\ZExp}{\forms
+    {\ZECursor{\Exp}}
+    {\ZELamB{\ZBnd}{\Typ}{\Exp}}
+    {\ZELamT{\Bnd}{\ZTyp}{\Exp}}
+    {\ZELamE{\Bnd}{\Typ}{\ZExp}}
+    {\ZEApL{\ZExp}{\Exp}}
+    {\ZEApR{\Exp}{\ZExp}}
+    {\ZEPlusL{\ZExp}{\Exp}}
+    {\ZEPlusR{\Exp}{\ZExp}}
+  }
+  \syntax{\ZBnd}{\forms
+    {\ZBCursor{\Bnd}}
+  }
+  \syntax{\Act}{\forms
+    {\AMove{\Move}}
+    {\AWrap{\Ctor}}
+    {\ADel}
+  }
+  \syntax{\Move}{\forms
+    {\MIn{\IndexI}}
+    {\MOut}
+  }
+  \syntax{\Ctor}{\forms
+    {\CtorT}
+    {\CtorE}
+    {\CtorB}
+  }
+  \syntax{\CtorT}{\forms
+    {\CTUnknown}
+    {\CTNum}
+    {\CTArrowL}
+    {\CTArrowR}
+  }
+  \syntax{\CtorE}{\forms
+    {\CEVar{x}}
+    {\CENum{n}}
+    {\CELam}
+    {\CEApL}
+    {\CEApR}
+    {\CEPlusL}
+    {\CEPlusR}
+  }
+  \syntax{\CtorB}{\forms
+    {\CBVar{x}}
+  }
+\end{grammar}
+
+% ideas & questions:
+%
+% - permit bad sorted-ness in surface syntax, e.g. allow a type where a term should be?
+%
+% - additional primitive actions:
+%   * unwrap, where only one argument is not a hole
+%   * swap
+%   * invert
+%
+% - how can we minimize the action language and define complex actions in terms of primitive ones
+%   whilst optimizing the amount of rechecking required?
+
+\end{document}

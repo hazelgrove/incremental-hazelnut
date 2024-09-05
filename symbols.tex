@@ -1,0 +1,83 @@
+% syntax: surface
+\newcommand{\Faded}[1]{\ensuremath{\begingroup\color{black!60}#1\endgroup}}
+\newcommand{\Hole}{\ensuremath{\mathord{\Faded{\square}}}}
+
+\newcommand{\Typ}{\ensuremath{\tau}}
+\newcommand{\THole}{\ensuremath{\Hole}}
+\newcommand{\TUnknown}{\ensuremath{\mathord{?}}}
+\newcommand{\TNum}{\ensuremath{\mathord{\textsf{num}}}}
+\newcommand{\TArrow}[2]{\ensuremath{#1 \to #2}}
+
+\newcommand{\Exp}{\ensuremath{e}}
+\newcommand{\EHole}{\ensuremath{\Hole}}
+\newcommand{\EVar}[1]{\ensuremath{#1}}
+\newcommand{\ELam}[3]{\ensuremath{\lambda #1 : #2~.~#3}}
+\newcommand{\EAp}[2]{\ensuremath{#1~#2}}
+\newcommand{\ENum}[1]{\ensuremath{#1}}
+\newcommand{\ENumN}{\ensuremath{\ENum{n}}}
+\newcommand{\EPlus}[2]{\ensuremath{#1 + #2}}
+
+\newcommand{\Bnd}{\ensuremath{b}}
+\newcommand{\BHole}{\ensuremath{\Hole}}
+\newcommand{\BVar}[1]{\ensuremath{#1}}
+
+\newcommand{\Cursor}[1]{\ensuremath{\mathord{\Faded{\rangle} #1 \Faded{\langle}}}}
+
+% syntax: zippered
+\newcommand{\ZTyp}{\ensuremath{\hat{\Typ}}}
+\newcommand{\ZTCursor}[1]{\ensuremath{\Cursor{#1}}}
+\newcommand{\ZTArrowL}[2]{\ensuremath{\TArrow{#1}{#2}}}
+\newcommand{\ZTArrowR}[2]{\ensuremath{\TArrow{#1}{#2}}}
+
+\newcommand{\ZExp}{\ensuremath{\hat{\Exp}}}
+\newcommand{\ZECursor}[1]{\ensuremath{\Cursor{#1}}}
+\newcommand{\ZELamB}[3]{\ensuremath{\ELam{#1}{#2}{#3}}}
+\newcommand{\ZELamT}[3]{\ensuremath{\ELam{#1}{#2}{#3}}}
+\newcommand{\ZELamE}[3]{\ensuremath{\ELam{#1}{#2}{#3}}}
+\newcommand{\ZEApL}[2]{\ensuremath{\EAp{#1}{#2}}}
+\newcommand{\ZEApR}[2]{\ensuremath{\EAp{#1}{#2}}}
+\newcommand{\ZEPlusL}[2]{\ensuremath{\EPlus{#1}{#2}}}
+\newcommand{\ZEPlusR}[2]{\ensuremath{\EPlus{#1}{#2}}}
+
+\newcommand{\ZBnd}{\ensuremath{\hat{\Bnd}}}
+\newcommand{\ZBCursor}[1]{\ensuremath{\Cursor{#1}}}
+
+% actions
+\newcommand{\Act}{\ensuremath{\alpha}}
+\newcommand{\AMove}[1]{\ensuremath{\textsf{move}~ #1}}
+\newcommand{\AWrap}[1]{\ensuremath{\textsf{wrap}~ #1}}
+\newcommand{\ADel}{\ensuremath{\textsf{del}}}
+
+% actions: deltas
+\newcommand{\Move}{\ensuremath{m}}
+\newcommand{\MIn}[1]{\ensuremath{\textsf{in}~ #1}}
+\newcommand{\MOut}{\ensuremath{\textsf{out}}}
+\newcommand{\Index}[1]{\ensuremath{#1}}
+\newcommand{\IndexI}{\ensuremath{\Index{i}}}
+
+% actions: constructors
+\newcommand{\Ctor}{\ensuremath{k}}
+\newcommand{\CtorT}{\ensuremath{\Ctor_{\Typ}}}
+\newcommand{\CTUnknown}{\ensuremath{\textsf{unknown}}}
+\newcommand{\CTNum}{\ensuremath{\textsf{num}}}
+\newcommand{\CTArrowL}{\ensuremath{\textsf{arrow}_{L}}}
+\newcommand{\CTArrowR}{\ensuremath{\textsf{arrow}_{R}}}
+\newcommand{\CtorE}{\ensuremath{\Ctor_{\Exp}}}
+\newcommand{\CEVar}[1]{\ensuremath{\textsf{var}~#1}}
+\newcommand{\CENum}[1]{\ensuremath{\textsf{num}~#1}}
+\newcommand{\CELam}{\ensuremath{\textsf{lam}}}
+\newcommand{\CEApL}{\ensuremath{\textsf{ap}_{L}}}
+\newcommand{\CEApR}{\ensuremath{\textsf{ap}_{R}}}
+\newcommand{\CEPlusL}{\ensuremath{\textsf{plus}_{L}}}
+\newcommand{\CEPlusR}{\ensuremath{\textsf{plus}_{R}}}
+\newcommand{\CtorB}{\ensuremath{\Ctor_{\Bnd}}}
+\newcommand{\CBVar}[1]{\ensuremath{\textsf{var}~#1}}
+
+% grammars
+\newenvironment{grammar}{
+  \[\begin{array}{lcl}
+}{
+  \end{array}\]
+}
+\variadic{forms}{}{}{\mid}{}{}
+\newcommand{\syntax}[2]{#1 & \Coloneqq & #2 \\}
