@@ -349,7 +349,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, e');
       // freshen_ana_in_parent(e_parent);
       e.parent = Deleted;
-      (e', q);
+      (e', [Update.NewSyn(e')] @ q);
     | _ => (e, q)
     }
 
