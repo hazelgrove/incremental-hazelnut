@@ -78,9 +78,14 @@ module Update = {
 module UpdateQueue = {
   [@deriving sexp]
   type t = list(Update.t);
-
-  let push = 0; //todo
-  let pop = 0; //todo
+  let push = (u, q: t) => [u, ...q];
+  let push_list = (u: list(Update.t), q: t) =>
+    List.fold_left((q', u') => push(u', q'), q, u);
+  let pop = (q: t) =>
+    switch (q) {
+    | [] => None
+    | [u, ..._] => Some(u)
+    };
 };
 
 module Istate = {
@@ -336,7 +341,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     set_child_in_parent(e.parent, e');
     // freshen_ana_in_parent(e.parent);
     e.parent = Deleted;
-    (e', [Update.NewSyn(e')] @ q);
+    (e', UpdateQueue.push(Update.NewSyn(e'), q));
   | InsertNumLit(x) =>
     // Numlits have no lower Iexp, so we can just create a new upper for it to link to the NumLit middle
     switch (e.middle) {
@@ -349,7 +354,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, e');
       // freshen_ana_in_parent(e_parent);
       e.parent = Deleted;
-      (e', [Update.NewSyn(e')] @ q);
+      (e', UpdateQueue.push(Update.NewSyn(e'), q));
     | _ => (e, q)
     }
 
@@ -391,12 +396,14 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e2.parent, e2);
       (
         new_upper,
-        [
-          Update.NewAna(new_lower_left),
-          Update.NewAna(new_lower_right),
-          Update.NewSyn(new_upper),
-        ]
-        @ q,
+        UpdateQueue.push_list(
+          [
+            Update.NewAna(new_lower_left),
+            Update.NewAna(new_lower_right),
+            Update.NewSyn(new_upper),
+          ],
+          q,
+        ),
       );
     };
     switch (child) {
@@ -447,4 +454,9 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     | Three => (e, q)
     };
   };
+};
+
+let update_step = ((e, q): Istate.t): option(Istate.t) => {
+  let _ = (e, q);
+  None;
 };
