@@ -359,7 +359,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     }
 
   | WrapPlus(child) =>
-    let make_plus_with_children = (e1, e2) => {
+    let make_plus_with_children = (e1, e2, q) => {
       // Create the new lower expressions with the correct children and new syn
       // But we can't instantiate the skip-up pointers yet
       let new_lower_left: Iexp.lower = {
@@ -407,15 +407,19 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       );
     };
     switch (child) {
-    | One => make_plus_with_children(e, exp_hole_upper())
-    | Two => make_plus_with_children(exp_hole_upper(), e)
+    | One =>
+      let hole = exp_hole_upper();
+      make_plus_with_children(e, hole, UpdateQueue.push(NewSyn(hole), q));
+    | Two =>
+      let hole = exp_hole_upper();
+      make_plus_with_children(hole, e, UpdateQueue.push(NewSyn(hole), q));
     | Three => (e, q)
     };
 
   | WrapAp(child) =>
     // child 1 = exp becomes fun
     // child 2 = exp becomes arg
-    let make_ap_with_children = (e1, e2) => {
+    let make_ap_with_children = (e1, e2, q) => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper,
         ana: None,
@@ -442,15 +446,15 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       e2.parent = Lower(new_lower_right);
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
-      new_upper;
+      (new_upper, q);
     };
     switch (child) {
     | One =>
       // freshen_typ(e.syn); // TODO this will need to return a worker list
-      (make_ap_with_children(e, exp_hole_upper()), q)
+      make_ap_with_children(e, exp_hole_upper(), q)
     | Two =>
       // freshen_typ(e.syn); // TODO this will need to return a worker list
-      (make_ap_with_children(exp_hole_upper(), e), q)
+      make_ap_with_children(exp_hole_upper(), e, q)
     | Three => (e, q)
     };
   };
@@ -458,5 +462,8 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
 let update_step = ((e, q): Istate.t): option(Istate.t) => {
   let _ = (e, q);
+  let _ = UpdateQueue.pop(q);
   None;
 };
+
+let _ = update_step;
