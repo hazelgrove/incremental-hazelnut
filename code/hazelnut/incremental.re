@@ -78,6 +78,9 @@ module Update = {
 module UpdateQueue = {
   [@deriving sexp]
   type t = list(Update.t);
+
+  let push = 0; //todo
+  let pop = 0; //todo
 };
 
 module Istate = {
