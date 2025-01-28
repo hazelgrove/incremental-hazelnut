@@ -36,6 +36,36 @@ module Hexp: {
     | Mark(t, Mark.t); // mark
 };
 
+module HZexp: {
+  [@deriving (sexp, compare)]
+  type t =
+    | Cursor(t)
+    | Var(string)
+    | NumLit(int)
+    | Plus(t, t)
+    | Lam(string, Htyp.t, t)
+    | Ap(t, t)
+    | Asc(t, Htyp.t)
+    | EHole
+    | Mark(t, Mark.t);
+};
+
+module DisplayExp: {
+  [@deriving (sexp, compare)]
+  type t =
+    | Cursor(t)
+    | NewSyn(t, Htyp.t)
+    | NewAna(t, Htyp.t)
+    | Var(string)
+    | NumLit(int)
+    | Plus(t, t)
+    | Lam(string, Htyp.t, t)
+    | Ap(t, t)
+    | Asc(t, Htyp.t)
+    | EHole
+    | Mark(t, Mark.t);
+};
+
 module Zexp: {
   [@deriving (sexp, compare)]
   type t =

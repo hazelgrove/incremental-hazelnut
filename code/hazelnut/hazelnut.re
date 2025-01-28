@@ -33,14 +33,44 @@ module Mark = {
 module Hexp = {
   [@deriving (sexp, compare)]
   type t =
-    | Var(string) // x
-    | NumLit(int) // n
-    | Plus(t, t) // e + e
-    | Lam(string, Htyp.t, t) // \x:t.e
-    | Ap(t, t) // e e
-    | Asc(t, Htyp.t) // e : t
-    | EHole // hole
-    | Mark(t, Mark.t); // mark
+    | Var(string)
+    | NumLit(int)
+    | Plus(t, t)
+    | Lam(string, Htyp.t, t)
+    | Ap(t, t)
+    | Asc(t, Htyp.t)
+    | EHole
+    | Mark(t, Mark.t);
+};
+
+module HZexp = {
+  [@deriving (sexp, compare)]
+  type t =
+    | Cursor(t)
+    | Var(string)
+    | NumLit(int)
+    | Plus(t, t)
+    | Lam(string, Htyp.t, t)
+    | Ap(t, t)
+    | Asc(t, Htyp.t)
+    | EHole
+    | Mark(t, Mark.t);
+};
+
+module DisplayExp = {
+  [@deriving (sexp, compare)]
+  type t =
+    | Cursor(t)
+    | NewSyn(t, Htyp.t)
+    | NewAna(t, Htyp.t)
+    | Var(string)
+    | NumLit(int)
+    | Plus(t, t)
+    | Lam(string, Htyp.t, t)
+    | Ap(t, t)
+    | Asc(t, Htyp.t)
+    | EHole
+    | Mark(t, Mark.t);
 };
 
 module Zexp = {
