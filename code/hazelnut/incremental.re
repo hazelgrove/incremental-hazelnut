@@ -291,6 +291,19 @@ module Iaction = {
     | WrapAp(Child.t);
 };
 
+// Given a upper and a list of updates,
+// if the upper's parent is a
+// - lower
+// - under analytic position (ana is Some)
+// then returns the list with an appended
+// analytic Update for the parent lower.
+let with_parent_ana_update = (q: list(Update.t), upper: Iexp.upper): list(Update.t) => {
+  switch (upper.parent) {
+  | Deleted | Root(_) => q
+  | Lower(lower) => [Update.NewAna(lower), ...q]
+  }
+}
+
 // TODO: update queue
 let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
   let e_parent = e.parent;
@@ -447,17 +460,13 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
 
-      let update_list = switch (new_upper.parent) {
-      | Deleted | Root(_) => [
-        Update.NewSyn(e1),
-        Update.NewSyn(e2),
-      ]
-      | Lower(lower) => [
-        Update.NewSyn(e1),
-        Update.NewSyn(e2),
-        Update.NewAna(lower)
-      ]
-      };
+      let update_list = with_parent_ana_update(
+        [
+          Update.NewSyn(e1),
+          Update.NewSyn(e2),
+        ],
+        new_upper,
+      );
 
       (new_upper, UpdateQueue.push_list(update_list, q));
     };
