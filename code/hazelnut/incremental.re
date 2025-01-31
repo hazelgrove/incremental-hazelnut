@@ -354,7 +354,9 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     set_child_in_parent(e.parent, e');
     // freshen_ana_in_parent(e.parent);
     e.parent = Deleted;
-    (e', UpdateQueue.push(Update.NewSyn(e'), q));
+
+    let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+    (e', UpdateQueue.push_list(update_list, q));
   | InsertNumLit(x) =>
     // Numlits have no lower Iexp, so we can just create a new upper for it to link to the NumLit middle
     switch (e.middle) {
@@ -367,7 +369,9 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, e');
       // freshen_ana_in_parent(e_parent);
       e.parent = Deleted;
-      (e', UpdateQueue.push(Update.NewSyn(e'), q));
+
+      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+      (e', UpdateQueue.push_list(update_list, q));
     | _ => (e, q)
     }
 
@@ -407,6 +411,13 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       e2.parent = Lower(new_lower_right);
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
+
+      let update_list = with_parent_ana_update([
+        Update.NewAna(new_lower_left),
+        Update.NewAna(new_lower_right),
+        Update.NewSyn(new_upper),
+      ], new_upper);
+
       (
         new_upper,
         UpdateQueue.push_list(
