@@ -446,14 +446,25 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       e2.parent = Lower(new_lower_right);
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
-      (new_upper, q);
+
+      let update_list = switch (new_upper.parent) {
+      | Deleted | Root(_) => [
+        Update.NewSyn(e1),
+        Update.NewSyn(e2),
+      ]
+      | Lower(lower) => [
+        Update.NewSyn(e1),
+        Update.NewSyn(e2),
+        Update.NewAna(lower)
+      ]
+      };
+
+      (new_upper, UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
     | One =>
-      // freshen_typ(e.syn); // TODO this will need to return a worker list
       make_ap_with_children(e, exp_hole_upper(), q)
     | Two =>
-      // freshen_typ(e.syn); // TODO this will need to return a worker list
       make_ap_with_children(exp_hole_upper(), e, q)
     | Three => (e, q)
     };
