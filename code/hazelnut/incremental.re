@@ -297,6 +297,7 @@ module Iaction = {
 // - under analytic position (ana is Some)
 // then returns the list with an appended
 // analytic Update for the parent lower.
+// Otherwise, returns the original list.
 let with_parent_ana_update = (q: list(Update.t), upper: Iexp.upper): list(Update.t) => {
   switch (upper.parent) {
   | Deleted | Root(_) => q
