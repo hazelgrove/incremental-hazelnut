@@ -291,6 +291,20 @@ module Iaction = {
     | WrapAp(Child.t);
 };
 
+// Given a upper and a list of updates,
+// if the upper's parent is a
+// - lower
+// - under analytic position (ana is Some)
+// then returns the list with an appended
+// analytic Update for the parent lower.
+// Otherwise, returns the original list.
+let with_parent_ana_update = (q: list(Update.t), upper: Iexp.upper): list(Update.t) => {
+  switch (upper.parent) {
+  | Deleted | Root(_) => q
+  | Lower(lower) => [Update.NewAna(lower), ...q]
+  }
+}
+
 // TODO: update queue
 let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
   let e_parent = e.parent;
@@ -341,7 +355,9 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     set_child_in_parent(e.parent, e');
     // freshen_ana_in_parent(e.parent);
     e.parent = Deleted;
-    (e', UpdateQueue.push(Update.NewSyn(e'), q));
+
+    let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+    (e', UpdateQueue.push_list(update_list, q));
   | InsertNumLit(x) =>
     // Numlits have no lower Iexp, so we can just create a new upper for it to link to the NumLit middle
     switch (e.middle) {
@@ -354,7 +370,9 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, e');
       // freshen_ana_in_parent(e_parent);
       e.parent = Deleted;
-      (e', UpdateQueue.push(Update.NewSyn(e'), q));
+
+      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+      (e', UpdateQueue.push_list(update_list, q));
     | _ => (e, q)
     }
 
@@ -394,17 +412,14 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       e2.parent = Lower(new_lower_right);
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
-      (
-        new_upper,
-        UpdateQueue.push_list(
-          [
-            Update.NewAna(new_lower_left),
-            Update.NewAna(new_lower_right),
-            Update.NewSyn(new_upper),
-          ],
-          q,
-        ),
-      );
+
+      let update_list = with_parent_ana_update([
+        Update.NewAna(new_lower_left),
+        Update.NewAna(new_lower_right),
+        Update.NewSyn(new_upper),
+      ], new_upper);
+
+      (new_upper, update_list);
     };
     switch (child) {
     | One =>
@@ -446,14 +461,21 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       e2.parent = Lower(new_lower_right);
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
-      (new_upper, q);
+
+      let update_list = with_parent_ana_update(
+        [
+          Update.NewSyn(e1),
+          Update.NewSyn(e2),
+        ],
+        new_upper,
+      );
+
+      (new_upper, UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
     | One =>
-      // freshen_typ(e.syn); // TODO this will need to return a worker list
       make_ap_with_children(e, exp_hole_upper(), q)
     | Two =>
-      // freshen_typ(e.syn); // TODO this will need to return a worker list
       make_ap_with_children(exp_hole_upper(), e, q)
     | Three => (e, q)
     };
