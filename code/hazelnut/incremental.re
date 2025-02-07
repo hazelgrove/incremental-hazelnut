@@ -310,7 +310,41 @@ let with_parent_ana_update = (q: list(Update.t), upper: Iexp.upper): list(Update
   | Deleted | Root(_) => q
   | Lower(lower) => [Update.NewAna(lower), ...q]
   }
-}
+};
+
+// Finds the upper (exclusive) among the ancestors of e that is a let binder for name, if it exists,
+// or none if it does not.
+let rec look_up_binder = (e: Iexp.upper, name: string): option(Iexp.upper) => {
+  switch (e.parent) {
+  | Deleted | Root(_) => None
+  | Lower(lower) =>
+    switch (lower.upper.middle) {
+    | Lam(lam_name, _, _, _, _) =>
+      if (name == lam_name) Some(lower.upper)
+      else                  look_up_binder(lower.upper, name)
+    | _ =>                  look_up_binder(lower.upper, name)
+    }
+  }
+};
+
+// Finds the uppers among the children of e (inclusive) that are a variable occurrence of name.
+let rec look_down_occurrence = (e: Iexp.upper, name: string): list(Iexp.upper) => {
+  switch (e.middle) {
+  | Var(var_name, _, _)                 => if (name == var_name) [e] else []
+  | NumLit(_)                           => []
+  | Plus(lower_a, lower_b)              => List.append(
+                                          look_down_occurrence(lower_a.child, name),
+                                          look_down_occurrence(lower_b.child, name)
+                                        )
+  | Lam(lam_name, _, _, body_lower, _)  => if (name == lam_name) [] else look_down_occurrence(body_lower.child, name)
+  | Ap(actor, _, param)                 => List.append(
+                                          look_down_occurrence(actor.child, name),
+                                          look_down_occurrence(param.child, name)
+                                        )
+  | Asc(lower, _)                       => look_down_occurrence(lower.child, name)
+  | EHole                               => []
+  }
+};
 
 // TODO: update queue
 let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
@@ -384,7 +418,22 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     | _ => (e, q)
     }
 
-  | InsertVar(var_name) => raise(Unimplemented)
+  | InsertVar(var_name) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e_parent,
+        syn: Some(Num),
+        middle: raise(Unimplemented),
+      };
+      set_child_in_parent(e_parent, e');
+      // freshen_ana_in_parent(e_parent);
+      e.parent = Deleted;
+
+      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+      (e', UpdateQueue.push_list(update_list, q));
+    | _ => (e, q)
+    }
 
   | WrapPlus(child) =>
     let make_plus_with_children = (e1, e2, q) => {
