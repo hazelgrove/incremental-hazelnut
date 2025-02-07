@@ -41,12 +41,12 @@ module Iexp = {
   type lower = {
     mutable upper,
     ana: option(Htyp.t),
-    marked: bool,
+    mutable marked: bool,
     mutable child: upper,
   }
 
   and middle =
-    | Var(string, bool, binder)
+    | Var(string, bool, option(binder))
     | NumLit(int)
     | Plus(lower, lower)
     | Lam(string, Htyp.t, bool, lower, bound_vars)
@@ -314,13 +314,13 @@ let with_parent_ana_update = (q: list(Update.t), upper: Iexp.upper): list(Update
 
 // Finds the upper (exclusive) among the ancestors of e that is a let binder for name, if it exists,
 // or none if it does not.
-let rec look_up_binder = (e: Iexp.upper, name: string): option(Iexp.upper) => {
+let rec look_up_binder = (e: Iexp.upper, name: string): option((Iexp.upper, Htyp.t)) => {
   switch (e.parent) {
   | Deleted | Root(_) => None
   | Lower(lower) =>
     switch (lower.upper.middle) {
-    | Lam(lam_name, _, _, _, _) =>
-      if (name == lam_name) Some(lower.upper)
+    | Lam(lam_name, lam_ty, _, _, _) =>
+      if (name == lam_name) Some((lower.upper, lam_ty))
       else                  look_up_binder(lower.upper, name)
     | _ =>                  look_up_binder(lower.upper, name)
     }
@@ -421,17 +421,44 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
   | InsertVar(var_name) =>
     switch (e.middle) {
     | EHole =>
-      let e': Iexp.upper = {
-        parent: e_parent,
-        syn: Some(Num),
-        middle: raise(Unimplemented),
-      };
-      set_child_in_parent(e_parent, e');
-      // freshen_ana_in_parent(e_parent);
-      e.parent = Deleted;
+      switch (look_up_binder(e, var_name)) {
+      | Some((binder, ty)) => {
+          
+          // Ask about this, because I didn't implement
+          // with initially free_var
+          let e': Iexp.upper = {
+            parent: e_parent,
+            syn: Some(ty),
+            middle: Var(var_name, false, Some(binder)),
+          };
+          set_child_in_parent(e_parent, e');
+          e.parent = Deleted;
 
-      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
-      (e', UpdateQueue.push_list(update_list, q));
+          let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+          (e', UpdateQueue.push_list(update_list, q));
+
+        }
+      | None => {
+          
+          let e': Iexp.upper = {
+            parent: e_parent,
+            syn: None,
+            middle: Var(var_name, true, None),
+          };
+          set_child_in_parent(e_parent, e');
+          e.parent = Deleted;
+
+          switch (e'.parent) {
+          | Lower(lower) => lower.marked = true
+          | _ => ()
+          }
+
+          let update_list = with_parent_ana_update([], e');
+          (e', UpdateQueue.push_list(update_list, q));
+
+        }
+      };
+
     | _ => (e, q)
     }
 
