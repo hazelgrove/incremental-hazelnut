@@ -290,8 +290,12 @@ module Iaction = {
     | MoveDown(Child.t)
     | Delete
     | InsertNumLit(int)
+    | InsertVar(string)
     | WrapPlus(Child.t)
-    | WrapAp(Child.t);
+    | WrapAp(Child.t)
+    | WrapLam
+    | WrapAsc
+    | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
 // Given a upper and a list of updates,
@@ -361,6 +365,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
     let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
     (e', UpdateQueue.push_list(update_list, q));
+
   | InsertNumLit(x) =>
     // Numlits have no lower Iexp, so we can just create a new upper for it to link to the NumLit middle
     switch (e.middle) {
@@ -378,6 +383,8 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       (e', UpdateQueue.push_list(update_list, q));
     | _ => (e, q)
     }
+
+  | InsertVar(var_name) => raise(Unimplemented)
 
   | WrapPlus(child) =>
     let make_plus_with_children = (e1, e2, q) => {
@@ -482,7 +489,14 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       make_ap_with_children(exp_hole_upper(), e, q)
     | Three => (e, q)
     };
-  };
+  
+  | WrapLam => raise(Unimplemented)
+  
+  | WrapAsc => raise(Unimplemented)
+  
+  | Unwrap(child) => raise(Unimplemented);
+
+  };  
 };
 
 let update_step = ((e, q): Istate.t): option(Istate.t) => {
