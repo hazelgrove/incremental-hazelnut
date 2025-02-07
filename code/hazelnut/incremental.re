@@ -422,7 +422,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
         Update.NewSyn(new_upper),
       ], new_upper);
 
-      (new_upper, update_list);
+      (new_upper, UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
     | One =>
