@@ -109,10 +109,10 @@ let rec hexp_of_iexp: Iexp.upper => Hexp.t =
 and hexp_of_iexp_middle: Iexp.middle => Hexp.t =
   middle =>
     switch (middle) {
-    | Var(x, m) => markif(m, Free, Var(x))
+    | Var(x, m, _binders) => markif(m, Free, Var(x))
     | NumLit(x) => NumLit(x)
     | Plus(e1, e2) => Plus(hexp_of_iexp_lower(e1), hexp_of_iexp_lower(e2))
-    | Lam(x, t, m, e) =>
+    | Lam(x, t, m, e, _bound_vars) =>
       markif(m, LamAscIncon, Lam(x, t, hexp_of_iexp_lower(e)))
     | Ap(e1, m, e2) =>
       markif(
@@ -158,14 +158,14 @@ let rec display_of_iexp =
 and display_of_iexp_middle =
     (e: Iexp.middle, (cursor, updates): Istate.t): DisplayExp.t => {
   switch (e) {
-  | Var(x, m) => display_markif(m, Free, Var(x))
+  | Var(x, m, _binders) => display_markif(m, Free, Var(x))
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
     Plus(
       display_of_iexp_lower(e1, (cursor, updates)),
       display_of_iexp_lower(e2, (cursor, updates)),
     )
-  | Lam(x, t, m, e) =>
+  | Lam(x, t, m, e, _bound_vars) =>
     display_markif(
       m,
       LamAscIncon,
@@ -320,7 +320,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
   | MoveDown(child) =>
     switch (e.middle) {
-    | Var(_, _)
+    | Var(_, _, _)
     | NumLit(_)
     | EHole => (e, q)
     | Plus(e1, e2) =>
@@ -329,7 +329,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       | Two => (e2.child, q)
       | Three => (e, q)
       }
-    | Lam(_, _, _, e1) =>
+    | Lam(_, _, _, e1, _) =>
       switch (child) {
       | One => (e1.child, q)
       | Two
