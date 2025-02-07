@@ -46,10 +46,10 @@ module Iexp = {
   }
 
   and middle =
-    | Var(string, bool)
+    | Var(string, bool, binders)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(string, Htyp.t, bool, lower)
+    | Lam(string, Htyp.t, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, Htyp.t)
     | EHole
@@ -65,7 +65,10 @@ module Iexp = {
   and parent =
     | Deleted // root of a subtree that has been deleted
     | Root(child_ref) // root of the main program
-    | Lower(lower); // child location of a constuctor
+    | Lower(lower) // child location of a constuctor
+
+  and binders = list(upper) // pointers from a variable occurrence to binding location
+  and bound_vars = list(upper); // pointers from a binder to the variable occurrences it binds
 };
 
 module Update = {
