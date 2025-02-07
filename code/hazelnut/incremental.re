@@ -293,7 +293,7 @@ module Iaction = {
     | InsertVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
-    | WrapLam
+    | WrapLam(string)
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
@@ -545,8 +545,10 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       // Note that e1 or e2 is e, so modifying them modifies e
       e1.parent = Lower(new_lower_left);
       e2.parent = Lower(new_lower_right);
-      set_child_in_parent(e1.parent, e1);
-      set_child_in_parent(e2.parent, e2);
+      
+      // NOOPs?
+      // set_child_in_parent(e1.parent, e1);
+      // set_child_in_parent(e2.parent, e2);
 
       let update_list = with_parent_ana_update(
         [
@@ -566,7 +568,37 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     | Three => (e, q)
     };
   
-  | WrapLam => raise(Unimplemented)
+  | WrapLam(lam_name) =>
+    // TODO: Are we going to support empty lambda names?
+    let newly_bound = look_down_occurrence(e, lam_name);
+    let new_body_lower: Iexp.lower = {
+      upper: dummy_upper,
+      ana: None,
+      marked: false,
+      child: e
+    };
+    let e': Iexp.upper = {
+      parent: e_parent,
+      syn: e.syn,
+      middle: Lam(lam_name, Htyp.Hole, false, new_body_lower, newly_bound),
+    };
+    
+    // Connection between e' the upper and e_parent the containing lower
+    set_child_in_parent(e_parent, e');
+    
+    // Connection between new_body_lower the lower and e' the containing upper
+    new_body_lower.upper = e';
+
+    // Connection between e the upper and new_body_lower the containing lower
+    e.parent = Lower(new_body_lower);
+
+    let update_list = with_parent_ana_update(
+      switch (e.syn) {
+      | Some(_) => [Update.NewSyn(e)]
+      | None => []
+      }
+    , e');
+    (e', UpdateQueue.push_list(update_list, q));
   
   | WrapAsc => raise(Unimplemented)
   
