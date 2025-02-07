@@ -46,7 +46,7 @@ module Iexp = {
   }
 
   and middle =
-    | Var(string, bool, binders)
+    | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
     | Lam(string, Htyp.t, bool, lower, bound_vars)
@@ -67,7 +67,7 @@ module Iexp = {
     | Root(child_ref) // root of the main program
     | Lower(lower) // child location of a constuctor
 
-  and binders = list(upper) // pointers from a variable occurrence to binding location
+  and binder = upper // pointer from a variable occurrence to binding location
   and bound_vars = list(upper); // pointers from a binder to the variable occurrences it binds
 };
 
