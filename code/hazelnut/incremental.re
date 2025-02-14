@@ -46,10 +46,10 @@ module Iexp = {
   }
 
   and middle =
-    | Var(string, bool, parent)
+    | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(string, Htyp.t, bool, lower, bound_vars)
+    | Lam(string, Htyp.t, bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, Htyp.t)
     | EHole
@@ -67,7 +67,7 @@ module Iexp = {
     | Root(child_ref) // root of the main program
     | Lower(lower) // child location of a constuctor
 
-  and binder = upper // pointer from a variable occurrence to binding location
+  and binder = parent // pointer from a variable occurrence to binding location
   and bound_vars = list(upper); // pointers from a binder to the variable occurrences it binds
 };
 
@@ -112,8 +112,12 @@ and hexp_of_iexp_middle: Iexp.middle => Hexp.t =
     | Var(x, m, _binders) => markif(m, Free, Var(x))
     | NumLit(x) => NumLit(x)
     | Plus(e1, e2) => Plus(hexp_of_iexp_lower(e1), hexp_of_iexp_lower(e2))
-    | Lam(x, t, m, e, _bound_vars) =>
-      markif(m, LamAscIncon, Lam(x, t, hexp_of_iexp_lower(e)))
+    | Lam(x, t, m1, m2, e, _bound_vars) =>
+      markif(
+        m2,
+        LamAscIncon,
+        markif(m1, NonArrowLam, Lam(x, t, hexp_of_iexp_lower(e))),
+      )
     | Ap(e1, m, e2) =>
       markif(
         m,
@@ -165,11 +169,15 @@ and display_of_iexp_middle =
       display_of_iexp_lower(e1, (cursor, updates)),
       display_of_iexp_lower(e2, (cursor, updates)),
     )
-  | Lam(x, t, m, e, _bound_vars) =>
+  | Lam(x, t, m1, m2, e, _bound_vars) =>
     display_markif(
-      m,
+      m2,
       LamAscIncon,
-      Lam(x, t, display_of_iexp_lower(e, (cursor, updates))),
+      display_markif(
+        m1,
+        NonArrowLam,
+        Lam(x, t, display_of_iexp_lower(e, (cursor, updates))),
+      ),
     )
   | Ap(e1, m, e2) =>
     display_markif(
@@ -323,7 +331,7 @@ let rec look_up_binder =
   | Root(_) => (e.parent, Hole, true)
   | Lower(lower) =>
     switch (lower.upper.middle) {
-    | Lam(lam_name, lam_ty, _, _, _) =>
+    | Lam(lam_name, lam_ty, _, _, _, _) =>
       if (name == lam_name) {
         (e.parent, lam_ty, false);
       } else {
@@ -334,34 +342,42 @@ let rec look_up_binder =
   };
 };
 
-// Finds the uppers among the children of e (inclusive) that are a variable occurrence of name.
-let rec look_down_occurrence =
-        (e: Iexp.upper, name: string): list(Iexp.upper) => {
+// Finds all free variables with given name: makes them all synthesize Hole*,
+// marks them all as bound, binds them all correctly, and returns them as a set.
+let rec bind_variables =
+        (e: Iexp.upper, name: string, binder: Iexp.binder): list(Iexp.upper) => {
   switch (e.middle) {
   | Var(var_name, _, _) =>
     if (name == var_name) {
-      [e];
+      let m': Iexp.middle = Var(var_name, false, binder);
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn: Some(Hole),
+        middle: m',
+      };
+      set_child_in_parent(e.parent, e');
+      [e'];
     } else {
       [];
     }
   | NumLit(_) => []
   | Plus(lower_a, lower_b) =>
     List.append(
-      look_down_occurrence(lower_a.child, name),
-      look_down_occurrence(lower_b.child, name),
+      bind_variables(lower_a.child, name, binder),
+      bind_variables(lower_b.child, name, binder),
     )
-  | Lam(lam_name, _, _, body_lower, _) =>
+  | Lam(lam_name, _, _, _, body_lower, _) =>
     if (name == lam_name) {
       [];
     } else {
-      look_down_occurrence(body_lower.child, name);
+      bind_variables(body_lower.child, name, binder);
     }
   | Ap(actor, _, param) =>
     List.append(
-      look_down_occurrence(actor.child, name),
-      look_down_occurrence(param.child, name),
+      bind_variables(actor.child, name, binder),
+      bind_variables(param.child, name, binder),
     )
-  | Asc(lower, _) => look_down_occurrence(lower.child, name)
+  | Asc(lower, _) => bind_variables(lower.child, name, binder)
   | EHole => []
   };
 };
@@ -387,7 +403,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       | Two => (e2.child, q)
       | Three => (e, q)
       }
-    | Lam(_, _, _, e1, _) =>
+    | Lam(_, _, _, _, e1, _) =>
       switch (child) {
       | One => (e1.child, q)
       | Two
@@ -568,17 +584,19 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
   | WrapLam(lam_name) =>
     // TODO: Are we going to support empty lambda names?
-    let newly_bound = look_down_occurrence(e, lam_name);
     let new_body_lower: Iexp.lower = {
       upper: dummy_upper,
       ana: None,
       marked: false,
       child: e,
     };
+    let newly_bound =
+      bind_variables(e, lam_name, Iexp.Lower(new_body_lower));
     let e': Iexp.upper = {
       parent: e_parent,
       syn: e.syn,
-      middle: Lam(lam_name, Htyp.Hole, false, new_body_lower, newly_bound),
+      middle:
+        Lam(lam_name, Htyp.Hole, false, false, new_body_lower, newly_bound),
     };
 
     // Connection between e' the upper and e_parent the containing lower
@@ -624,7 +642,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
   | Unwrap(child) =>
     switch (e.middle) {
-    | Lam(_name, _typ, _marked, body_lower, _bound_vars) =>
+    | Lam(_name, _typ, _marked, _, body_lower, _bound_vars) =>
       // TODO: each pointer at bound_vars should be mutated
       e.parent = Deleted;
       body_lower.child.parent = e_parent;

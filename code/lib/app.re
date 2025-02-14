@@ -26,6 +26,7 @@ let string_of_mark: Hazelnut.Mark.t => string = {
   fun
   | Free => "Free"
   | NonArrowAp => "NonArrowAp"
+  | NonArrowLam => "NonArrowLam"
   | LamAscIncon => "LamAscIncon"
   | Inconsistent => "Inconsistent";
 };

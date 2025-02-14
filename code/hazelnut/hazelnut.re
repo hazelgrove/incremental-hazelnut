@@ -26,6 +26,7 @@ module Mark = {
   type t =
     | Free
     | NonArrowAp
+    | NonArrowLam
     | LamAscIncon
     | Inconsistent;
 };
