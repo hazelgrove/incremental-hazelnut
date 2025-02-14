@@ -334,17 +334,24 @@ let rec look_up_binder =
   };
 };
 
-// Finds all free variables with given name: makes them all synthesize Hole*,
-// marks them all as bound, binds them all correctly, and returns them as a set.
-let rec bind_variables =
-        (e: Iexp.upper, name: string, binder: Iexp.binder): list(Iexp.upper) => {
+// Finds all free variables with given name: makes them all synthesize [syn],
+// marks them all as [m], binds them all correctly, and returns them as a set.
+let rec update_free_variables =
+        (
+          e: Iexp.upper,
+          name: string,
+          syn: Htyp.t,
+          m: bool,
+          binder: Iexp.binder,
+        )
+        : list(Iexp.upper) => {
   switch (e.middle) {
   | Var(var_name, _, _) =>
     if (name == var_name) {
-      let m': Iexp.middle = Var(var_name, false, binder);
+      let m': Iexp.middle = Var(var_name, m, binder);
       let e': Iexp.upper = {
         parent: e.parent,
-        syn: Some(Hole),
+        syn: Some(syn),
         middle: m',
       };
       set_child_in_parent(e.parent, e');
@@ -355,21 +362,21 @@ let rec bind_variables =
   | NumLit(_) => []
   | Plus(lower_a, lower_b) =>
     List.append(
-      bind_variables(lower_a.child, name, binder),
-      bind_variables(lower_b.child, name, binder),
+      update_free_variables(lower_a.child, name, syn, m, binder),
+      update_free_variables(lower_b.child, name, syn, m, binder),
     )
   | Lam(lam_name, _, _, _, body_lower, _) =>
     if (name == lam_name) {
       [];
     } else {
-      bind_variables(body_lower.child, name, binder);
+      update_free_variables(body_lower.child, name, syn, m, binder);
     }
   | Ap(actor, _, param) =>
     List.append(
-      bind_variables(actor.child, name, binder),
-      bind_variables(param.child, name, binder),
+      update_free_variables(actor.child, name, syn, m, binder),
+      update_free_variables(param.child, name, syn, m, binder),
     )
-  | Asc(lower, _) => bind_variables(lower.child, name, binder)
+  | Asc(lower, _) => update_free_variables(lower.child, name, syn, m, binder)
   | EHole => []
   };
 };
@@ -584,7 +591,13 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     e.parent = Lower(new_body_lower);
 
     let newly_bound =
-      bind_variables(e, lam_name, Iexp.Lower(new_body_lower));
+      update_free_variables(
+        e,
+        lam_name,
+        Hole,
+        false,
+        Iexp.Lower(new_body_lower),
+      );
 
     let e': Iexp.upper = {
       parent: e_parent,
