@@ -602,7 +602,83 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
   
   | WrapAsc => raise(Unimplemented)
   
-  | Unwrap(child) => raise(Unimplemented);
+  | Unwrap(child) =>
+    
+    switch (e.middle) {
+      | Lam(_name, _typ, _marked, body_lower, _bound_vars) =>
+        // TODO: each pointer at bound_vars should be mutated
+        e.parent = Deleted;
+        body_lower.child.parent = e_parent;
+        set_child_in_parent(e_parent, body_lower.child);
+        // body_lower should be dropped now
+        let update_list = with_parent_ana_update(
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(body_lower.child)]
+          | None => []
+          }
+        , body_lower.child);
+        (body_lower.child, UpdateQueue.push_list(update_list, q))
+      | Ap(fun_lower, _marked, arg_lower) =>
+        let replacement_lower = switch (child) {
+          | One => fun_lower
+          | Two => arg_lower
+          | Three => raise(Unimplemented)
+        };
+        e.parent = Deleted;
+        replacement_lower.child.parent = e_parent;
+        set_child_in_parent(e_parent, replacement_lower.child);
+        // body_lower should be dropped now
+        let update_list = with_parent_ana_update(
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(replacement_lower.child)]
+          | None => []
+          }
+        , replacement_lower.child);
+        (replacement_lower.child, UpdateQueue.push_list(update_list, q))
+      | Plus(left_arg, right_arg) =>
+        let replacement_lower = switch (child) {
+          | One => left_arg
+          | Two => right_arg
+          | Three => raise(Unimplemented)
+        };
+        e.parent = Deleted;
+        replacement_lower.child.parent = e_parent;
+        set_child_in_parent(e_parent, replacement_lower.child);
+        // body_lower should be dropped now
+        let update_list = with_parent_ana_update(
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(replacement_lower.child)]
+          | None => []
+          }
+        , replacement_lower.child);
+        (replacement_lower.child, UpdateQueue.push_list(update_list, q))
+      | Asc(ann_lower, _ty) =>
+        e.parent = Deleted;
+        ann_lower.child.parent = e_parent;
+        set_child_in_parent(e_parent, ann_lower.child);
+        // body_lower should be dropped now
+        let update_list = with_parent_ana_update(
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(ann_lower.child)]
+          | None => []
+          }
+        , ann_lower.child);
+        (ann_lower.child, UpdateQueue.push_list(update_list, q))
+      | Var(_, _, _) | NumLit(_) =>
+        // Copied from delete
+        let e': Iexp.upper = {
+          parent: e.parent,
+          syn: Some(Hole),
+          middle: EHole,
+        };
+        set_child_in_parent(e.parent, e');
+        // freshen_ana_in_parent(e.parent);
+        e.parent = Deleted;
+
+        let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+        (e', UpdateQueue.push_list(update_list, q));
+      | EHole => (e, q)
+    }
 
   };  
 };
