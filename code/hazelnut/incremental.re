@@ -306,19 +306,11 @@ module Iaction = {
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
-// Given a upper and a list of updates,
-// if the upper's parent is a
-// - lower
-// - under analytic position (ana is Some)
-// then returns the list with an appended
-// analytic Update for the parent lower.
-// Otherwise, returns the original list.
-let with_parent_ana_update =
-    (q: list(Update.t), upper: Iexp.upper): list(Update.t) => {
-  switch (upper.parent) {
+let parent_freshen_ana = (parent: Iexp.parent): list(Update.t) => {
+  switch (parent) {
   | Deleted
-  | Root(_) => q
-  | Lower(lower) => [Update.NewAna(lower), ...q]
+  | Root(_) => []
+  | Lower(lower) => [Update.NewAna(lower)]
   };
 };
 
@@ -433,7 +425,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     // freshen_ana_in_parent(e.parent);
     e.parent = Deleted;
 
-    let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+    let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
     (e', UpdateQueue.push_list(update_list, q));
 
   | InsertNumLit(x) =>
@@ -449,7 +441,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       // freshen_ana_in_parent(e_parent);
       e.parent = Deleted;
 
-      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
       (e', UpdateQueue.push_list(update_list, q));
     | _ => (e, q)
     }
@@ -469,7 +461,8 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
         set_child_in_parent(e_parent, e');
         e.parent = Deleted;
 
-        let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+        let update_list =
+          parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
         (e', UpdateQueue.push_list(update_list, q));
       }
 
@@ -514,14 +507,12 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e2.parent, e2);
 
       let update_list =
-        with_parent_ana_update(
-          [
-            Update.NewAna(new_lower_left),
-            Update.NewAna(new_lower_right),
-            Update.NewSyn(new_upper),
-          ],
-          new_upper,
-        );
+        parent_freshen_ana(new_upper.parent)
+        @ [
+          Update.NewAna(new_lower_left),
+          Update.NewAna(new_lower_right),
+          Update.NewSyn(new_upper),
+        ];
 
       (new_upper, UpdateQueue.push_list(update_list, q));
     };
@@ -569,10 +560,8 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       // set_child_in_parent(e2.parent, e2);
 
       let update_list =
-        with_parent_ana_update(
-          [Update.NewSyn(e1), Update.NewSyn(e2)],
-          new_upper,
-        );
+        parent_freshen_ana(new_upper.parent)
+        @ [Update.NewSyn(e1), Update.NewSyn(e2)];
 
       (new_upper, UpdateQueue.push_list(update_list, q));
     };
@@ -634,7 +623,8 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
     e.parent = Lower(new_lower);
 
-    let update_list = with_parent_ana_update([Update.NewSyn(e)], new_upper);
+    let update_list =
+      parent_freshen_ana(new_upper.parent) @ [Update.NewSyn(e)];
 
     (new_upper, UpdateQueue.push_list(update_list, q));
 
@@ -647,12 +637,12 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, body_lower.child);
       // body_lower should be dropped now
       let update_list =
-        with_parent_ana_update(
+        parent_freshen_ana(e_parent)
+        @ (
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(body_lower.child)]
           | None => []
-          },
-          body_lower.child,
+          }
         );
       (body_lower.child, UpdateQueue.push_list(update_list, q));
     | Ap(fun_lower, _marked, arg_lower) =>
@@ -667,12 +657,12 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, replacement_lower.child);
       // body_lower should be dropped now
       let update_list =
-        with_parent_ana_update(
+        parent_freshen_ana(e_parent)
+        @ (
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(replacement_lower.child)]
           | None => []
-          },
-          replacement_lower.child,
+          }
         );
       (replacement_lower.child, UpdateQueue.push_list(update_list, q));
     | Plus(left_arg, right_arg) =>
@@ -687,12 +677,12 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, replacement_lower.child);
       // body_lower should be dropped now
       let update_list =
-        with_parent_ana_update(
+        parent_freshen_ana(e_parent)
+        @ (
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(replacement_lower.child)]
           | None => []
-          },
-          replacement_lower.child,
+          }
         );
       (replacement_lower.child, UpdateQueue.push_list(update_list, q));
     | Asc(ann_lower, _ty) =>
@@ -701,12 +691,12 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e_parent, ann_lower.child);
       // body_lower should be dropped now
       let update_list =
-        with_parent_ana_update(
+        parent_freshen_ana(e_parent)
+        @ (
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(ann_lower.child)]
           | None => []
-          },
-          ann_lower.child,
+          }
         );
       (ann_lower.child, UpdateQueue.push_list(update_list, q));
     | Var(_, _, _)
@@ -721,7 +711,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       // freshen_ana_in_parent(e.parent);
       e.parent = Deleted;
 
-      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
       (e', UpdateQueue.push_list(update_list, q));
     | EHole => (e, q)
     }
