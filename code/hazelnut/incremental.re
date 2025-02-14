@@ -600,7 +600,30 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     , e');
     (e', UpdateQueue.push_list(update_list, q));
   
-  | WrapAsc => raise(Unimplemented)
+  | WrapAsc => 
+
+    let new_lower: Iexp.lower = {
+      upper: dummy_upper,
+      ana: None,
+      marked: false,
+      child: e,
+    };
+    let new_mid: Iexp.middle = Asc(new_lower, Hole);
+    let new_upper: Iexp.upper = {
+      parent: e_parent,
+      syn: None,
+      middle: new_mid,
+    };
+    new_lower.upper = new_upper;
+    set_child_in_parent(e_parent, new_upper);
+
+    e.parent = Lower(new_lower);
+
+    let update_list = with_parent_ana_update([
+      Update.NewSyn(e)
+    ], new_upper);
+
+    (new_upper, UpdateQueue.push_list(update_list, q));
   
   | Unwrap(child) =>
     
