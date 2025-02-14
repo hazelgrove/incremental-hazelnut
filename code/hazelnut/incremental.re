@@ -46,7 +46,7 @@ module Iexp = {
   }
 
   and middle =
-    | Var(string, bool, option(binder))
+    | Var(string, bool, parent)
     | NumLit(int)
     | Plus(lower, lower)
     | Lam(string, Htyp.t, bool, lower, bound_vars)
@@ -305,45 +305,65 @@ module Iaction = {
 // then returns the list with an appended
 // analytic Update for the parent lower.
 // Otherwise, returns the original list.
-let with_parent_ana_update = (q: list(Update.t), upper: Iexp.upper): list(Update.t) => {
+let with_parent_ana_update =
+    (q: list(Update.t), upper: Iexp.upper): list(Update.t) => {
   switch (upper.parent) {
-  | Deleted | Root(_) => q
+  | Deleted
+  | Root(_) => q
   | Lower(lower) => [Update.NewAna(lower), ...q]
-  }
+  };
 };
 
-// Finds the upper (exclusive) among the ancestors of e that is a let binder for name, if it exists,
-// or none if it does not.
-let rec look_up_binder = (e: Iexp.upper, name: string): option((Iexp.upper, Htyp.t)) => {
+// Finds the looks up [name] in the context of [e].
+// Returns the binding site (or root), the synthesized type, and whether [name] is free.
+let rec look_up_binder =
+        (e: Iexp.upper, name: string): (Iexp.parent, Htyp.t, bool) => {
   switch (e.parent) {
-  | Deleted | Root(_) => None
+  | Deleted
+  | Root(_) => (e.parent, Hole, true)
   | Lower(lower) =>
     switch (lower.upper.middle) {
     | Lam(lam_name, lam_ty, _, _, _) =>
-      if (name == lam_name) Some((lower.upper, lam_ty))
-      else                  look_up_binder(lower.upper, name)
-    | _ =>                  look_up_binder(lower.upper, name)
+      if (name == lam_name) {
+        (e.parent, lam_ty, false);
+      } else {
+        look_up_binder(lower.upper, name);
+      }
+    | _ => look_up_binder(lower.upper, name)
     }
-  }
+  };
 };
 
 // Finds the uppers among the children of e (inclusive) that are a variable occurrence of name.
-let rec look_down_occurrence = (e: Iexp.upper, name: string): list(Iexp.upper) => {
+let rec look_down_occurrence =
+        (e: Iexp.upper, name: string): list(Iexp.upper) => {
   switch (e.middle) {
-  | Var(var_name, _, _)                 => if (name == var_name) [e] else []
-  | NumLit(_)                           => []
-  | Plus(lower_a, lower_b)              => List.append(
-                                          look_down_occurrence(lower_a.child, name),
-                                          look_down_occurrence(lower_b.child, name)
-                                        )
-  | Lam(lam_name, _, _, body_lower, _)  => if (name == lam_name) [] else look_down_occurrence(body_lower.child, name)
-  | Ap(actor, _, param)                 => List.append(
-                                          look_down_occurrence(actor.child, name),
-                                          look_down_occurrence(param.child, name)
-                                        )
-  | Asc(lower, _)                       => look_down_occurrence(lower.child, name)
-  | EHole                               => []
-  }
+  | Var(var_name, _, _) =>
+    if (name == var_name) {
+      [e];
+    } else {
+      [];
+    }
+  | NumLit(_) => []
+  | Plus(lower_a, lower_b) =>
+    List.append(
+      look_down_occurrence(lower_a.child, name),
+      look_down_occurrence(lower_b.child, name),
+    )
+  | Lam(lam_name, _, _, body_lower, _) =>
+    if (name == lam_name) {
+      [];
+    } else {
+      look_down_occurrence(body_lower.child, name);
+    }
+  | Ap(actor, _, param) =>
+    List.append(
+      look_down_occurrence(actor.child, name),
+      look_down_occurrence(param.child, name),
+    )
+  | Asc(lower, _) => look_down_occurrence(lower.child, name)
+  | EHole => []
+  };
 };
 
 // TODO: update queue
@@ -422,42 +442,20 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     switch (e.middle) {
     | EHole =>
       switch (look_up_binder(e, var_name)) {
-      | Some((binder, ty)) => {
-          
-          // Ask about this, because I didn't implement
-          // with initially free_var
-          let e': Iexp.upper = {
-            parent: e_parent,
-            syn: Some(ty),
-            middle: Var(var_name, false, Some(binder)),
-          };
-          set_child_in_parent(e_parent, e');
-          e.parent = Deleted;
+      | (parent, ty, mark) =>
+        // Ask about this, because I didn't implement
+        // with initially free_var
+        let e': Iexp.upper = {
+          parent: e_parent,
+          syn: Some(ty),
+          middle: Var(var_name, mark, parent),
+        };
+        set_child_in_parent(e_parent, e');
+        e.parent = Deleted;
 
-          let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
-          (e', UpdateQueue.push_list(update_list, q));
-
-        }
-      | None => {
-          
-          let e': Iexp.upper = {
-            parent: e_parent,
-            syn: None,
-            middle: Var(var_name, true, None),
-          };
-          set_child_in_parent(e_parent, e');
-          e.parent = Deleted;
-
-          switch (e'.parent) {
-          | Lower(lower) => lower.marked = true
-          | _ => ()
-          }
-
-          let update_list = with_parent_ana_update([], e');
-          (e', UpdateQueue.push_list(update_list, q));
-
-        }
-      };
+        let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+        (e', UpdateQueue.push_list(update_list, q));
+      }
 
     | _ => (e, q)
     }
@@ -499,11 +497,15 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
 
-      let update_list = with_parent_ana_update([
-        Update.NewAna(new_lower_left),
-        Update.NewAna(new_lower_right),
-        Update.NewSyn(new_upper),
-      ], new_upper);
+      let update_list =
+        with_parent_ana_update(
+          [
+            Update.NewAna(new_lower_left),
+            Update.NewAna(new_lower_right),
+            Update.NewSyn(new_upper),
+          ],
+          new_upper,
+        );
 
       (new_upper, UpdateQueue.push_list(update_list, q));
     };
@@ -545,29 +547,25 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       // Note that e1 or e2 is e, so modifying them modifies e
       e1.parent = Lower(new_lower_left);
       e2.parent = Lower(new_lower_right);
-      
+
       // NOOPs?
       // set_child_in_parent(e1.parent, e1);
       // set_child_in_parent(e2.parent, e2);
 
-      let update_list = with_parent_ana_update(
-        [
-          Update.NewSyn(e1),
-          Update.NewSyn(e2),
-        ],
-        new_upper,
-      );
+      let update_list =
+        with_parent_ana_update(
+          [Update.NewSyn(e1), Update.NewSyn(e2)],
+          new_upper,
+        );
 
       (new_upper, UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
-    | One =>
-      make_ap_with_children(e, exp_hole_upper(), q)
-    | Two =>
-      make_ap_with_children(exp_hole_upper(), e, q)
+    | One => make_ap_with_children(e, exp_hole_upper(), q)
+    | Two => make_ap_with_children(exp_hole_upper(), e, q)
     | Three => (e, q)
     };
-  
+
   | WrapLam(lam_name) =>
     // TODO: Are we going to support empty lambda names?
     let newly_bound = look_down_occurrence(e, lam_name);
@@ -575,33 +573,34 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       upper: dummy_upper,
       ana: None,
       marked: false,
-      child: e
+      child: e,
     };
     let e': Iexp.upper = {
       parent: e_parent,
       syn: e.syn,
       middle: Lam(lam_name, Htyp.Hole, false, new_body_lower, newly_bound),
     };
-    
+
     // Connection between e' the upper and e_parent the containing lower
     set_child_in_parent(e_parent, e');
-    
+
     // Connection between new_body_lower the lower and e' the containing upper
     new_body_lower.upper = e';
 
     // Connection between e the upper and new_body_lower the containing lower
     e.parent = Lower(new_body_lower);
 
-    let update_list = with_parent_ana_update(
-      switch (e.syn) {
-      | Some(_) => [Update.NewSyn(e)]
-      | None => []
-      }
-    , e');
+    let update_list =
+      with_parent_ana_update(
+        switch (e.syn) {
+        | Some(_) => [Update.NewSyn(e)]
+        | None => []
+        },
+        e',
+      );
     (e', UpdateQueue.push_list(update_list, q));
-  
-  | WrapAsc => 
 
+  | WrapAsc =>
     let new_lower: Iexp.lower = {
       upper: dummy_upper,
       ana: None,
@@ -619,91 +618,98 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
     e.parent = Lower(new_lower);
 
-    let update_list = with_parent_ana_update([
-      Update.NewSyn(e)
-    ], new_upper);
+    let update_list = with_parent_ana_update([Update.NewSyn(e)], new_upper);
 
     (new_upper, UpdateQueue.push_list(update_list, q));
-  
+
   | Unwrap(child) =>
-    
     switch (e.middle) {
-      | Lam(_name, _typ, _marked, body_lower, _bound_vars) =>
-        // TODO: each pointer at bound_vars should be mutated
-        e.parent = Deleted;
-        body_lower.child.parent = e_parent;
-        set_child_in_parent(e_parent, body_lower.child);
-        // body_lower should be dropped now
-        let update_list = with_parent_ana_update(
+    | Lam(_name, _typ, _marked, body_lower, _bound_vars) =>
+      // TODO: each pointer at bound_vars should be mutated
+      e.parent = Deleted;
+      body_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, body_lower.child);
+      // body_lower should be dropped now
+      let update_list =
+        with_parent_ana_update(
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(body_lower.child)]
           | None => []
-          }
-        , body_lower.child);
-        (body_lower.child, UpdateQueue.push_list(update_list, q))
-      | Ap(fun_lower, _marked, arg_lower) =>
-        let replacement_lower = switch (child) {
-          | One => fun_lower
-          | Two => arg_lower
-          | Three => raise(Unimplemented)
+          },
+          body_lower.child,
+        );
+      (body_lower.child, UpdateQueue.push_list(update_list, q));
+    | Ap(fun_lower, _marked, arg_lower) =>
+      let replacement_lower =
+        switch (child) {
+        | One => fun_lower
+        | Two => arg_lower
+        | Three => raise(Unimplemented)
         };
-        e.parent = Deleted;
-        replacement_lower.child.parent = e_parent;
-        set_child_in_parent(e_parent, replacement_lower.child);
-        // body_lower should be dropped now
-        let update_list = with_parent_ana_update(
+      e.parent = Deleted;
+      replacement_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, replacement_lower.child);
+      // body_lower should be dropped now
+      let update_list =
+        with_parent_ana_update(
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(replacement_lower.child)]
           | None => []
-          }
-        , replacement_lower.child);
-        (replacement_lower.child, UpdateQueue.push_list(update_list, q))
-      | Plus(left_arg, right_arg) =>
-        let replacement_lower = switch (child) {
-          | One => left_arg
-          | Two => right_arg
-          | Three => raise(Unimplemented)
+          },
+          replacement_lower.child,
+        );
+      (replacement_lower.child, UpdateQueue.push_list(update_list, q));
+    | Plus(left_arg, right_arg) =>
+      let replacement_lower =
+        switch (child) {
+        | One => left_arg
+        | Two => right_arg
+        | Three => raise(Unimplemented)
         };
-        e.parent = Deleted;
-        replacement_lower.child.parent = e_parent;
-        set_child_in_parent(e_parent, replacement_lower.child);
-        // body_lower should be dropped now
-        let update_list = with_parent_ana_update(
+      e.parent = Deleted;
+      replacement_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, replacement_lower.child);
+      // body_lower should be dropped now
+      let update_list =
+        with_parent_ana_update(
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(replacement_lower.child)]
           | None => []
-          }
-        , replacement_lower.child);
-        (replacement_lower.child, UpdateQueue.push_list(update_list, q))
-      | Asc(ann_lower, _ty) =>
-        e.parent = Deleted;
-        ann_lower.child.parent = e_parent;
-        set_child_in_parent(e_parent, ann_lower.child);
-        // body_lower should be dropped now
-        let update_list = with_parent_ana_update(
+          },
+          replacement_lower.child,
+        );
+      (replacement_lower.child, UpdateQueue.push_list(update_list, q));
+    | Asc(ann_lower, _ty) =>
+      e.parent = Deleted;
+      ann_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, ann_lower.child);
+      // body_lower should be dropped now
+      let update_list =
+        with_parent_ana_update(
           switch (e.syn) {
           | Some(_) => [Update.NewSyn(ann_lower.child)]
           | None => []
-          }
-        , ann_lower.child);
-        (ann_lower.child, UpdateQueue.push_list(update_list, q))
-      | Var(_, _, _) | NumLit(_) =>
-        // Copied from delete
-        let e': Iexp.upper = {
-          parent: e.parent,
-          syn: Some(Hole),
-          middle: EHole,
-        };
-        set_child_in_parent(e.parent, e');
-        // freshen_ana_in_parent(e.parent);
-        e.parent = Deleted;
+          },
+          ann_lower.child,
+        );
+      (ann_lower.child, UpdateQueue.push_list(update_list, q));
+    | Var(_, _, _)
+    | NumLit(_) =>
+      // Copied from delete
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn: Some(Hole),
+        middle: EHole,
+      };
+      set_child_in_parent(e.parent, e');
+      // freshen_ana_in_parent(e.parent);
+      e.parent = Deleted;
 
-        let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
-        (e', UpdateQueue.push_list(update_list, q));
-      | EHole => (e, q)
+      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+      (e', UpdateQueue.push_list(update_list, q));
+    | EHole => (e, q)
     }
-
-  };  
+  };
 };
 
 let update_step = ((e, q): Istate.t): option(Istate.t) => {

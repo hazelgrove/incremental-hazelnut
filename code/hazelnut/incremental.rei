@@ -29,7 +29,7 @@ module Iexp: {
   }
 
   and middle =
-    | Var(string, bool, option(binder))
+    | Var(string, bool, parent)
     | NumLit(int)
     | Plus(lower, lower)
     | Lam(string, Htyp.t, bool, lower, bound_vars)
