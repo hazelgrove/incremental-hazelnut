@@ -590,8 +590,13 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       marked: false,
       child: e,
     };
+
+    // Connection between e the upper and new_body_lower the containing lower
+    e.parent = Lower(new_body_lower);
+
     let newly_bound =
       bind_variables(e, lam_name, Iexp.Lower(new_body_lower));
+
     let e': Iexp.upper = {
       parent: e_parent,
       syn: e.syn,
@@ -605,17 +610,10 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     // Connection between new_body_lower the lower and e' the containing upper
     new_body_lower.upper = e';
 
-    // Connection between e the upper and new_body_lower the containing lower
-    e.parent = Lower(new_body_lower);
-
     let update_list =
-      with_parent_ana_update(
-        switch (e.syn) {
-        | Some(_) => [Update.NewSyn(e)]
-        | None => []
-        },
-        e',
-      );
+      List.map(e => Update.NewSyn(e), newly_bound)
+      @ [NewAna(new_body_lower), NewSyn(e)];
+
     (e', UpdateQueue.push_list(update_list, q));
 
   | WrapAsc =>
