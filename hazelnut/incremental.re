@@ -112,17 +112,37 @@ and hexp_of_iexp_middle: Iexp.middle => Hexp.t =
 and hexp_of_iexp_lower: Iexp.lower => Hexp.t =
   lower => markif(lower.marked, Inconsistent, hexp_of_iexp(lower.child));
 
-let display_markif = (b: bool, m: Mark.t, exp: DisplayExp.t): DisplayExp.t =>
+let string_of_mark: Hazelnut.Mark.t => string = {
+  fun
+  | Free => "Free"
+  | NonArrowAp => "NonArrowAp"
+  | NonArrowLam => "NonArrowLam"
+  | LamAscIncon => "LamAscIncon"
+  | Inconsistent => "Inconsistent";
+};
+
+let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
+  fun
+  | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
+  | Num => Num
+  | Hole => EHole;
+
+let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
+  fun
+  | Cursor(t) => Cursor(pexp_of_htyp(t))
+  | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
+  | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z));
+
+let pexp_markif = (b: bool, m: Mark.t, exp: Pexp.t): Pexp.t =>
   if (b) {
-    Mark(exp, m);
+    Mark(exp, string_of_mark(m));
   } else {
     exp;
   };
 
-let rec display_of_iexp =
-        (e: Iexp.upper, (cursor, updates): Istate.t): DisplayExp.t => {
-  let d = display_of_iexp_middle(e.middle, (cursor, updates));
-  let d: DisplayExp.t =
+let rec pexp_of_iexp = (e: Iexp.upper, (cursor, updates): Istate.t): Pexp.t => {
+  let d = pexp_of_iexp_middle(e.middle, (cursor, updates));
+  let d: Pexp.t =
     switch (cursor) {
     | CursorExp(e') when e' === e => Cursor(d)
     | _ => d
@@ -135,52 +155,62 @@ let rec display_of_iexp =
     };
   };
   switch (List.filter_map(filter_updates, updates)) {
-  | [t, ..._] => NewSyn(d, t)
+  | [t, ..._] => NewSyn(d, pexp_of_htyp(t))
   | [] => d
   };
 }
 
-and display_of_iexp_middle =
-    (e: Iexp.middle, (cursor, updates): Istate.t): DisplayExp.t => {
+and pexp_of_iexp_middle =
+    (e: Iexp.middle, (cursor, updates): Istate.t): Pexp.t => {
   switch (e) {
-  | Var(x, m, _binders) => display_markif(m, Free, Var(x))
+  | Var(x, m, _binders) => pexp_markif(m, Free, Var(x))
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
     Plus(
-      display_of_iexp_lower(e1, (cursor, updates)),
-      display_of_iexp_lower(e2, (cursor, updates)),
+      pexp_of_iexp_lower(e1, (cursor, updates)),
+      pexp_of_iexp_lower(e2, (cursor, updates)),
     )
-  | Lam(x, t, m1, m2, e, _bound_vars) =>
-    display_markif(
+  | Lam(x, t, m1, m2, body, _bound_vars) =>
+    let pt =
+      switch (cursor) {
+      | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
+      | _ => pexp_of_htyp(t)
+      };
+    pexp_markif(
       m2,
       LamAscIncon,
-      display_markif(
+      pexp_markif(
         m1,
         NonArrowLam,
-        Lam(x, t, display_of_iexp_lower(e, (cursor, updates))),
+        Lam(x, pt, pexp_of_iexp_lower(body, (cursor, updates))),
       ),
-    )
+    );
   | Ap(e1, m, e2) =>
-    display_markif(
+    pexp_markif(
       m,
       NonArrowAp,
       Ap(
-        display_of_iexp_lower(e1, (cursor, updates)),
-        display_of_iexp_lower(e2, (cursor, updates)),
+        pexp_of_iexp_lower(e1, (cursor, updates)),
+        pexp_of_iexp_lower(e2, (cursor, updates)),
       ),
     )
-  | Asc(e, t) => Asc(display_of_iexp_lower(e, (cursor, updates)), t)
+  | Asc(body, t) =>
+    let pt =
+      switch (cursor) {
+      | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
+      | _ => pexp_of_htyp(t)
+      };
+    Asc(pexp_of_iexp_lower(body, (cursor, updates)), pt);
   | EHole => EHole
   };
 }
 
-and display_of_iexp_lower =
-    (e: Iexp.lower, (cursor, updates): Istate.t): DisplayExp.t => {
+and pexp_of_iexp_lower = (e: Iexp.lower, (cursor, updates): Istate.t): Pexp.t => {
   let d =
-    display_markif(
+    pexp_markif(
       e.marked,
       Inconsistent,
-      display_of_iexp(e.child, (cursor, updates)),
+      pexp_of_iexp(e.child, (cursor, updates)),
     );
   let filter_updates = (u: Update.t) => {
     switch (u) {
@@ -190,7 +220,7 @@ and display_of_iexp_lower =
     };
   };
   switch (List.filter_map(filter_updates, updates)) {
-  | [t, ..._] => NewAna(d, t)
+  | [t, ..._] => NewAna(d, pexp_of_htyp(t))
   | [] => d
   };
 };

@@ -3,41 +3,16 @@ open Incr_dom;
 open Monad_lib.Monad;
 module Hazelnut = Hazelnut_lib.Hazelnut;
 module Incremental = Hazelnut_lib.Incremental;
+open Hazelnut;
+open Incremental;
 
-module Pexp = {
-  [@deriving (sexp, compare)]
-  type t =
-    | Cursor(t)
-    | NewSyn(t, t)
-    | NewAna(t, t)
-    | Arrow(t, t)
-    | Num
-    | Var(string)
-    | Lam(string, t, t)
-    | Ap(t, t)
-    | NumLit(int)
-    | Plus(t, t)
-    | Asc(t, t)
-    | EHole
-    | MarkHole(t, string);
-};
+// let rec pexp_of_htyp: Htyp.t => Pexp.t =
+//   fun
+//   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
+//   | Num => Num
+//   | Hole => EHole;
 
-let string_of_mark: Hazelnut.Mark.t => string = {
-  fun
-  | Free => "Free"
-  | NonArrowAp => "NonArrowAp"
-  | NonArrowLam => "NonArrowLam"
-  | LamAscIncon => "LamAscIncon"
-  | Inconsistent => "Inconsistent";
-};
-
-let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
-  fun
-  | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
-  | Num => Num
-  | Hole => EHole;
-
-// let rec pexp_of_hexp: Hazelnut.Hexp.t => Pexp.t =
+// let rec pexp_of_hexp: Hexp.t => Pexp.t =
 //   fun
 //   | Var(x) => Var(x)
 //   | Lam(x, a, e) => Lam(x, pexp_of_htyp(a), pexp_of_hexp(e))
@@ -46,29 +21,29 @@ let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
 //   | Plus(e1, e2) => Plus(pexp_of_hexp(e1), pexp_of_hexp(e2))
 //   | Asc(e, t) => Asc(pexp_of_hexp(e), pexp_of_htyp(t))
 //   | EHole => EHole
-//   | Mark(e, m) => MarkHole(pexp_of_hexp(e), string_of_mark(m));
+//   | Mark(e, m) => Mark(pexp_of_hexp(e), string_of_mark(m));
 
-let rec pexp_of_display_exp: Hazelnut.DisplayExp.t => Pexp.t =
-  fun
-  | Cursor(e) => Cursor(pexp_of_display_exp(e))
-  | NewSyn(e, t) => NewSyn(pexp_of_display_exp(e), pexp_of_htyp(t))
-  | NewAna(e, t) => NewAna(pexp_of_display_exp(e), pexp_of_htyp(t))
-  | Var(x) => Var(x)
-  | Lam(x, a, e) => Lam(x, pexp_of_htyp(a), pexp_of_display_exp(e))
-  | Ap(e1, e2) => Ap(pexp_of_display_exp(e1), pexp_of_display_exp(e2))
-  | NumLit(n) => NumLit(n)
-  | Plus(e1, e2) => Plus(pexp_of_display_exp(e1), pexp_of_display_exp(e2))
-  | Asc(e, t) => Asc(pexp_of_display_exp(e), pexp_of_htyp(t))
-  | EHole => EHole
-  | Mark(e, m) => MarkHole(pexp_of_display_exp(e), string_of_mark(m));
+// let rec pexp_of_display_exp: DisplayExp.t => Pexp.t =
+//   fun
+//   | Cursor(e) => Cursor(pexp_of_display_exp(e))
+//   | NewSyn(e, t) => NewSyn(pexp_of_display_exp(e), pexp_of_htyp(t))
+//   | NewAna(e, t) => NewAna(pexp_of_display_exp(e), pexp_of_htyp(t))
+//   | Var(x) => Var(x)
+//   | Lam(x, a, e) => Lam(x, pexp_of_htyp(a), pexp_of_display_exp(e))
+//   | Ap(e1, e2) => Ap(pexp_of_display_exp(e1), pexp_of_display_exp(e2))
+//   | NumLit(n) => NumLit(n)
+//   | Plus(e1, e2) => Plus(pexp_of_display_exp(e1), pexp_of_display_exp(e2))
+//   | Asc(e, t) => Asc(pexp_of_display_exp(e), pexp_of_htyp(t))
+//   | EHole => EHole
+//   | Mark(e, m) => Mark(pexp_of_display_exp(e), string_of_mark(m));
 
-// let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
+// let rec pexp_of_ztyp: Ztyp.t => Pexp.t =
 //   fun
 //   | Cursor(t) => Cursor(pexp_of_htyp(t))
 //   | LArrow(t1, t2) => Arrow(pexp_of_ztyp(t1), pexp_of_htyp(t2))
 //   | RArrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_ztyp(t2));
 
-// let rec pexp_of_zexp: Hazelnut.Zexp.t => Pexp.t =
+// let rec pexp_of_zexp: Zexp.t => Pexp.t =
 //   fun
 //   | Cursor(e) => Cursor(pexp_of_hexp(e))
 //   | LLam(x, a, e) => Lam(x, pexp_of_ztyp(a), pexp_of_hexp(e))
@@ -79,7 +54,7 @@ let rec pexp_of_display_exp: Hazelnut.DisplayExp.t => Pexp.t =
 //   | RPlus(e1, e2) => Plus(pexp_of_hexp(e1), pexp_of_zexp(e2))
 //   | LAsc(e, t) => Asc(pexp_of_zexp(e), pexp_of_htyp(t))
 //   | RAsc(e, t) => Asc(pexp_of_hexp(e), pexp_of_ztyp(t))
-//   | Mark(e, m) => MarkHole(pexp_of_zexp(e), string_of_mark(m));
+//   | Mark(e, m) => Mark(pexp_of_zexp(e), string_of_mark(m));
 
 // Lower is tighter
 let rec prec: Pexp.t => int =
@@ -96,7 +71,7 @@ let rec prec: Pexp.t => int =
   | Plus(_) => 3
   | Asc(_) => 4
   | EHole => 0
-  | MarkHole(_, _) => 0;
+  | Mark(_, _) => 0;
 
 module Side = {
   type t =
@@ -119,7 +94,7 @@ let rec assoc: Pexp.t => Side.t =
   | Plus(_) => Left
   | Asc(_) => Left
   | EHole => Atom
-  | MarkHole(_, _) => Atom;
+  | Mark(_, _) => Atom;
 
 let rec string_of_pexp: Pexp.t => string =
   fun
@@ -149,7 +124,7 @@ let rec string_of_pexp: Pexp.t => string =
   | Asc(e, t) as outer =>
     paren(e, outer, Side.Left) ++ ": " ++ paren(t, outer, Side.Right)
   | EHole => "?"
-  | MarkHole(e, m) => "{ " ++ string_of_pexp(e) ++ "| " ++ m ++ "}"
+  | Mark(e, m) => "{ " ++ string_of_pexp(e) ++ "| " ++ m ++ "}"
 
 and paren = (inner: Pexp.t, outer: Pexp.t, side: Side.t): string => {
   let unparenned = string_of_pexp(inner);
@@ -173,9 +148,9 @@ and paren = (inner: Pexp.t, outer: Pexp.t, side: Side.t): string => {
 
 [@deriving (sexp, fields)]
 type state = {
-  root: Incremental.Iexp.parent,
-  istate: Incremental.Istate.t,
-  // t: Hazelnut.Htyp.t,
+  root: Iexp.parent,
+  istate: Istate.t,
+  // t: Htyp.t,
   warning: option(string),
   var_input: string,
   lam_input: string,
@@ -192,8 +167,8 @@ module Model = {
 
   let init = (): t =>
     set({
-      root: Incremental.initial_root,
-      istate: Incremental.initial_state,
+      root: initial_root,
+      istate: initial_state,
       // t: Hole,
       warning: None,
       var_input: "",
@@ -217,7 +192,7 @@ module Action = {
 
   [@deriving sexp]
   type action =
-    | HazelnutAction(Incremental.Iaction.t)
+    | HazelnutAction(Iaction.t)
     | UpdateInput(input_location, string)
     | ShowWarning(string);
 
@@ -245,10 +220,10 @@ let apply_action =
     switch (action) {
     | HazelnutAction(action) =>
       try({
-        let new_state_expr = Incremental.apply_action(state.istate, action);
+        let new_state_expr = apply_action(state.istate, action);
         Model.set({...state, istate: new_state_expr});
       }) {
-      | Hazelnut.Unimplemented => warn("Unimplemented")
+      | Unimplemented => warn("Unimplemented")
       }
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
     | UpdateInput(Lam, lam_input) => Model.set({...state, lam_input})
@@ -274,19 +249,19 @@ let view =
 
     // let e_cursor = state.e;
 
-    // let e_no_cursor = Hazelnut.erase_exp(e_cursor);
+    // let e_no_cursor = erase_exp(e_cursor);
 
     // let (e_marked, t) =
-    //   Hazelnut.mark_syn(Hazelnut.TypCtx.empty, e_no_cursor);
+    //   mark_syn(TypCtx.empty, e_no_cursor);
 
-    // let e_folded = Hazelnut.fold_zexp_mexp(e_cursor, e_marked);
+    // let e_folded = fold_zexp_mexp(e_cursor, e_marked);
     let root_display_exp =
       switch (state.root) {
-      | Root(r) => Incremental.display_of_iexp(r.root_child, state.istate)
+      | Root(r) => pexp_of_iexp(r.root_child, state.istate)
       | _ => failwith("impossible")
       };
 
-    let root_string = string_of_pexp(pexp_of_display_exp(root_display_exp));
+    let root_string = string_of_pexp(root_display_exp);
 
     let expression =
       Node.div([

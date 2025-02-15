@@ -51,20 +51,22 @@ module HZexp: {
     | Mark(t, Mark.t);
 };
 
-module DisplayExp: {
+module Pexp: {
   [@deriving (sexp, compare)]
   type t =
     | Cursor(t)
-    | NewSyn(t, Htyp.t)
-    | NewAna(t, Htyp.t)
+    | NewSyn(t, t)
+    | NewAna(t, t)
+    | Arrow(t, t)
+    | Num
     | Var(string)
+    | Lam(string, t, t)
+    | Ap(t, t)
     | NumLit(int)
     | Plus(t, t)
-    | Lam(string, Htyp.t, t)
-    | Ap(t, t)
-    | Asc(t, Htyp.t)
+    | Asc(t, t)
     | EHole
-    | Mark(t, Mark.t);
+    | Mark(t, string);
 };
 
 module Zexp: {
