@@ -13,7 +13,7 @@ module Iexp: {
     | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
+    | Lam(ref(Bind.t), ref(Htyp.t), bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
@@ -78,7 +78,8 @@ module Icursor: {
   [@deriving sexp]
   type t =
     | CursorExp(Iexp.upper)
-    | CursorTyp(Iexp.upper, Ztyp.t);
+    | CursorTyp(Iexp.upper, Ztyp.t)
+    | CursorBind(Iexp.upper);
 };
 
 module Istate: {

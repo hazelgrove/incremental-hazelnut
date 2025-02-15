@@ -11,12 +11,12 @@ module Pexp: {
     | Arrow(t, t)
     | Num
     | Var(string)
-    | Lam(string, t, t)
+    | Lam(t, t, t)
     | Ap(t, t)
     | NumLit(int)
     | Plus(t, t)
     | Asc(t, t)
-    | EHole
+    | Hole
     | Mark(t, string);
 };
 

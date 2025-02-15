@@ -15,12 +15,12 @@ module Pexp = {
     | Arrow(t, t)
     | Num
     | Var(string)
-    | Lam(string, t, t)
+    | Lam(t, t, t)
     | Ap(t, t)
     | NumLit(int)
     | Plus(t, t)
     | Asc(t, t)
-    | EHole
+    | Hole
     | Mark(t, string);
 };
 
@@ -28,7 +28,7 @@ let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
   fun
   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Num => Num
-  | Hole => EHole;
+  | Hole => Hole;
 
 let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   fun
@@ -36,10 +36,10 @@ let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
   | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z));
 
-let string_of_bind: Hazelnut.Bind.t => string = {
+let pexp_of_bind: Hazelnut.Bind.t => Pexp.t = {
   fun
-  | Hole => "?"
-  | Var(x) => x;
+  | Hole => Hole
+  | Var(x) => Var(x);
 };
 
 let string_of_mark: Hazelnut.Mark.t => string = {
@@ -63,6 +63,11 @@ let rec pexp_of_iexp = (e: Iexp.upper, (cursor, updates): Istate.t): Pexp.t => {
   let d: Pexp.t =
     switch (cursor) {
     | CursorExp(e') when e' === e => Cursor(d)
+    | CursorBind(e') when e' === e =>
+      switch (d) {
+      | Lam(x, t, body) => Lam(Cursor(x), t, body)
+      | _ => failwith("CursorBind on non-function")
+      }
     | _ => d
     };
   let newify: Pexp.t => Pexp.t =
@@ -121,7 +126,7 @@ and pexp_of_iexp_middle =
         m1,
         NonArrowLam,
         Lam(
-          string_of_bind(x),
+          pexp_of_bind(x),
           pt,
           pexp_of_iexp_lower(body, (cursor, updates)),
         ),
@@ -143,7 +148,7 @@ and pexp_of_iexp_middle =
       | _ => pexp_of_htyp(t.contents)
       };
     Asc(pexp_of_iexp_lower(body, (cursor, updates)), pt);
-  | EHole => EHole
+  | EHole => Hole
   };
 }
 

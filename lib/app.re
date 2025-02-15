@@ -70,7 +70,7 @@ let rec prec: Pexp.t => int =
   | NumLit(_) => 0
   | Plus(_) => 3
   | Asc(_) => 4
-  | EHole => 0
+  | Hole => 0
   | Mark(_, _) => 0;
 
 module Side = {
@@ -94,7 +94,7 @@ let rec assoc: Pexp.t => Side.t =
   | NumLit(_) => Atom
   | Plus(_) => Left
   | Asc(_) => Left
-  | EHole => Atom
+  | Hole => Atom
   | Mark(_, _) => Atom;
 
 let rec string_of_pexp: Pexp.t => string =
@@ -111,7 +111,7 @@ let rec string_of_pexp: Pexp.t => string =
   | Var(x) => x
   | Lam(x, a, e) =>
     "fun "
-    ++ x
+    ++ string_of_pexp(x)
     ++ ": "
     ++ string_of_pexp(a)
     ++ " ↦ ("
@@ -125,7 +125,7 @@ let rec string_of_pexp: Pexp.t => string =
     paren(e1, outer, Side.Left) ++ " + " ++ paren(e2, outer, Side.Right)
   | Asc(e, t) as outer =>
     paren(e, outer, Side.Left) ++ ": " ++ paren(t, outer, Side.Right)
-  | EHole => "?"
+  | Hole => "?"
   | Mark(e, m) => "{ " ++ string_of_pexp(e) ++ "| " ++ m ++ "}"
 
 and paren = (inner: Pexp.t, outer: Pexp.t, side: Side.t): string => {

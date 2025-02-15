@@ -15,7 +15,7 @@ module Iexp = {
     | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
+    | Lam(ref(Bind.t), ref(Htyp.t), bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
@@ -72,7 +72,8 @@ module Icursor = {
   [@deriving sexp]
   type t =
     | CursorExp(Iexp.upper)
-    | CursorTyp(Iexp.upper, Ztyp.t);
+    | CursorTyp(Iexp.upper, Ztyp.t)
+    | CursorBind(Iexp.upper);
 };
 
 module Istate = {
@@ -167,7 +168,7 @@ let rec look_up_binder =
   | Lower(lower) =>
     switch (lower.upper.middle) {
     | Lam(bind, lam_ty, _, _, _, _) =>
-      if (bind == Var(name)) {
+      if (bind.contents == Var(name)) {
         (e.parent, lam_ty.contents, false);
       } else {
         look_up_binder(lower.upper, name);
@@ -233,7 +234,7 @@ let rec capture_name =
       capture_name(lower_b.child, name, syn, m, binder),
     )
   | Lam(bind, _, _, _, body_lower, _) =>
-    if (bind == Var(name)) {
+    if (bind.contents == Var(name)) {
       [];
     } else {
       capture_name(body_lower.child, name, syn, m, binder);
@@ -293,6 +294,15 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
 let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
   let no_op = (c, q);
   switch (c, a) {
+  | (CursorBind(e), MoveUp) => (CursorExp(e), q)
+  | (CursorBind(e), Delete) =>
+    switch (e.middle) {
+    | Lam(bind, _t, _m1, _m2, _body, _bound) =>
+      bind.contents = Bind.Hole;
+      failwith("Todo");
+    | _ => failwith("CursorBind on non lambda")
+    }
+  | (CursorBind(_e), _a) => failwith("Todo")
   | (CursorTyp(e, Cursor(_)), MoveUp) => (CursorExp(e), q)
   | (CursorTyp(e, z), a) =>
     switch (e.middle) {
@@ -326,9 +336,9 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       }
     | Lam(_, t, _, _, e1, _) =>
       switch (child) {
-      | One => (CursorTyp(e, Cursor(t.contents)), q)
-      | Two => (CursorExp(e1.child), q)
-      | Three => no_op
+      | One => (CursorBind(e), q)
+      | Two => (CursorTyp(e, Cursor(t.contents)), q)
+      | Three => (CursorExp(e1.child), q)
       }
     | Ap(e1, _, e2) =>
       switch (child) {
@@ -454,7 +464,7 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       capture_name(e, name, Hole, false, Iexp.Lower(new_lower));
     let new_mid =
       Iexp.Lam(
-        Var(name),
+        ref(Bind.Var(name)),
         ref(Htyp.Hole),
         false,
         false,
@@ -509,7 +519,7 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       // update bound variables to outer binder
-      switch (bind) {
+      switch (bind.contents) {
       | Hole => ()
       | Var(x) =>
         let (new_binder, t, m) = look_up_binder(e, x);
