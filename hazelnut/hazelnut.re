@@ -1,3 +1,5 @@
+open Sexplib.Std;
+
 module Htyp = {
   [@deriving (sexp, compare)]
   type t =
@@ -12,6 +14,13 @@ module Ztyp = {
     | Cursor(Htyp.t)
     | LArrow(t, Htyp.t)
     | RArrow(Htyp.t, t);
+};
+
+module Bind = {
+  [@deriving sexp]
+  type t =
+    | Hole
+    | Var(string);
 };
 
 module Mark = {

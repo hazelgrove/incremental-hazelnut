@@ -15,7 +15,7 @@ module Iexp = {
     | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(string, ref(Htyp.t), bool, bool, lower, bound_vars)
+    | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
@@ -166,8 +166,8 @@ let rec look_up_binder =
   | Root(_) => (e.parent, Hole, true)
   | Lower(lower) =>
     switch (lower.upper.middle) {
-    | Lam(lam_name, lam_ty, _, _, _, _) =>
-      if (name == lam_name) {
+    | Lam(bind, lam_ty, _, _, _, _) =>
+      if (bind == Var(name)) {
         (e.parent, lam_ty.contents, false);
       } else {
         look_up_binder(lower.upper, name);
@@ -232,8 +232,8 @@ let rec capture_name =
       capture_name(lower_a.child, name, syn, m, binder),
       capture_name(lower_b.child, name, syn, m, binder),
     )
-  | Lam(lam_name, _, _, _, body_lower, _) =>
-    if (name == lam_name) {
+  | Lam(bind, _, _, _, body_lower, _) =>
+    if (bind == Var(name)) {
       [];
     } else {
       capture_name(body_lower.child, name, syn, m, binder);
@@ -351,7 +351,6 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
   | (CursorExp(_), InsertNumType)
   | (CursorExp(_), WrapArrow(_)) => no_op
   | (CursorExp(e), InsertNumLit(x)) =>
-    // Numlits have no lower Iexp, so we can just create a new upper for it to link to the NumLit middle
     switch (e.middle) {
     | EHole =>
       let e': Iexp.upper = {
@@ -455,7 +454,7 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       capture_name(e, name, Hole, false, Iexp.Lower(new_lower));
     let new_mid =
       Iexp.Lam(
-        name,
+        Var(name),
         ref(Htyp.Hole),
         false,
         false,
@@ -504,15 +503,20 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
     | EHole => no_op
     | Var(_, _, _)
     | NumLit(_) => apply_action((c, q), Delete)
-    | Lam(name, _, _, _, body_lower, bound_vars) =>
+    | Lam(bind, _, _, _, body_lower, bound_vars) =>
       let body = body_lower.child;
 
       replace(e, body);
 
       // update bound variables to outer binder
-      let (new_binder, t, m) = look_up_binder(e, name);
-      let update = var => update_var(var, t, m, new_binder);
-      let _ = List.map(update, bound_vars.contents);
+      switch (bind) {
+      | Hole => ()
+      | Var(x) =>
+        let (new_binder, t, m) = look_up_binder(e, x);
+        let update = var => update_var(var, t, m, new_binder);
+        let _ = List.map(update, bound_vars.contents);
+        ();
+      };
 
       let update_list =
         freshen_ana_parent(body.parent) @ [Update.NewSyn(body)];

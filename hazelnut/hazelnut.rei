@@ -14,6 +14,13 @@ module Ztyp: {
     | RArrow(Htyp.t, t);
 };
 
+module Bind: {
+  [@deriving sexp]
+  type t =
+    | Hole
+    | Var(string);
+};
+
 module Mark: {
   [@deriving (sexp, compare)]
   type t =

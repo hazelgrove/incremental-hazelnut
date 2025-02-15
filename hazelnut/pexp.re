@@ -36,6 +36,12 @@ let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
   | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z));
 
+let string_of_bind: Hazelnut.Bind.t => string = {
+  fun
+  | Hole => "?"
+  | Var(x) => x;
+};
+
 let string_of_mark: Hazelnut.Mark.t => string = {
   fun
   | Free => "Free"
@@ -114,7 +120,11 @@ and pexp_of_iexp_middle =
       pexp_markif(
         m1,
         NonArrowLam,
-        Lam(x, pt, pexp_of_iexp_lower(body, (cursor, updates))),
+        Lam(
+          string_of_bind(x),
+          pt,
+          pexp_of_iexp_lower(body, (cursor, updates)),
+        ),
       ),
     );
   | Ap(e1, m, e2) =>
