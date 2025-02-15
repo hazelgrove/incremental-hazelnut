@@ -123,10 +123,9 @@ let rec display_of_iexp =
         (e: Iexp.upper, (cursor, updates): Istate.t): DisplayExp.t => {
   let d = display_of_iexp_middle(e.middle, (cursor, updates));
   let d: DisplayExp.t =
-    if (cursor === Icursor.CursorExp(e)) {
-      Cursor(d);
-    } else {
-      d;
+    switch (cursor) {
+    | CursorExp(e') when e' === e => Cursor(d)
+    | _ => d
     };
   let filter_updates = (u: Update.t) => {
     switch (u) {

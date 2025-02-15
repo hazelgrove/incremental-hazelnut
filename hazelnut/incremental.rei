@@ -89,9 +89,16 @@ module UpdateQueue: {
   type t = list(Update.t);
 };
 
+module Icursor: {
+  [@deriving sexp]
+  type t =
+    | CursorExp(Iexp.upper)
+    | CursorTyp(Iexp.upper, Ztyp.t);
+};
+
 module Istate: {
   [@deriving sexp]
-  type t = (Iexp.upper, UpdateQueue.t);
+  type t = (Icursor.t, UpdateQueue.t);
 };
 
 let initial_root: Iexp.parent;
