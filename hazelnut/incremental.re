@@ -41,15 +41,15 @@ module Iexp = {
   type lower = {
     mutable upper,
     ana: option(Htyp.t),
-    marked: bool,
+    mutable marked: bool,
     mutable child: upper,
   }
 
   and middle =
-    | Var(string, bool)
+    | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(string, Htyp.t, bool, lower)
+    | Lam(string, Htyp.t, bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, Htyp.t)
     | EHole
@@ -65,7 +65,19 @@ module Iexp = {
   and parent =
     | Deleted // root of a subtree that has been deleted
     | Root(child_ref) // root of the main program
-    | Lower(lower); // child location of a constuctor
+    | Lower(lower) // child location of a constuctor
+
+  and binder = parent // pointer from a variable occurrence to binding location
+  and bound_vars = ref(list(upper)); // pointers from a binder to the variable occurrences it binds
+
+  // let add_bound_var = (var: upper, bound_vars: bound_vars) => {
+  //   bound_vars.contents = [var, ...bound_vars.contents];
+  // };
+
+  let remove_bound_var = (var: upper, bound_vars: bound_vars) => {
+    bound_vars.contents =
+      List.filter(var' => var !== var', bound_vars.contents);
+  };
 };
 
 module Update = {
@@ -106,11 +118,15 @@ let rec hexp_of_iexp: Iexp.upper => Hexp.t =
 and hexp_of_iexp_middle: Iexp.middle => Hexp.t =
   middle =>
     switch (middle) {
-    | Var(x, m) => markif(m, Free, Var(x))
+    | Var(x, m, _binders) => markif(m, Free, Var(x))
     | NumLit(x) => NumLit(x)
     | Plus(e1, e2) => Plus(hexp_of_iexp_lower(e1), hexp_of_iexp_lower(e2))
-    | Lam(x, t, m, e) =>
-      markif(m, LamAscIncon, Lam(x, t, hexp_of_iexp_lower(e)))
+    | Lam(x, t, m1, m2, e, _bound_vars) =>
+      markif(
+        m2,
+        LamAscIncon,
+        markif(m1, NonArrowLam, Lam(x, t, hexp_of_iexp_lower(e))),
+      )
     | Ap(e1, m, e2) =>
       markif(
         m,
@@ -155,18 +171,22 @@ let rec display_of_iexp =
 and display_of_iexp_middle =
     (e: Iexp.middle, (cursor, updates): Istate.t): DisplayExp.t => {
   switch (e) {
-  | Var(x, m) => display_markif(m, Free, Var(x))
+  | Var(x, m, _binders) => display_markif(m, Free, Var(x))
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
     Plus(
       display_of_iexp_lower(e1, (cursor, updates)),
       display_of_iexp_lower(e2, (cursor, updates)),
     )
-  | Lam(x, t, m, e) =>
+  | Lam(x, t, m1, m2, e, _bound_vars) =>
     display_markif(
-      m,
+      m2,
       LamAscIncon,
-      Lam(x, t, display_of_iexp_lower(e, (cursor, updates))),
+      display_markif(
+        m1,
+        NonArrowLam,
+        Lam(x, t, display_of_iexp_lower(e, (cursor, updates))),
+      ),
     )
   | Ap(e1, m, e2) =>
     display_markif(
@@ -224,11 +244,7 @@ let _print_iexp_upper: Iexp.upper => unit =
 //   };
 
 let exp_hole_upper: unit => Iexp.upper =
-  () => {
-    parent: Deleted,
-    syn: Some(Hole),
-    middle: EHole,
-  };
+  () => {parent: Deleted, syn: Some(Hole), middle: EHole};
 
 let initial_cursor: Iexp.upper = exp_hole_upper();
 let initial_root: Iexp.parent = {
@@ -287,23 +303,112 @@ module Iaction = {
     | MoveDown(Child.t)
     | Delete
     | InsertNumLit(int)
+    | InsertVar(string)
     | WrapPlus(Child.t)
-    | WrapAp(Child.t);
+    | WrapAp(Child.t)
+    | WrapLam(string)
+    | WrapAsc
+    | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
-// Given a upper and a list of updates,
-// if the upper's parent is a
-// - lower
-// - under analytic position (ana is Some)
-// then returns the list with an appended
-// analytic Update for the parent lower.
-// Otherwise, returns the original list.
-let with_parent_ana_update = (q: list(Update.t), upper: Iexp.upper): list(Update.t) => {
-  switch (upper.parent) {
-  | Deleted | Root(_) => q
-  | Lower(lower) => [Update.NewAna(lower), ...q]
-  }
-}
+let parent_freshen_ana = (parent: Iexp.parent): list(Update.t) => {
+  switch (parent) {
+  | Deleted
+  | Root(_) => []
+  | Lower(lower) => [Update.NewAna(lower)]
+  };
+};
+
+// Finds the looks up [name] in the context of [e].
+// Returns the binding site (or root), the synthesized type, and whether [name] is free.
+let rec look_up_binder =
+        (e: Iexp.upper, name: string): (Iexp.parent, Htyp.t, bool) => {
+  switch (e.parent) {
+  | Deleted
+  | Root(_) => (e.parent, Hole, true)
+  | Lower(lower) =>
+    switch (lower.upper.middle) {
+    | Lam(lam_name, lam_ty, _, _, _, _) =>
+      if (name == lam_name) {
+        (e.parent, lam_ty, false);
+      } else {
+        look_up_binder(lower.upper, name);
+      }
+    | _ => look_up_binder(lower.upper, name)
+    }
+  };
+};
+
+let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+  switch (parent) {
+  | Deleted
+  | Root(_) => ()
+  | Lower(lower) =>
+    switch (lower.upper.middle) {
+    | Lam(_, _, _, _, _, bound_vars) =>
+      Iexp.remove_bound_var(var, bound_vars)
+    | _ => ()
+    }
+  };
+};
+
+// precondition: e.middle is a Var//
+// makes them all synthesize [syn], marks them all as [m], and updates their
+// binding on both ends.
+let update_var = (e: Iexp.upper, syn: Htyp.t, m: bool, binder: Iexp.binder) => {
+  switch (e.middle) {
+  | Var(var_name, _, old_binder) =>
+    // remove this var from its previous binder
+    unbind_from_binder(e, old_binder);
+    // set the local binder, mark, and syn type
+    let m': Iexp.middle = Var(var_name, m, binder);
+    let e': Iexp.upper = {parent: e.parent, syn: Some(syn), middle: m'};
+    set_child_in_parent(e.parent, e');
+    e';
+  | _ => failwith("update_var called on non-var")
+  };
+};
+
+// Finds all (syntactically) free variables with given name, updates them,
+// and returns them as a list.
+let rec capture_name =
+        (
+          e: Iexp.upper,
+          name: string,
+          syn: Htyp.t,
+          m: bool,
+          binder: Iexp.binder,
+        )
+        : list(Iexp.upper) => {
+  switch (e.middle) {
+  | Var(var_name, _, _) =>
+    if (name == var_name) {
+      let e' = update_var(e, syn, m, binder);
+      [e'];
+    } else {
+      [];
+    }
+  | NumLit(_) => []
+  | Plus(lower_a, lower_b) =>
+    List.append(
+      capture_name(lower_a.child, name, syn, m, binder),
+      capture_name(lower_b.child, name, syn, m, binder),
+    )
+  | Lam(lam_name, _, _, _, body_lower, _) =>
+    if (name == lam_name) {
+      [];
+    } else {
+      capture_name(body_lower.child, name, syn, m, binder);
+    }
+  | Ap(actor, _, param) =>
+    List.append(
+      capture_name(actor.child, name, syn, m, binder),
+      capture_name(param.child, name, syn, m, binder),
+    )
+  | Asc(lower, _) => capture_name(lower.child, name, syn, m, binder)
+  | EHole => []
+  };
+};
 
 // TODO: update queue
 let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
@@ -317,7 +422,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
   | MoveDown(child) =>
     switch (e.middle) {
-    | Var(_, _)
+    | Var(_, _, _)
     | NumLit(_)
     | EHole => (e, q)
     | Plus(e1, e2) =>
@@ -326,7 +431,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       | Two => (e2.child, q)
       | Three => (e, q)
       }
-    | Lam(_, _, _, e1) =>
+    | Lam(_, _, _, _, e1, _) =>
       switch (child) {
       | One => (e1.child, q)
       | Two
@@ -347,17 +452,14 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     }
 
   | Delete =>
-    let e': Iexp.upper = {
-      parent: e.parent,
-      syn: Some(Hole),
-      middle: EHole,
-    };
+    let e': Iexp.upper = {parent: e.parent, syn: Some(Hole), middle: EHole};
     set_child_in_parent(e.parent, e');
     // freshen_ana_in_parent(e.parent);
     e.parent = Deleted;
 
-    let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+    let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
     (e', UpdateQueue.push_list(update_list, q));
+
   | InsertNumLit(x) =>
     // Numlits have no lower Iexp, so we can just create a new upper for it to link to the NumLit middle
     switch (e.middle) {
@@ -371,8 +473,28 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       // freshen_ana_in_parent(e_parent);
       e.parent = Deleted;
 
-      let update_list = with_parent_ana_update([Update.NewSyn(e')], e');
+      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
       (e', UpdateQueue.push_list(update_list, q));
+    | _ => (e, q)
+    }
+
+  | InsertVar(var_name) =>
+    switch (e.middle) {
+    | EHole =>
+      let (parent, ty, mark) = look_up_binder(e, var_name);
+      // Ask about this, because I didn't implement
+      // with initially free_var
+      let e': Iexp.upper = {
+        parent: e_parent,
+        syn: Some(ty),
+        middle: Var(var_name, mark, parent),
+      };
+      set_child_in_parent(e_parent, e');
+      e.parent = Deleted;
+
+      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
+      (e', UpdateQueue.push_list(update_list, q));
+
     | _ => (e, q)
     }
 
@@ -413,13 +535,15 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       set_child_in_parent(e1.parent, e1);
       set_child_in_parent(e2.parent, e2);
 
-      let update_list = with_parent_ana_update([
-        Update.NewAna(new_lower_left),
-        Update.NewAna(new_lower_right),
-        Update.NewSyn(new_upper),
-      ], new_upper);
+      let update_list =
+        parent_freshen_ana(new_upper.parent)
+        @ [
+          Update.NewAna(new_lower_left),
+          Update.NewAna(new_lower_right),
+          Update.NewSyn(new_upper),
+        ];
 
-      (new_upper, update_list);
+      (new_upper, UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
     | One =>
@@ -459,26 +583,176 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
       // Note that e1 or e2 is e, so modifying them modifies e
       e1.parent = Lower(new_lower_left);
       e2.parent = Lower(new_lower_right);
-      set_child_in_parent(e1.parent, e1);
-      set_child_in_parent(e2.parent, e2);
 
-      let update_list = with_parent_ana_update(
-        [
-          Update.NewSyn(e1),
-          Update.NewSyn(e2),
-        ],
-        new_upper,
-      );
+      // NOOPs?
+      // set_child_in_parent(e1.parent, e1);
+      // set_child_in_parent(e2.parent, e2);
+
+      let update_list =
+        parent_freshen_ana(new_upper.parent)
+        @ [Update.NewSyn(e1), Update.NewSyn(e2)];
 
       (new_upper, UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
-    | One =>
-      make_ap_with_children(e, exp_hole_upper(), q)
-    | Two =>
-      make_ap_with_children(exp_hole_upper(), e, q)
+    | One => make_ap_with_children(e, exp_hole_upper(), q)
+    | Two => make_ap_with_children(exp_hole_upper(), e, q)
     | Three => (e, q)
     };
+
+  | WrapLam(name) =>
+    // TODO: Are we going to support empty lambda names?
+    let new_body_lower: Iexp.lower = {
+      upper: dummy_upper,
+      ana: None,
+      marked: false,
+      child: e,
+    };
+
+    // Connection between e the upper and new_body_lower the containing lower
+    e.parent = Lower(new_body_lower);
+
+    let newly_bound =
+      capture_name(e, name, Hole, false, Iexp.Lower(new_body_lower));
+
+    let e': Iexp.upper = {
+      parent: e_parent,
+      syn: e.syn,
+      middle:
+        Lam(name, Htyp.Hole, false, false, new_body_lower, ref(newly_bound)),
+    };
+
+    // Connection between e' the upper and e_parent the containing lower
+    set_child_in_parent(e_parent, e');
+
+    // Connection between new_body_lower the lower and e' the containing upper
+    new_body_lower.upper = e';
+
+    let update_list =
+      List.map(e => Update.NewSyn(e), newly_bound)
+      @ [NewAna(new_body_lower), NewSyn(e)];
+
+    (e', UpdateQueue.push_list(update_list, q));
+
+  | WrapAsc =>
+    let new_lower: Iexp.lower = {
+      upper: dummy_upper,
+      ana: None,
+      marked: false,
+      child: e,
+    };
+    let new_mid: Iexp.middle = Asc(new_lower, Hole);
+    let new_upper: Iexp.upper = {
+      parent: e_parent,
+      syn: None,
+      middle: new_mid,
+    };
+    new_lower.upper = new_upper;
+    set_child_in_parent(e_parent, new_upper);
+
+    e.parent = Lower(new_lower);
+
+    let update_list =
+      parent_freshen_ana(new_upper.parent) @ [Update.NewSyn(e)];
+
+    (new_upper, UpdateQueue.push_list(update_list, q));
+
+  | Unwrap(child) =>
+    switch (e.middle) {
+    | Lam(name, _typ, _marked, _, body_lower, bound_vars) =>
+      // TODO: each pointer at bound_vars should be mutated
+      e.parent = Deleted;
+      body_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, body_lower.child);
+
+      // update bound variables to outer binder
+      let (new_binder, t, m) = look_up_binder(e, name);
+      let _ =
+        List.map(
+          var => update_var(var, t, m, new_binder),
+          bound_vars.contents,
+        );
+
+      // body_lower should be dropped now
+      let update_list =
+        parent_freshen_ana(e_parent)
+        @ (
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(body_lower.child)]
+          | None => []
+          }
+        );
+      (body_lower.child, UpdateQueue.push_list(update_list, q));
+    | Ap(fun_lower, _marked, arg_lower) =>
+      let replacement_lower =
+        switch (child) {
+        | One => fun_lower
+        | Two => arg_lower
+        | Three => raise(Unimplemented)
+        };
+      e.parent = Deleted;
+      replacement_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, replacement_lower.child);
+      // body_lower should be dropped now
+      let update_list =
+        parent_freshen_ana(e_parent)
+        @ (
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(replacement_lower.child)]
+          | None => []
+          }
+        );
+      (replacement_lower.child, UpdateQueue.push_list(update_list, q));
+    | Plus(left_arg, right_arg) =>
+      let replacement_lower =
+        switch (child) {
+        | One => left_arg
+        | Two => right_arg
+        | Three => raise(Unimplemented)
+        };
+      e.parent = Deleted;
+      replacement_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, replacement_lower.child);
+      // body_lower should be dropped now
+      let update_list =
+        parent_freshen_ana(e_parent)
+        @ (
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(replacement_lower.child)]
+          | None => []
+          }
+        );
+      (replacement_lower.child, UpdateQueue.push_list(update_list, q));
+    | Asc(ann_lower, _ty) =>
+      e.parent = Deleted;
+      ann_lower.child.parent = e_parent;
+      set_child_in_parent(e_parent, ann_lower.child);
+      // body_lower should be dropped now
+      let update_list =
+        parent_freshen_ana(e_parent)
+        @ (
+          switch (e.syn) {
+          | Some(_) => [Update.NewSyn(ann_lower.child)]
+          | None => []
+          }
+        );
+      (ann_lower.child, UpdateQueue.push_list(update_list, q));
+    | Var(_, _, _)
+    | NumLit(_) =>
+      // Copied from delete
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn: Some(Hole),
+        middle: EHole,
+      };
+      set_child_in_parent(e.parent, e');
+      // freshen_ana_in_parent(e.parent);
+      e.parent = Deleted;
+
+      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
+      (e', UpdateQueue.push_list(update_list, q));
+    | EHole => (e, q)
+    }
   };
 };
 

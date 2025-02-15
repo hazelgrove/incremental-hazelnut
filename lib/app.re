@@ -26,6 +26,7 @@ let string_of_mark: Hazelnut.Mark.t => string = {
   fun
   | Free => "Free"
   | NonArrowAp => "NonArrowAp"
+  | NonArrowLam => "NonArrowLam"
   | LamAscIncon => "LamAscIncon"
   | Inconsistent => "Inconsistent";
 };
@@ -234,10 +235,7 @@ let apply_action =
     let state = model.state;
 
     let warn = (warning: string): Model.t =>
-      Model.set({
-        ...state,
-        warning: Some(warning),
-      });
+      Model.set({...state, warning: Some(warning)});
     assert(
       switch (state.root) {
       | Root(_) => true
@@ -248,43 +246,16 @@ let apply_action =
     | HazelnutAction(action) =>
       try({
         let new_state_expr = Incremental.apply_action(state.istate, action);
-        Model.set({
-          ...state,
-          istate: new_state_expr,
-        });
+        Model.set({...state, istate: new_state_expr});
       }) {
       | Hazelnut.Unimplemented => warn("Unimplemented")
       }
-    | UpdateInput(Var, var_input) =>
-      Model.set({
-        ...state,
-        var_input,
-      })
-    | UpdateInput(Lam, lam_input) =>
-      Model.set({
-        ...state,
-        lam_input,
-      })
-    | UpdateInput(Let, let_input) =>
-      Model.set({
-        ...state,
-        let_input,
-      })
-    | UpdateInput(NumLit, lit_input) =>
-      Model.set({
-        ...state,
-        lit_input,
-      })
-    | UpdateInput(BoolLit, bool_input) =>
-      Model.set({
-        ...state,
-        bool_input,
-      })
-    | ShowWarning(warning) =>
-      Model.set({
-        ...state,
-        warning: Some(warning),
-      })
+    | UpdateInput(Var, var_input) => Model.set({...state, var_input})
+    | UpdateInput(Lam, lam_input) => Model.set({...state, lam_input})
+    | UpdateInput(Let, let_input) => Model.set({...state, let_input})
+    | UpdateInput(NumLit, lit_input) => Model.set({...state, lit_input})
+    | UpdateInput(BoolLit, bool_input) => Model.set({...state, bool_input})
+    | ShowWarning(warning) => Model.set({...state, warning: Some(warning)})
     };
   };
 
@@ -402,31 +373,19 @@ let view =
           //   Action.HazelnutAction(Construct(Num)),
           //   None,
           // ),
-          // button(
-          //   "Construct Asc",
-          //   Action.HazelnutAction(Construct(Asc)),
-          //   None,
-          // ),
-          // button(
-          //   "Construct Var",
-          //   Action.HazelnutAction(Construct(Var(state.var_input))),
-          //   Some((Var, state.var_input)),
-          // ),
-          // button(
-          //   "Construct Lam",
-          //   Action.HazelnutAction(Construct(Lam(state.lam_input))),
-          //   Some((Lam, state.lam_input)),
-          // ),
           button(
-            "Construct Ap (Fun)",
-            Action.HazelnutAction(WrapAp(One)),
-            None,
-          ), // input needed here? or some cursor needed
-          button(
-            "Construct Ap (Arg)",
-            Action.HazelnutAction(WrapAp(Two)),
-            None,
+            "Construct Var",
+            Action.HazelnutAction(InsertVar(state.var_input)),
+            Some((Var, state.var_input)),
           ),
+          button(
+            "Wrap Lambda",
+            Action.HazelnutAction(WrapLam(state.lam_input)),
+            Some((Lam, state.lam_input)),
+          ),
+          button("Wrap Ap (Fun)", Action.HazelnutAction(WrapAp(One)), None), // input needed here? or some cursor needed
+          button("Wrap Ap (Arg)", Action.HazelnutAction(WrapAp(Two)), None),
+          button("Wrap Asc", Action.HazelnutAction(WrapAsc), None),
           button(
             "Construct NumLit",
             try(
@@ -439,13 +398,27 @@ let view =
             Some((NumLit, state.lit_input)),
           ),
           button(
-            "Construct Plus (Left)",
+            "Wrap Plus (Left)",
             Action.HazelnutAction(WrapPlus(One)),
             None,
           ),
           button(
-            "Construct Plus (Right)",
+            "Wrap Plus (Right)",
             Action.HazelnutAction(WrapPlus(Two)),
+            None,
+          ),
+        ]);
+
+      let unwrap_button =
+        Node.div([
+          button("Unwrap", Action.HazelnutAction(Unwrap(One)), None),
+        ]);
+
+      let unwrap_right_button =
+        Node.div([
+          button(
+            "Unwrap (Right)",
+            Action.HazelnutAction(Unwrap(Two)),
             None,
           ),
         ]);
@@ -453,7 +426,13 @@ let view =
       let delete_button =
         Node.div([button("Delete", Action.HazelnutAction(Delete), None)]);
 
-      Node.div([move_buttons, construct_buttons, delete_button]);
+      Node.div([
+        move_buttons,
+        construct_buttons,
+        unwrap_button,
+        unwrap_right_button,
+        delete_button,
+      ]);
     };
 
     let warning =
