@@ -352,8 +352,24 @@ let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   };
 };
 
-// Finds all (syntactically) free variables with given name: makes them all
-// synthesize [syn], marks them all as [m], binds them all correctly,
+// precondition: e.middle is a Var//
+// makes them all synthesize [syn], marks them all as [m], and updates their
+// binding on both ends.
+let update_var = (e: Iexp.upper, syn: Htyp.t, m: bool, binder: Iexp.binder) => {
+  switch (e.middle) {
+  | Var(var_name, _, old_binder) =>
+    // remove this var from its previous binder
+    unbind_from_binder(e, old_binder);
+    // set the local binder, mark, and syn type
+    let m': Iexp.middle = Var(var_name, m, binder);
+    let e': Iexp.upper = {parent: e.parent, syn: Some(syn), middle: m'};
+    set_child_in_parent(e.parent, e');
+    e';
+  | _ => failwith("update_var called on non-var")
+  };
+};
+
+// Finds all (syntactically) free variables with given name, updates them,
 // and returns them as a list.
 let rec capture_name =
         (
@@ -365,14 +381,9 @@ let rec capture_name =
         )
         : list(Iexp.upper) => {
   switch (e.middle) {
-  | Var(var_name, _, old_binder) =>
+  | Var(var_name, _, _) =>
     if (name == var_name) {
-      // remove this var from its previous binder
-      unbind_from_binder(e, old_binder);
-      // set the local binder, mark, and syn type
-      let m': Iexp.middle = Var(var_name, m, binder);
-      let e': Iexp.upper = {parent: e.parent, syn: Some(syn), middle: m'};
-      set_child_in_parent(e.parent, e');
+      let e' = update_var(e, syn, m, binder);
       [e'];
     } else {
       [];
@@ -470,22 +481,19 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
   | InsertVar(var_name) =>
     switch (e.middle) {
     | EHole =>
-      switch (look_up_binder(e, var_name)) {
-      | (parent, ty, mark) =>
-        // Ask about this, because I didn't implement
-        // with initially free_var
-        let e': Iexp.upper = {
-          parent: e_parent,
-          syn: Some(ty),
-          middle: Var(var_name, mark, parent),
-        };
-        set_child_in_parent(e_parent, e');
-        e.parent = Deleted;
+      let (parent, ty, mark) = look_up_binder(e, var_name);
+      // Ask about this, because I didn't implement
+      // with initially free_var
+      let e': Iexp.upper = {
+        parent: e_parent,
+        syn: Some(ty),
+        middle: Var(var_name, mark, parent),
+      };
+      set_child_in_parent(e_parent, e');
+      e.parent = Deleted;
 
-        let update_list =
-          parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
-        (e', UpdateQueue.push_list(update_list, q));
-      }
+      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
+      (e', UpdateQueue.push_list(update_list, q));
 
     | _ => (e, q)
     }
@@ -592,7 +600,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     | Three => (e, q)
     };
 
-  | WrapLam(lam_name) =>
+  | WrapLam(name) =>
     // TODO: Are we going to support empty lambda names?
     let new_body_lower: Iexp.lower = {
       upper: dummy_upper,
@@ -605,20 +613,13 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     e.parent = Lower(new_body_lower);
 
     let newly_bound =
-      capture_name(e, lam_name, Hole, false, Iexp.Lower(new_body_lower));
+      capture_name(e, name, Hole, false, Iexp.Lower(new_body_lower));
 
     let e': Iexp.upper = {
       parent: e_parent,
       syn: e.syn,
       middle:
-        Lam(
-          lam_name,
-          Htyp.Hole,
-          false,
-          false,
-          new_body_lower,
-          ref(newly_bound),
-        ),
+        Lam(name, Htyp.Hole, false, false, new_body_lower, ref(newly_bound)),
     };
 
     // Connection between e' the upper and e_parent the containing lower
@@ -658,11 +659,20 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
 
   | Unwrap(child) =>
     switch (e.middle) {
-    | Lam(_name, _typ, _marked, _, body_lower, _bound_vars) =>
+    | Lam(name, _typ, _marked, _, body_lower, bound_vars) =>
       // TODO: each pointer at bound_vars should be mutated
       e.parent = Deleted;
       body_lower.child.parent = e_parent;
       set_child_in_parent(e_parent, body_lower.child);
+
+      // update bound variables to outer binder
+      let (new_binder, t, m) = look_up_binder(e, name);
+      let _ =
+        List.map(
+          var => update_var(var, t, m, new_binder),
+          bound_vars.contents,
+        );
+
       // body_lower should be dropped now
       let update_list =
         parent_freshen_ana(e_parent)
