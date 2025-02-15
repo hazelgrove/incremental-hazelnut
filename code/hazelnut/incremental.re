@@ -70,21 +70,15 @@ module Iexp = {
   and binder = parent // pointer from a variable occurrence to binding location
   and bound_vars = ref(list(upper)); // pointers from a binder to the variable occurrences it binds
 
-  let add_bound_var = (var: upper, bound_vars: bound_vars) => {
-    bound_vars.contents = [var, ...bound_vars.contents];
-  };
-
-  let empty_bound_vars = (): bound_vars => {
-    ref([]);
-  };
-
-  let union_bound_vars = (s1: bound_vars, s2: bound_vars): bound_vars => {
-    ref(s1.contents @ s2.contents);
-  };
+  // let add_bound_var = (var: upper, bound_vars: bound_vars) => {
+  //   bound_vars.contents = [var, ...bound_vars.contents];
+  // };
 
   let remove_bound_var = (var: upper, bound_vars: bound_vars) => {
+    print_endline("removing...");
     bound_vars.contents =
-      List.filter(var' => var != var', bound_vars.contents);
+      List.filter(var' => var !== var', bound_vars.contents);
+    print_endline("removed.");
   };
 };
 
@@ -360,9 +354,10 @@ let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   };
 };
 
-// Finds all free variables with given name: makes them all synthesize [syn],
-// marks them all as [m], binds them all correctly, and returns them as a set.
-let rec update_free_variables =
+// Finds all (syntactically) free variables with given name: makes them all
+// synthesize [syn], marks them all as [m], binds them all correctly,
+// and returns them as a list.
+let rec capture_name =
         (
           e: Iexp.upper,
           name: string,
@@ -370,40 +365,39 @@ let rec update_free_variables =
           m: bool,
           binder: Iexp.binder,
         )
-        : Iexp.bound_vars => {
+        : list(Iexp.upper) => {
   switch (e.middle) {
   | Var(var_name, _, old_binder) =>
     if (name == var_name) {
+      // remove this var from its previous binder
       unbind_from_binder(e, old_binder);
       // set the local binder, mark, and syn type
       let m': Iexp.middle = Var(var_name, m, binder);
       let e': Iexp.upper = {parent: e.parent, syn: Some(syn), middle: m'};
       set_child_in_parent(e.parent, e');
-      let s = Iexp.empty_bound_vars();
-      Iexp.add_bound_var(e', s);
-      s;
+      [e'];
     } else {
-      Iexp.empty_bound_vars();
+      [];
     }
-  | NumLit(_) => Iexp.empty_bound_vars()
+  | NumLit(_) => []
   | Plus(lower_a, lower_b) =>
-    Iexp.union_bound_vars(
-      update_free_variables(lower_a.child, name, syn, m, binder),
-      update_free_variables(lower_b.child, name, syn, m, binder),
+    List.append(
+      capture_name(lower_a.child, name, syn, m, binder),
+      capture_name(lower_b.child, name, syn, m, binder),
     )
   | Lam(lam_name, _, _, _, body_lower, _) =>
     if (name == lam_name) {
-      Iexp.empty_bound_vars();
+      [];
     } else {
-      update_free_variables(body_lower.child, name, syn, m, binder);
+      capture_name(body_lower.child, name, syn, m, binder);
     }
   | Ap(actor, _, param) =>
-    Iexp.union_bound_vars(
-      update_free_variables(actor.child, name, syn, m, binder),
-      update_free_variables(param.child, name, syn, m, binder),
+    List.append(
+      capture_name(actor.child, name, syn, m, binder),
+      capture_name(param.child, name, syn, m, binder),
     )
-  | Asc(lower, _) => update_free_variables(lower.child, name, syn, m, binder)
-  | EHole => Iexp.empty_bound_vars()
+  | Asc(lower, _) => capture_name(lower.child, name, syn, m, binder)
+  | EHole => []
   };
 };
 
@@ -613,19 +607,20 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     e.parent = Lower(new_body_lower);
 
     let newly_bound =
-      update_free_variables(
-        e,
-        lam_name,
-        Hole,
-        false,
-        Iexp.Lower(new_body_lower),
-      );
+      capture_name(e, lam_name, Hole, false, Iexp.Lower(new_body_lower));
 
     let e': Iexp.upper = {
       parent: e_parent,
       syn: e.syn,
       middle:
-        Lam(lam_name, Htyp.Hole, false, false, new_body_lower, newly_bound),
+        Lam(
+          lam_name,
+          Htyp.Hole,
+          false,
+          false,
+          new_body_lower,
+          ref(newly_bound),
+        ),
     };
 
     // Connection between e' the upper and e_parent the containing lower
