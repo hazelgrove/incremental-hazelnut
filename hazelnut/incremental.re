@@ -129,6 +129,18 @@ let set_child_in_parent = (p: Iexp.parent, c: Iexp.upper): unit => {
   };
 };
 
+let replace = (e: Iexp.upper, e': Iexp.upper): unit => {
+  e'.parent = e.parent;
+  set_child_in_parent(e.parent, e');
+  e.parent = Deleted;
+};
+
+let splice = (new_lower: Iexp.lower, new_upper: Iexp.upper): unit => {
+  new_lower.upper = new_upper; //skip up
+  set_child_in_parent(new_upper.parent, new_upper); //fix parent
+  new_lower.child.parent = Lower(new_lower); //fix child
+};
+
 let upper_of_parent = (p: Iexp.parent): option(Iexp.upper) => {
   switch (p) {
   | Deleted
@@ -137,7 +149,7 @@ let upper_of_parent = (p: Iexp.parent): option(Iexp.upper) => {
   };
 };
 
-let parent_freshen_ana = (parent: Iexp.parent): list(Update.t) => {
+let freshen_ana_parent = (parent: Iexp.parent): list(Update.t) => {
   switch (parent) {
   | Deleted
   | Root(_) => []
@@ -278,8 +290,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   };
 };
 
-// TODO: update queue
-let apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
+let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
   let no_op = (c, q);
   switch (c, a) {
   | (CursorTyp(e, Cursor(_)), MoveUp) => (CursorExp(e), q)
@@ -334,10 +345,8 @@ let apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
     }
   | (CursorExp(e), Delete) =>
     let e': Iexp.upper = {parent: e.parent, syn: Some(Hole), middle: EHole};
-    set_child_in_parent(e.parent, e');
-    e.parent = Deleted;
-
-    let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
+    replace(e, e');
+    let update_list = freshen_ana_parent(e'.parent) @ [Update.NewSyn(e')];
     (CursorExp(e'), UpdateQueue.push_list(update_list, q));
   | (CursorExp(_), InsertNumType)
   | (CursorExp(_), WrapArrow(_)) => no_op
@@ -350,71 +359,47 @@ let apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
         syn: Some(Num),
         middle: NumLit(x),
       };
-      set_child_in_parent(e.parent, e');
-      e.parent = Deleted;
-
-      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
+      replace(e, e');
+      let update_list = freshen_ana_parent(e'.parent) @ [Update.NewSyn(e')];
       (CursorExp(e'), UpdateQueue.push_list(update_list, q));
     | _ => no_op
     }
-  | (CursorExp(e), InsertVar(var_name)) =>
+  | (CursorExp(e), InsertVar(x)) =>
     switch (e.middle) {
     | EHole =>
-      let (parent, ty, mark) = look_up_binder(e, var_name);
-      // Ask about this, because I didn't implement
-      // with initially free_var
+      let (parent, ty, mark) = look_up_binder(e, x);
       let e': Iexp.upper = {
         parent: e.parent,
         syn: Some(ty),
-        middle: Var(var_name, mark, parent),
+        middle: Var(x, mark, parent),
       };
-      set_child_in_parent(e.parent, e');
-      e.parent = Deleted;
-
-      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
+      replace(e, e');
+      let update_list = freshen_ana_parent(e'.parent) @ [Update.NewSyn(e')];
       (CursorExp(e'), UpdateQueue.push_list(update_list, q));
     | _ => no_op
     }
-
   | (CursorExp(e), WrapPlus(child)) =>
-    let make_plus_with_children = (e1, e2, q): Istate.t => {
-      // Create the new lower expressions with the correct children and new syn
-      // But we can't instantiate the skip-up pointers yet
+    let make_plus_with_children = (parent, e1, e2, q): Istate.t => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper,
         ana: Some(Num),
         marked: false,
         child: e1,
       };
-      // In this case, we don't need to mark the syn of the hole as new, since
-      // We can take the shortcut of computing consistency (trivially true)
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
         ana: Some(Num),
         marked: false,
         child: e2,
       };
-      // Continue to form the middle and upper expressions with the right
-      // "children" (not pointers to children), and using the remembered parent
       let new_mid: Iexp.middle = Plus(new_lower_left, new_lower_right);
-      let new_upper: Iexp.upper = {
-        parent: e.parent,
-        syn: Some(Num),
-        middle: new_mid,
-      };
+      let new_upper: Iexp.upper = {parent, syn: Some(Num), middle: new_mid};
 
-      // Now the parents of the children and the child of the parent must be
-      // updated, as well as the skip-up pointers.
-      new_lower_left.upper = new_upper;
-      new_lower_right.upper = new_upper;
-      set_child_in_parent(e.parent, new_upper);
-      e1.parent = Lower(new_lower_left);
-      e2.parent = Lower(new_lower_right);
-      set_child_in_parent(e1.parent, e1);
-      set_child_in_parent(e2.parent, e2);
+      splice(new_lower_left, new_upper);
+      splice(new_lower_right, new_upper);
 
       let update_list =
-        parent_freshen_ana(new_upper.parent)
+        freshen_ana_parent(parent)
         @ [
           Update.NewAna(new_lower_left),
           Update.NewAna(new_lower_right),
@@ -424,19 +409,12 @@ let apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       (CursorExp(new_upper), UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
-    | One =>
-      let hole = exp_hole_upper();
-      make_plus_with_children(e, hole, UpdateQueue.push(NewSyn(hole), q));
-    | Two =>
-      let hole = exp_hole_upper();
-      make_plus_with_children(hole, e, UpdateQueue.push(NewSyn(hole), q));
+    | One => make_plus_with_children(e.parent, e, exp_hole_upper(), q)
+    | Two => make_plus_with_children(e.parent, exp_hole_upper(), e, q)
     | Three => no_op
     };
-
   | (CursorExp(e), WrapAp(child)) =>
-    // child 1 = exp becomes fun
-    // child 2 = exp becomes arg
-    let make_ap_with_children = (e1, e2, q): Istate.t => {
+    let make_ap_with_children = (parent, e1, e2, q): Istate.t => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper,
         ana: None,
@@ -450,74 +428,54 @@ let apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
         child: e2,
       };
       let new_mid: Iexp.middle = Ap(new_lower_left, false, new_lower_right);
-      let new_upper: Iexp.upper = {
-        parent: e.parent,
-        syn: None,
-        middle: new_mid,
-      };
-      new_lower_left.upper = new_upper;
-      new_lower_right.upper = new_upper;
-      set_child_in_parent(e.parent, new_upper);
-      // Note that e1 or e2 is e, so modifying them modifies e
-      e1.parent = Lower(new_lower_left);
-      e2.parent = Lower(new_lower_right);
+      let new_upper: Iexp.upper = {parent, syn: None, middle: new_mid};
 
-      // NOOPs?
-      // set_child_in_parent(e1.parent, e1);
-      // set_child_in_parent(e2.parent, e2);
+      splice(new_lower_left, new_upper);
+      splice(new_lower_right, new_upper);
 
       let update_list =
-        parent_freshen_ana(new_upper.parent)
-        @ [Update.NewSyn(e1), Update.NewSyn(e2)];
-
+        freshen_ana_parent(new_upper.parent)
+        @ [Update.NewSyn(e1), Update.NewAna(new_lower_left)];
       (CursorExp(new_upper), UpdateQueue.push_list(update_list, q));
     };
     switch (child) {
-    | One => make_ap_with_children(e, exp_hole_upper(), q)
-    | Two => make_ap_with_children(exp_hole_upper(), e, q)
+    | One => make_ap_with_children(e.parent, e, exp_hole_upper(), q)
+    | Two => make_ap_with_children(e.parent, exp_hole_upper(), e, q)
     | Three => no_op
     };
-
   | (CursorExp(e), WrapLam(name)) =>
     // TODO: Are we going to support empty lambda names?
-    let new_body_lower: Iexp.lower = {
+    let new_lower: Iexp.lower = {
       upper: dummy_upper,
       ana: None,
       marked: false,
       child: e,
     };
-
     let newly_bound =
-      capture_name(e, name, Hole, false, Iexp.Lower(new_body_lower));
-
-    let e': Iexp.upper = {
+      capture_name(e, name, Hole, false, Iexp.Lower(new_lower));
+    let new_mid =
+      Iexp.Lam(
+        name,
+        ref(Htyp.Hole),
+        false,
+        false,
+        new_lower,
+        ref(newly_bound),
+      );
+    let new_upper: Iexp.upper = {
       parent: e.parent,
       syn: e.syn,
-      middle:
-        Lam(
-          name,
-          ref(Htyp.Hole),
-          false,
-          false,
-          new_body_lower,
-          ref(newly_bound),
-        ),
+      middle: new_mid,
     };
 
-    // Connection between e' the upper and e_parent_old the containing lower
-    set_child_in_parent(e.parent, e');
-
-    // Connection between e the upper and new_body_lower the containing lower
-    e.parent = Lower(new_body_lower);
-
-    // Connection between new_body_lower the lower and e' the containing upper
-    new_body_lower.upper = e';
+    splice(new_lower, new_upper);
 
     let update_list =
-      List.map(e => Update.NewSyn(e), newly_bound)
-      @ [NewAna(new_body_lower), NewSyn(e)];
+      freshen_ana_parent(new_upper.parent)
+      @ List.map(e => Update.NewSyn(e), newly_bound)
+      @ [NewAna(new_lower), NewSyn(e)];
 
-    (CursorExp(e'), UpdateQueue.push_list(update_list, q));
+    (CursorExp(new_upper), UpdateQueue.push_list(update_list, q));
 
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
@@ -532,116 +490,70 @@ let apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       syn: None,
       middle: new_mid,
     };
-    new_lower.upper = new_upper;
-    set_child_in_parent(e.parent, new_upper);
 
-    e.parent = Lower(new_lower);
+    splice(new_lower, new_upper);
 
     let update_list =
-      parent_freshen_ana(new_upper.parent) @ [Update.NewSyn(e)];
+      freshen_ana_parent(new_upper.parent)
+      @ [Update.NewSyn(new_upper), Update.NewAna(new_lower)];
 
     (CursorExp(new_upper), UpdateQueue.push_list(update_list, q));
 
   | (CursorExp(e), Unwrap(child)) =>
     switch (e.middle) {
-    | Lam(name, _typ, _marked, _, body_lower, bound_vars) =>
-      body_lower.child.parent = e.parent;
-      set_child_in_parent(e.parent, body_lower.child);
-      e.parent = Deleted;
+    | EHole => no_op
+    | Var(_, _, _)
+    | NumLit(_) => apply_action((c, q), Delete)
+    | Lam(name, _, _, _, body_lower, bound_vars) =>
+      let body = body_lower.child;
+
+      replace(e, body);
 
       // update bound variables to outer binder
       let (new_binder, t, m) = look_up_binder(e, name);
-      let _ =
-        List.map(
-          var => update_var(var, t, m, new_binder),
-          bound_vars.contents,
-        );
+      let update = var => update_var(var, t, m, new_binder);
+      let _ = List.map(update, bound_vars.contents);
 
-      // body_lower should be dropped now
       let update_list =
-        parent_freshen_ana(body_lower.child.parent)
-        @ (
-          switch (e.syn) {
-          | Some(_) => [Update.NewSyn(body_lower.child)]
-          | None => []
-          }
-        );
-      (CursorExp(body_lower.child), UpdateQueue.push_list(update_list, q));
-    | Ap(fun_lower, _marked, arg_lower) =>
-      let replacement_lower =
+        freshen_ana_parent(body.parent) @ [Update.NewSyn(body)];
+      (CursorExp(body), UpdateQueue.push_list(update_list, q));
+
+    | Ap(fun_lower, _, arg_lower) =>
+      let body =
         switch (child) {
-        | One => fun_lower
-        | Two => arg_lower
+        | One => fun_lower.child
+        | Two => arg_lower.child
         | Three => raise(Unimplemented)
         };
-      replacement_lower.child.parent = e.parent;
-      set_child_in_parent(e.parent, replacement_lower.child);
-      e.parent = Deleted;
-      // body_lower should be dropped now
+
+      replace(e, body);
+
       let update_list =
-        parent_freshen_ana(replacement_lower.child.parent)
-        @ (
-          switch (e.syn) {
-          | Some(_) => [Update.NewSyn(replacement_lower.child)]
-          | None => []
-          }
-        );
-      (
-        CursorExp(replacement_lower.child),
-        UpdateQueue.push_list(update_list, q),
-      );
+        freshen_ana_parent(body.parent) @ [Update.NewSyn(body)];
+      (CursorExp(body), UpdateQueue.push_list(update_list, q));
+
     | Plus(left_arg, right_arg) =>
-      let replacement_lower =
+      let body =
         switch (child) {
-        | One => left_arg
-        | Two => right_arg
+        | One => left_arg.child
+        | Two => right_arg.child
         | Three => raise(Unimplemented)
         };
-      replacement_lower.child.parent = e.parent;
-      set_child_in_parent(e.parent, replacement_lower.child);
-      e.parent = Deleted;
-      // body_lower should be dropped now
-      let update_list =
-        parent_freshen_ana(replacement_lower.child.parent)
-        @ (
-          switch (e.syn) {
-          | Some(_) => [Update.NewSyn(replacement_lower.child)]
-          | None => []
-          }
-        );
-      (
-        CursorExp(replacement_lower.child),
-        UpdateQueue.push_list(update_list, q),
-      );
-    | Asc(ann_lower, _ty) =>
-      ann_lower.child.parent = e.parent;
-      set_child_in_parent(e.parent, ann_lower.child);
-      e.parent = Deleted;
-      // body_lower should be dropped now
-      let update_list =
-        parent_freshen_ana(ann_lower.child.parent)
-        @ (
-          switch (e.syn) {
-          | Some(_) => [Update.NewSyn(ann_lower.child)]
-          | None => []
-          }
-        );
-      (CursorExp(ann_lower.child), UpdateQueue.push_list(update_list, q));
-    | Var(_, _, _)
-    | NumLit(_) =>
-      // Copied from delete
-      let e': Iexp.upper = {
-        parent: e.parent,
-        syn: Some(Hole),
-        middle: EHole,
-      };
-      set_child_in_parent(e.parent, e');
-      // freshen_ana_in_parent(e.parent);
-      e.parent = Deleted;
 
-      let update_list = parent_freshen_ana(e'.parent) @ [Update.NewSyn(e')];
-      (CursorExp(e'), UpdateQueue.push_list(update_list, q));
-    | EHole => no_op
+      replace(e, body);
+
+      let update_list =
+        freshen_ana_parent(body.parent) @ [Update.NewSyn(body)];
+      (CursorExp(body), UpdateQueue.push_list(update_list, q));
+
+    | Asc(body_lower, _ty) =>
+      let body = body_lower.child;
+
+      replace(e, body);
+
+      let update_list =
+        freshen_ana_parent(body.parent) @ [Update.NewSyn(body)];
+      (CursorExp(body), UpdateQueue.push_list(update_list, q));
     }
   };
 };
