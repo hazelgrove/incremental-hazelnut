@@ -1,10 +1,9 @@
 open Core;
 open Incr_dom;
 open Monad_lib.Monad;
-module Hazelnut = Hazelnut_lib.Hazelnut;
-module Incremental = Hazelnut_lib.Incremental;
-open Hazelnut;
-open Incremental;
+open Hazelnut_lib.Hazelnut;
+open Hazelnut_lib.Incremental;
+open Hazelnut_lib.Pexp;
 
 // let rec pexp_of_htyp: Htyp.t => Pexp.t =
 //   fun

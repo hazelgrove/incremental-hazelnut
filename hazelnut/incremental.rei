@@ -1,24 +1,5 @@
 open Hazelnut;
 
-// module Ityp: {
-//   [@deriving sexp]
-//   type lower = {
-//     mutable upper,
-//     mutable child: upper,
-//   }
-
-//   and middle =
-//     | Arrow(lower, lower)
-//     | Num
-//     | Hole
-
-//   and upper = {
-//     mutable parent: option(lower),
-//     mutable is_new: bool,
-//     middle,
-//   };
-// };
-
 module Iexp: {
   [@deriving sexp]
   type lower = {
@@ -107,6 +88,4 @@ module Istate: {
 
 let initial_root: Iexp.parent;
 let initial_state: Istate.t;
-let hexp_of_iexp: Iexp.upper => Hexp.t;
-let pexp_of_iexp: (Iexp.upper, Istate.t) => Pexp.t;
 let apply_action: (Istate.t, Iaction.t) => Istate.t;
