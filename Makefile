@@ -1,14 +1,24 @@
-LATEXMK ?= latexmk
+HTML_FILE=$(shell pwd)/_build/default/bin/index.html
 
-.PHONY: all
-all : formalism.pdf
+all: fmt build
 
-.PHONY: formalism.pdf
-formalism.pdf : formalism/formalism.tex
-	cd formalism && $(LATEXMK) formalism.tex
-	cp formalism/build/formalism.pdf formalism.pdf
+fmt:
+	refmt */*.re --in-place
+	refmt */*.rei --in-place
 
-.PHONY : clean
-clean :
-	rm -rf formalism/build
-	rm -f *.pdf
+build:
+	dune build bin/main.bc.js
+	dune build bin/index.html
+
+url:
+	@echo "file://$(HTML_FILE)"
+
+clean:
+	dune clean
+
+deps:
+	opam install dune reason incr_dom ocaml-lsp-server
+
+.PHONY: test
+test:
+	dune test

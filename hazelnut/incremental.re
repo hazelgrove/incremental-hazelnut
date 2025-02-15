@@ -75,10 +75,8 @@ module Iexp = {
   // };
 
   let remove_bound_var = (var: upper, bound_vars: bound_vars) => {
-    print_endline("removing...");
     bound_vars.contents =
       List.filter(var' => var !== var', bound_vars.contents);
-    print_endline("removed.");
   };
 };
 

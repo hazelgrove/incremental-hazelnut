@@ -1,9 +1,6 @@
-formalism/build
-*.pdf
-
-code/_build
-code/.direnv/
-code/flake.lock
-code/flake.nix
-code/.envrc
-code/.vscode/
+_build
+.direnv/
+flake.lock
+flake.nix
+.envrc
+.vs
