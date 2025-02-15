@@ -68,7 +68,24 @@ module Iexp = {
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location
-  and bound_vars = list(upper); // pointers from a binder to the variable occurrences it binds
+  and bound_vars = ref(list(upper)); // pointers from a binder to the variable occurrences it binds
+
+  let add_bound_var = (var: upper, bound_vars: bound_vars) => {
+    bound_vars.contents = [var, ...bound_vars.contents];
+  };
+
+  let empty_bound_vars = (): bound_vars => {
+    ref([]);
+  };
+
+  let union_bound_vars = (s1: bound_vars, s2: bound_vars): bound_vars => {
+    ref(s1.contents @ s2.contents);
+  };
+
+  let remove_bound_var = (var: upper, bound_vars: bound_vars) => {
+    bound_vars.contents =
+      List.filter(var' => var != var', bound_vars.contents);
+  };
 };
 
 module Update = {
@@ -235,11 +252,7 @@ let _print_iexp_upper: Iexp.upper => unit =
 //   };
 
 let exp_hole_upper: unit => Iexp.upper =
-  () => {
-    parent: Deleted,
-    syn: Some(Hole),
-    middle: EHole,
-  };
+  () => {parent: Deleted, syn: Some(Hole), middle: EHole};
 
 let initial_cursor: Iexp.upper = exp_hole_upper();
 let initial_root: Iexp.parent = {
@@ -334,6 +347,19 @@ let rec look_up_binder =
   };
 };
 
+let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+  switch (parent) {
+  | Deleted
+  | Root(_) => ()
+  | Lower(lower) =>
+    switch (lower.upper.middle) {
+    | Lam(_, _, _, _, _, bound_vars) =>
+      Iexp.remove_bound_var(var, bound_vars)
+    | _ => ()
+    }
+  };
+};
+
 // Finds all free variables with given name: makes them all synthesize [syn],
 // marks them all as [m], binds them all correctly, and returns them as a set.
 let rec update_free_variables =
@@ -344,40 +370,40 @@ let rec update_free_variables =
           m: bool,
           binder: Iexp.binder,
         )
-        : list(Iexp.upper) => {
+        : Iexp.bound_vars => {
   switch (e.middle) {
-  | Var(var_name, _, _) =>
+  | Var(var_name, _, old_binder) =>
     if (name == var_name) {
+      unbind_from_binder(e, old_binder);
+      // set the local binder, mark, and syn type
       let m': Iexp.middle = Var(var_name, m, binder);
-      let e': Iexp.upper = {
-        parent: e.parent,
-        syn: Some(syn),
-        middle: m',
-      };
+      let e': Iexp.upper = {parent: e.parent, syn: Some(syn), middle: m'};
       set_child_in_parent(e.parent, e');
-      [e'];
+      let s = Iexp.empty_bound_vars();
+      Iexp.add_bound_var(e', s);
+      s;
     } else {
-      [];
+      Iexp.empty_bound_vars();
     }
-  | NumLit(_) => []
+  | NumLit(_) => Iexp.empty_bound_vars()
   | Plus(lower_a, lower_b) =>
-    List.append(
+    Iexp.union_bound_vars(
       update_free_variables(lower_a.child, name, syn, m, binder),
       update_free_variables(lower_b.child, name, syn, m, binder),
     )
   | Lam(lam_name, _, _, _, body_lower, _) =>
     if (name == lam_name) {
-      [];
+      Iexp.empty_bound_vars();
     } else {
       update_free_variables(body_lower.child, name, syn, m, binder);
     }
   | Ap(actor, _, param) =>
-    List.append(
+    Iexp.union_bound_vars(
       update_free_variables(actor.child, name, syn, m, binder),
       update_free_variables(param.child, name, syn, m, binder),
     )
   | Asc(lower, _) => update_free_variables(lower.child, name, syn, m, binder)
-  | EHole => []
+  | EHole => Iexp.empty_bound_vars()
   };
 };
 
@@ -423,11 +449,7 @@ let apply_action = ((e, q): Istate.t, a: Iaction.t): Istate.t => {
     }
 
   | Delete =>
-    let e': Iexp.upper = {
-      parent: e.parent,
-      syn: Some(Hole),
-      middle: EHole,
-    };
+    let e': Iexp.upper = {parent: e.parent, syn: Some(Hole), middle: EHole};
     set_child_in_parent(e.parent, e');
     // freshen_ana_in_parent(e.parent);
     e.parent = Deleted;
