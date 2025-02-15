@@ -64,6 +64,7 @@ module Pexp = {
     | Cursor(t)
     | NewSyn(t, t)
     | NewAna(t, t)
+    | New(t)
     | Arrow(t, t)
     | Num
     | Var(string)

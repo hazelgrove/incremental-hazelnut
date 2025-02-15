@@ -32,9 +32,9 @@ module Iexp: {
     | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(string, Htyp.t, bool, bool, lower, bound_vars)
+    | Lam(string, ref(Htyp.t), bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
-    | Asc(lower, Htyp.t)
+    | Asc(lower, ref(Htyp.t))
     | EHole
 
   and upper = {
@@ -68,6 +68,8 @@ module Iaction: {
     | MoveUp
     | MoveDown(Child.t)
     | Delete
+    | WrapArrow(Child.t)
+    | InsertNumType
     | InsertNumLit(int)
     | InsertVar(string)
     | WrapPlus(Child.t)
@@ -81,7 +83,9 @@ module Update: {
   [@deriving sexp]
   type t =
     | NewSyn(Iexp.upper)
-    | NewAna(Iexp.lower);
+    | NewAna(Iexp.lower)
+    | NewAnn(Iexp.upper)
+    | NewAsc(Iexp.upper);
 };
 
 module UpdateQueue: {

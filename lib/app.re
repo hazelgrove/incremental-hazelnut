@@ -62,6 +62,7 @@ let rec prec: Pexp.t => int =
   | Cursor(e) => prec(e)
   | NewSyn(_, _) => 5
   | NewAna(_, _) => 5
+  | New(_) => 3
   | Arrow(_) => 1
   | Num => 0
   | Var(_) => 0
@@ -85,6 +86,7 @@ let rec assoc: Pexp.t => Side.t =
   | Cursor(e) => assoc(e)
   | NewSyn(_, _) => Left
   | NewAna(_, _) => Left
+  | New(_) => Left
   | Arrow(_) => Right
   | Num => Atom
   | Var(_) => Atom
@@ -103,8 +105,9 @@ let rec string_of_pexp: Pexp.t => string =
     paren(e, outer, Side.Left) ++ "⇒" ++ paren(t, outer, Side.Right) ++ "*"
   | NewAna(e, t) as outer =>
     paren(e, outer, Side.Left) ++ "⇐" ++ paren(t, outer, Side.Right) ++ "*"
+  | New(t) => string_of_pexp(t) ++ "*"
   | Arrow(t1, t2) as outer =>
-    paren(t1, outer, Side.Left) ++ " -> " ++ paren(t2, outer, Side.Right)
+    paren(t1, outer, Side.Left) ++ " → " ++ paren(t2, outer, Side.Right)
   | Num => "Num"
   | Var(x) => x
   | Lam(x, a, e) =>
@@ -112,7 +115,7 @@ let rec string_of_pexp: Pexp.t => string =
     ++ x
     ++ ": "
     ++ string_of_pexp(a)
-    ++ " -> ("
+    ++ " ↦ ("
     ++ string_of_pexp(e)
     ++ ")"
 
@@ -338,16 +341,21 @@ let view =
 
       let construct_buttons =
         Node.div([
-          // button(
-          //   "Construct Arrow",
-          //   Action.HazelnutAction(Construct(Arrow)),
-          //   None,
-          // ),
-          // button(
-          //   "Construct Num",
-          //   Action.HazelnutAction(Construct(Num)),
-          //   None,
-          // ),
+          button(
+            "Wrap Arrow (Left)",
+            Action.HazelnutAction(WrapArrow(One)),
+            None,
+          ),
+          button(
+            "Wrap Arrow (Right)",
+            Action.HazelnutAction(WrapArrow(Two)),
+            None,
+          ),
+          button(
+            "Construct Num Type",
+            Action.HazelnutAction(InsertNumType),
+            None,
+          ),
           button(
             "Construct Var",
             Action.HazelnutAction(InsertVar(state.var_input)),
@@ -362,7 +370,7 @@ let view =
           button("Wrap Ap (Arg)", Action.HazelnutAction(WrapAp(Two)), None),
           button("Wrap Asc", Action.HazelnutAction(WrapAsc), None),
           button(
-            "Construct NumLit",
+            "Construct Num Lit",
             try(
               Action.HazelnutAction(
                 InsertNumLit(int_of_string(state.lit_input)),
