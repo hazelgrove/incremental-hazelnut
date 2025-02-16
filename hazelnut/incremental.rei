@@ -14,7 +14,7 @@ module Iexp: {
     | NumLit(int)
     | Plus(lower, lower)
     | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
-    | Ap(lower, bool, lower)
+    | Ap(lower, ref(bool), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
 

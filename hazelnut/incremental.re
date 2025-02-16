@@ -16,7 +16,7 @@ module Iexp = {
     | NumLit(int)
     | Plus(lower, lower)
     | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
-    | Ap(lower, bool, lower)
+    | Ap(lower, ref(bool), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
 
@@ -485,7 +485,8 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
         marked: false,
         child: e2,
       };
-      let new_mid: Iexp.middle = Ap(new_lower_left, false, new_lower_right);
+      let new_mid: Iexp.middle =
+        Ap(new_lower_left, ref(false), new_lower_right);
       let new_upper: Iexp.upper = {parent, syn: None, middle: new_mid};
 
       splice(new_lower_left, new_upper);
@@ -628,10 +629,25 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
 
 let update_step = ((c, q): Istate.t): option(Istate.t) => {
   print_endline(string_of_int(List.length(q)) ++ " updates");
-  let* (update, q') = UpdateQueue.pop(q);
+  let+ (update, q') = UpdateQueue.pop(q);
   switch (update) {
-  | NewSyn(_e) => None
-  | NewAna(_e) => None
+  | NewSyn(e) =>
+    switch (e.parent) {
+    | Deleted
+    | Root(_) => (c, q')
+    | Lower(low) =>
+      switch (low.upper.middle) {
+      | Ap(e1, m, e2) when e1.child === e =>
+        let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
+        e2.ana = t_in;
+        low.upper.syn = t_out;
+        m.contents = m';
+        let update_list = [Update.NewAna(e2), Update.NewSyn(low.upper)];
+        (c, UpdateQueue.push_list(update_list, q'));
+      | _ => (c, q') // todo
+      }
+    }
+  | NewAna(_e) => (c, q') // todo
   | NewAnn(e) =>
     switch (e.middle) {
     | Lam(_, t, _, _, _, bound_vars) =>
@@ -640,7 +656,7 @@ let update_step = ((c, q): Istate.t): option(Istate.t) => {
       let update_list =
         freshen_ana_parent(e.parent)
         @ List.map(var => Update.NewSyn(var), bound_vars.contents);
-      Some((c, UpdateQueue.push_list(update_list, q')));
+      (c, UpdateQueue.push_list(update_list, q'));
     | _ => failwith("NewAnn on non-lam")
     }
   | NewAsc(e) =>
@@ -649,7 +665,7 @@ let update_step = ((c, q): Istate.t): option(Istate.t) => {
       e.syn = Some(asc.contents);
       low.ana = Some(asc.contents);
       let update_list = [Update.NewAna(low), Update.NewSyn(e)];
-      Some((c, UpdateQueue.push_list(update_list, q')));
+      (c, UpdateQueue.push_list(update_list, q'));
     | _ => failwith("NewAsc on non-asc")
     }
   };

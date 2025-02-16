@@ -134,7 +134,7 @@ and pexp_of_iexp_middle =
     );
   | Ap(e1, m, e2) =>
     pexp_markif(
-      m,
+      m.contents,
       NonArrowAp,
       Ap(
         pexp_of_iexp_lower(e1, (cursor, updates)),

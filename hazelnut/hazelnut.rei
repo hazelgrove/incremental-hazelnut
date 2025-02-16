@@ -34,3 +34,6 @@ module Mark: {
 exception Unimplemented;
 
 let erase_typ: Ztyp.t => Htyp.t;
+let matched_arrow_typ: Htyp.t => (Htyp.t, Htyp.t, bool);
+let matched_arrow_typ_opt:
+  option(Htyp.t) => (option(Htyp.t), option(Htyp.t), bool);

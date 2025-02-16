@@ -41,11 +41,21 @@ let rec erase_typ = (t: Ztyp.t): Htyp.t => {
   };
 };
 
-let _matched_arrow_typ = (t: Htyp.t): option((Htyp.t, Htyp.t)) => {
+let matched_arrow_typ = (t: Htyp.t): (Htyp.t, Htyp.t, bool) => {
   switch (t) {
-  | Arrow(t1, t2) => Some((t1, t2))
-  | Hole => Some((Hole, Hole))
-  | _ => None
+  | Arrow(t1, t2) => (t1, t2, false)
+  | Hole => (Hole, Hole, false)
+  | _ => (Hole, Hole, true)
+  };
+};
+
+let matched_arrow_typ_opt =
+    (t: option(Htyp.t)): (option(Htyp.t), option(Htyp.t), bool) => {
+  switch (t) {
+  | Some(t) =>
+    let (t_in, t_out, m) = matched_arrow_typ(t);
+    (Some(t_in), Some(t_out), m);
+  | None => (None, None, false)
   };
 };
 
