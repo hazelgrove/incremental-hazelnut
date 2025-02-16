@@ -1,17 +1,13 @@
 // open Sexplib.Std;
 
 module Element: {
-  [@implementing sexp]
+  [@deriving sexp]
   type t;
-  let t_of_sexp: Sexplib0.Sexp.t => t;
-  let sexp_of_t: t => Sexplib0.Sexp.t;
 };
 
 module OM: {
-  [@implementing sexp]
+  [@deriving sexp]
   type t;
-  let t_of_sexp: Sexplib0.Sexp.t => t;
-  let sexp_of_t: t => Sexplib0.Sexp.t;
 
   let init: unit => (Element.t, t);
 

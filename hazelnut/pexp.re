@@ -97,7 +97,9 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
     | NewAsc(_) => (d, syn)
     };
   };
-  switch (List.fold_left(implement_updates, (d, None), s.q)) {
+  switch (
+    List.fold_left(implement_updates, (d, None), UpdateQueue.list_of_t(s.q))
+  ) {
   | (d', Some(t)) => NewSyn(d', pexp_of_htyp(t))
   | (d', None) => d'
   };
@@ -152,7 +154,7 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
     | NewAsc(_) => None
     };
   };
-  switch (List.filter_map(filter_updates, s.q)) {
+  switch (List.filter_map(filter_updates, UpdateQueue.list_of_t(s.q))) {
   | [t, ..._] => NewAna(d, pexp_of_htyp(t))
   | [] => d
   };

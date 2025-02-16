@@ -1,19 +1,13 @@
-open Sexplib0.Sexp;
+open Sexplib.Std;
 
 module Element = {
-  [@implementing sexp]
+  [@deriving sexp]
   type t = float;
-  let sexp_of_t = x => Atom(string_of_float(x));
-  let t_of_sexp =
-    fun
-    | Atom(s) => float_of_string(s)
-    | List(_) => 0.;
 };
 
 module OM = {
+  [@deriving sexp]
   type t = ref(list(Element.t));
-  let sexp_of_t = _ => Atom("OM");
-  let t_of_sexp = _ => ref([]);
 
   let init = () => (0., ref([0.]));
 

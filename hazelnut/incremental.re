@@ -1,6 +1,7 @@
 open Sexplib.Std;
 open Hazelnut;
 open Order;
+open Queue;
 open Monad_lib.Monad; // Uncomment this line to use the maybe monad
 
 module Iexp = {
@@ -55,20 +56,31 @@ module Update = {
     | NewAna(Iexp.lower)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper);
+
+  let priority =
+    fun
+    | NewSyn(e) => snd(e.interval)
+    | NewAna(e) => fst(e.child.interval)
+    | NewAnn(e) => fst(e.interval)
+    | NewAsc(e) => fst(e.interval);
+
+  let leq = (update1: t, update2: t): bool =>
+    priority(update1) <= priority(update2);
 };
 
-module UpdateQueue = {
-  [@deriving sexp]
-  type t = list(Update.t);
-  let push = (u, q: t) => [u, ...q];
-  let push_list = (u: list(Update.t), q: t) =>
-    List.fold_left((q', u') => push(u', q'), q, u);
-  let pop = (q: t) =>
-    switch (q) {
-    | [] => None
-    | [u, ...q'] => Some((u, q'))
-    };
-};
+module UpdateQueue = PQueue(Update);
+// {
+//   [@deriving sexp]
+//   type t = list(Update.t);
+//   let push = (u, q: t) => [u, ...q];
+//   let push_list = (u: list(Update.t), q: t) =>
+//     List.fold_left((q', u') => push(u', q'), q, u);
+//   let pop = (q: t) =>
+//     switch (q) {
+//     | [] => None
+//     | [u, ...q'] => Some((u, q'))
+//     };
+// };
 
 module Icursor = {
   [@deriving sexp]
@@ -107,7 +119,7 @@ let initial_root: Iexp.parent = {
 };
 
 let initial_cursor: Icursor.t = CursorExp(initial_exp);
-let initial_state: Istate.t = {c: initial_cursor, q: [], om};
+let initial_state: Istate.t = {c: initial_cursor, q: UpdateQueue.empty, om};
 
 module Child = {
   [@deriving (sexp, compare)]
@@ -714,7 +726,6 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
 };
 
 let update_step = (s: Istate.t): option(Istate.t) => {
-  print_endline(string_of_int(List.length(s.q)) ++ " updates");
   let+ (update, q') = UpdateQueue.pop(s.q);
   switch (update) {
   | NewSyn(e) =>

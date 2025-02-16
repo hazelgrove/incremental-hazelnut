@@ -70,11 +70,13 @@ module Update: {
     | NewAna(Iexp.lower)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper);
+
+  let leq: (t, t) => bool;
 };
 
 module UpdateQueue: {
-  [@deriving sexp]
-  type t = list(Update.t);
+  type t;
+  let list_of_t: t => list(Update.t);
 };
 
 module Icursor: {
