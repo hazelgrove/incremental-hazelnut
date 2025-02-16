@@ -78,4 +78,14 @@ let type_consistent_opt = (t1: option(Htyp.t), t2: option(Htyp.t)): bool => {
   };
 };
 
+let arrow_unless =
+    (t1: Htyp.t, t2: option(Htyp.t), unless: option(Htyp.t))
+    : option(Htyp.t) => {
+  switch (unless, t2) {
+  | (None, None) => None
+  | (None, Some(t2)) => Some(Arrow(t1, t2))
+  | (Some(_), _) => None
+  };
+};
+
 exception Unimplemented;

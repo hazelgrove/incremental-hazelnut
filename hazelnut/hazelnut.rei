@@ -39,3 +39,5 @@ let matched_arrow_typ_opt:
   option(Htyp.t) => (option(Htyp.t), option(Htyp.t), bool);
 let type_consistent: (Htyp.t, Htyp.t) => bool;
 let type_consistent_opt: (option(Htyp.t), option(Htyp.t)) => bool;
+let arrow_unless:
+  (Htyp.t, option(Htyp.t), option(Htyp.t)) => option(Htyp.t);

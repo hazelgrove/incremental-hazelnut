@@ -633,26 +633,38 @@ let update_step = ((c, q): Istate.t): option(Istate.t) => {
   switch (update) {
   | NewSyn(e) =>
     switch (e.parent) {
-    | Deleted
-    | Root(_) => (c, q')
-    | Lower(low) =>
-      switch (low.upper.middle) {
+    | Deleted // => failwith("no stepping in deleted terms!!")
+    | Root(_) =>
+      //UPDATE: TopStep
+      (c, q')
+    | Lower(parent) =>
+      switch (parent.upper.middle) {
       | Ap(e1, m, e2) when e1.child === e =>
+        // UPDATE: StepAp
         let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
         e2.ana = t_in;
-        low.upper.syn = t_out;
+        parent.upper.syn = t_out;
         m.contents = m';
         e1.marked = false;
-        let update_list = [Update.NewAna(e2), Update.NewSyn(low.upper)];
+        let update_list = [Update.NewAna(e2), Update.NewSyn(parent.upper)];
         (c, UpdateQueue.push_list(update_list, q'));
-      | _ when Option.is_some(low.ana) =>
-        low.marked = !type_consistent_opt(e.syn, low.ana);
+      | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
+        // UPDATE: StepSynFun
+        parent.upper.syn =
+          arrow_unless(t.contents, body.child.syn, parent.ana);
+        body.marked = false;
+        let update_list = [Update.NewSyn(parent.upper)];
+        (c, UpdateQueue.push_list(update_list, q'));
+      | _ when Option.is_some(parent.ana) =>
+        // UPDATE: StepNewSynConsist
+        parent.marked = !type_consistent_opt(e.syn, parent.ana);
         (c, q');
       | _ => (c, q') // todo
       }
     }
   | NewAna(_e) => (c, q') // todo
   | NewAnn(e) =>
+    // UPDATE: StepNewAnnFun
     switch (e.middle) {
     | Lam(_, t, _, _, _, bound_vars) =>
       let update = var => var_syn(var, t.contents);
@@ -664,6 +676,7 @@ let update_step = ((c, q): Istate.t): option(Istate.t) => {
     | _ => failwith("NewAnn on non-lam")
     }
   | NewAsc(e) =>
+    // UPDATE: StepAsc
     switch (e.middle) {
     | Asc(low, asc) =>
       e.syn = Some(asc.contents);
