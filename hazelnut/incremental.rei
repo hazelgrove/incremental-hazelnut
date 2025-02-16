@@ -13,7 +13,7 @@ module Iexp: {
     | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(ref(Bind.t), ref(Htyp.t), bool, bool, lower, bound_vars)
+    | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
@@ -55,7 +55,8 @@ module Iaction: {
     | InsertVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
-    | WrapLam(string)
+    | WrapLam
+    | WrapLamInner(Bind.t, Htyp.t, bool, bool)
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };

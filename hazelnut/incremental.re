@@ -15,7 +15,7 @@ module Iexp = {
     | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(ref(Bind.t), ref(Htyp.t), bool, bool, lower, bound_vars)
+    | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
     | Ap(lower, bool, lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
@@ -115,12 +115,21 @@ module Iaction = {
     | InsertVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
-    | WrapLam(string)
+    | WrapLam
+    | WrapLamInner(Bind.t, Htyp.t, bool, bool)
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
 let dummy_upper = exp_hole_upper();
+
+let child_of_parent = (p: Iexp.parent): Iexp.upper => {
+  switch (p) {
+  | Deleted => failwith("child of deleted")
+  | Root(r) => r.root_child
+  | Lower(r) => r.child
+  };
+};
 
 let set_child_in_parent = (p: Iexp.parent, c: Iexp.upper): unit => {
   switch (p) {
@@ -168,7 +177,7 @@ let rec look_up_binder =
   | Lower(lower) =>
     switch (lower.upper.middle) {
     | Lam(bind, lam_ty, _, _, _, _) =>
-      if (bind.contents == Var(name)) {
+      if (bind == Var(name)) {
         (e.parent, lam_ty.contents, false);
       } else {
         look_up_binder(lower.upper, name);
@@ -191,7 +200,7 @@ let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   };
 };
 
-// precondition: e.middle is a Var//
+// precondition: e.middle is a Var
 // makes them all synthesize [syn], marks them all as [m], and updates their
 // binding on both ends.
 let update_var = (e: Iexp.upper, syn: Htyp.t, m: bool, binder: Iexp.binder) => {
@@ -203,6 +212,8 @@ let update_var = (e: Iexp.upper, syn: Htyp.t, m: bool, binder: Iexp.binder) => {
     let m': Iexp.middle = Var(var_name, m, binder);
     let e': Iexp.upper = {parent: e.parent, syn: Some(syn), middle: m'};
     set_child_in_parent(e.parent, e');
+    // e.parent = Deleted;
+    // replace(e, e');
     e';
   | _ => failwith("update_var called on non-var")
   };
@@ -222,6 +233,7 @@ let rec capture_name =
   switch (e.middle) {
   | Var(var_name, _, _) =>
     if (name == var_name) {
+      print_endline("capturing " ++ var_name);
       let e' = update_var(e, syn, m, binder);
       [e'];
     } else {
@@ -234,7 +246,7 @@ let rec capture_name =
       capture_name(lower_b.child, name, syn, m, binder),
     )
   | Lam(bind, _, _, _, body_lower, _) =>
-    if (bind.contents == Var(name)) {
+    if (bind == Var(name)) {
       [];
     } else {
       capture_name(body_lower.child, name, syn, m, binder);
@@ -287,7 +299,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (z, InsertVar(_)) => z
   | (z, WrapPlus(_)) => z
   | (z, WrapAp(_)) => z
-  | (z, WrapLam(_)) => z
+  | (z, WrapLam) => z
+  | (z, WrapLamInner(_)) => z
   };
 };
 
@@ -297,12 +310,25 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
   | (CursorBind(e), MoveUp) => (CursorExp(e), q)
   | (CursorBind(e), Delete) =>
     switch (e.middle) {
-    | Lam(bind, _t, _m1, _m2, _body, _bound) =>
-      bind.contents = Bind.Hole;
-      failwith("Todo");
+    | Lam(_, t, m1, m2, _, _) =>
+      let unwrapped = apply_action((CursorExp(e), q), Unwrap(One));
+      let rewrapped =
+        apply_action(unwrapped, WrapLamInner(Hole, t.contents, m1, m2));
+      let moved_down = apply_action(rewrapped, MoveDown(One));
+      moved_down;
     | _ => failwith("CursorBind on non lambda")
     }
-  | (CursorBind(_e), _a) => failwith("Todo")
+  | (CursorBind(e), InsertVar(x)) =>
+    switch (e.middle) {
+    | Lam(Hole, t, m1, m2, _, _) =>
+      let unwrapped = apply_action((CursorExp(e), q), Unwrap(One));
+      let rewrapped =
+        apply_action(unwrapped, WrapLamInner(Var(x), t.contents, m1, m2));
+      let moved_down = apply_action(rewrapped, MoveDown(One));
+      moved_down;
+    | _ => failwith("CursorBind on non lambda")
+    }
+  | (CursorBind(_), _) => no_op
   | (CursorTyp(e, Cursor(_)), MoveUp) => (CursorExp(e), q)
   | (CursorTyp(e, z), a) =>
     switch (e.middle) {
@@ -452,37 +478,38 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
     | Two => make_ap_with_children(e.parent, exp_hole_upper(), e, q)
     | Three => no_op
     };
-  | (CursorExp(e), WrapLam(name)) =>
-    // TODO: Are we going to support empty lambda names?
+  | (_, WrapLam) =>
+    apply_action((c, q), WrapLamInner(Hole, Hole, false, false))
+  | (CursorExp(body), WrapLamInner(x, t, m1, m2)) =>
     let new_lower: Iexp.lower = {
       upper: dummy_upper,
       ana: None,
       marked: false,
-      child: e,
+      child: body,
     };
-    let newly_bound =
-      capture_name(e, name, Hole, false, Iexp.Lower(new_lower));
-    let new_mid =
-      Iexp.Lam(
-        ref(Bind.Var(name)),
-        ref(Htyp.Hole),
-        false,
-        false,
-        new_lower,
-        ref(newly_bound),
-      );
+    let new_bounds = ref([]);
+    let new_mid = Iexp.Lam(x, ref(t), m1, m2, new_lower, new_bounds);
     let new_upper: Iexp.upper = {
-      parent: e.parent,
-      syn: e.syn,
+      parent: body.parent,
+      syn: body.syn,
       middle: new_mid,
     };
 
     splice(new_lower, new_upper);
 
+    let newly_bound =
+      switch (x) {
+      | Hole => []
+      | Var(name) =>
+        capture_name(body, name, t, false, Iexp.Lower(new_lower))
+      };
+    print_endline(string_of_int(List.length(newly_bound)) ++ " captured");
+    new_bounds.contents = newly_bound;
+
     let update_list =
       freshen_ana_parent(new_upper.parent)
       @ List.map(e => Update.NewSyn(e), newly_bound)
-      @ [NewAna(new_lower), NewSyn(e)];
+      @ [NewAna(new_lower), NewSyn(body)];
 
     (CursorExp(new_upper), UpdateQueue.push_list(update_list, q));
 
@@ -515,11 +542,12 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
     | NumLit(_) => apply_action((c, q), Delete)
     | Lam(bind, _, _, _, body_lower, bound_vars) =>
       let body = body_lower.child;
+      let parent = body.parent;
 
       replace(e, body);
 
       // update bound variables to outer binder
-      switch (bind.contents) {
+      switch (bind) {
       | Hole => ()
       | Var(x) =>
         let (new_binder, t, m) = look_up_binder(e, x);
@@ -528,9 +556,12 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
         ();
       };
 
+      // because updating vars could have deleted the body
+      let new_body = child_of_parent(parent);
+
       let update_list =
-        freshen_ana_parent(body.parent) @ [Update.NewSyn(body)];
-      (CursorExp(body), UpdateQueue.push_list(update_list, q));
+        freshen_ana_parent(parent) @ [Update.NewSyn(new_body)];
+      (CursorExp(new_body), UpdateQueue.push_list(update_list, q));
 
     | Ap(fun_lower, _, arg_lower) =>
       let body =

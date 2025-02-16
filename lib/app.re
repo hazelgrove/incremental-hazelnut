@@ -155,7 +155,6 @@ type state = {
   // t: Htyp.t,
   warning: option(string),
   var_input: string,
-  lam_input: string,
   let_input: string,
   lit_input: string,
   bool_input: string,
@@ -174,7 +173,6 @@ module Model = {
       // t: Hole,
       warning: None,
       var_input: "",
-      lam_input: "",
       let_input: "",
       lit_input: "",
       bool_input: "true | false",
@@ -187,7 +185,6 @@ module Action = {
   [@deriving sexp]
   type input_location =
     | Var
-    | Lam
     | Let
     | NumLit
     | BoolLit;
@@ -228,7 +225,6 @@ let apply_action =
       | Unimplemented => warn("Unimplemented")
       }
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
-    | UpdateInput(Lam, lam_input) => Model.set({...state, lam_input})
     | UpdateInput(Let, let_input) => Model.set({...state, let_input})
     | UpdateInput(NumLit, lit_input) => Model.set({...state, lit_input})
     | UpdateInput(BoolLit, bool_input) => Model.set({...state, bool_input})
@@ -360,11 +356,7 @@ let view =
             Action.HazelnutAction(InsertVar(state.var_input)),
             Some((Var, state.var_input)),
           ),
-          button(
-            "Wrap Lambda",
-            Action.HazelnutAction(WrapLam(state.lam_input)),
-            Some((Lam, state.lam_input)),
-          ),
+          button("Wrap Lambda", Action.HazelnutAction(WrapLam), None),
           button("Wrap Ap (Fun)", Action.HazelnutAction(WrapAp(One)), None), // input needed here? or some cursor needed
           button("Wrap Ap (Arg)", Action.HazelnutAction(WrapAp(Two)), None),
           button("Wrap Asc", Action.HazelnutAction(WrapAsc), None),
