@@ -22,6 +22,7 @@ module Iexp: {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
+    interval: (Element.t, Element.t),
     middle,
   }
 
