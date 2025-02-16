@@ -1,12 +1,12 @@
 open Sexplib.Std;
 open Hazelnut;
-// open Monad_lib.Monad; // Uncomment this line to use the maybe monad
+open Monad_lib.Monad; // Uncomment this line to use the maybe monad
 
 module Iexp = {
   [@deriving sexp]
   type lower = {
     mutable upper,
-    ana: option(Htyp.t),
+    mutable ana: option(Htyp.t),
     mutable marked: bool,
     mutable child: upper,
   }
@@ -22,7 +22,7 @@ module Iexp = {
 
   and upper = {
     mutable parent,
-    syn: option(Htyp.t),
+    mutable syn: option(Htyp.t),
     middle,
   }
 
@@ -64,7 +64,7 @@ module UpdateQueue = {
   let pop = (q: t) =>
     switch (q) {
     | [] => None
-    | [u, ..._] => Some(u)
+    | [u, ...q'] => Some((u, q'))
     };
 };
 
@@ -616,10 +616,21 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
   };
 };
 
-let update_step = ((e, q): Istate.t): option(Istate.t) => {
-  let _ = (e, q);
-  let _ = UpdateQueue.pop(q);
-  None;
+let update_step = ((c, q): Istate.t): option(Istate.t) => {
+  print_endline(string_of_int(List.length(q)) ++ " updates");
+  let* (update, q') = UpdateQueue.pop(q);
+  switch (update) {
+  | NewSyn(_e) => None
+  | NewAna(_e) => None
+  | NewAnn(_e) => None
+  | NewAsc(e) =>
+    switch (e.middle) {
+    | Asc(low, asc) =>
+      e.syn = Some(asc.contents);
+      low.ana = Some(asc.contents);
+      let update_list = [Update.NewAna(low), Update.NewSyn(e)];
+      Some((c, UpdateQueue.push_list(update_list, q')));
+    | _ => failwith("NewAsc on non-asc")
+    }
+  };
 };
-
-let _ = update_step;

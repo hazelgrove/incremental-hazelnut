@@ -192,6 +192,7 @@ module Action = {
   [@deriving sexp]
   type action =
     | HazelnutAction(Iaction.t)
+    | UpdateStep
     | UpdateInput(input_location, string)
     | ShowWarning(string);
 
@@ -219,10 +220,15 @@ let apply_action =
     switch (action) {
     | HazelnutAction(action) =>
       try({
-        let new_state_expr = apply_action(state.istate, action);
-        Model.set({...state, istate: new_state_expr});
+        let istate' = apply_action(state.istate, action);
+        Model.set({...state, istate: istate'});
       }) {
       | Unimplemented => warn("Unimplemented")
+      }
+    | UpdateStep =>
+      switch (update_step(state.istate)) {
+      | Some(istate') => Model.set({...state, istate: istate'})
+      | None => model
       }
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
     | UpdateInput(Let, let_input) => Model.set({...state, let_input})
@@ -314,6 +320,9 @@ let view =
         );
       };
 
+      let update_button =
+        Node.div([button("Update Step", Action.UpdateStep, None)]);
+
       let move_buttons =
         Node.div([
           button("Move to Parent", Action.HazelnutAction(MoveUp), None),
@@ -383,13 +392,9 @@ let view =
           ),
         ]);
 
-      let unwrap_button =
+      let unwrap_buttons =
         Node.div([
           button("Unwrap", Action.HazelnutAction(Unwrap(One)), None),
-        ]);
-
-      let unwrap_right_button =
-        Node.div([
           button(
             "Unwrap (Right)",
             Action.HazelnutAction(Unwrap(Two)),
@@ -401,10 +406,10 @@ let view =
         Node.div([button("Delete", Action.HazelnutAction(Delete), None)]);
 
       Node.div([
+        update_button,
         move_buttons,
         construct_buttons,
-        unwrap_button,
-        unwrap_right_button,
+        unwrap_buttons,
         delete_button,
       ]);
     };

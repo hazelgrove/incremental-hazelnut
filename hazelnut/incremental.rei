@@ -4,7 +4,7 @@ module Iexp: {
   [@deriving sexp]
   type lower = {
     mutable upper,
-    ana: option(Htyp.t),
+    mutable ana: option(Htyp.t),
     mutable marked: bool,
     mutable child: upper,
   }
@@ -20,7 +20,7 @@ module Iexp: {
 
   and upper = {
     mutable parent,
-    syn: option(Htyp.t),
+    mutable syn: option(Htyp.t),
     middle,
   }
 
@@ -91,3 +91,4 @@ module Istate: {
 let initial_root: Iexp.parent;
 let initial_state: Istate.t;
 let apply_action: (Istate.t, Iaction.t) => Istate.t;
+let update_step: Istate.t => option(Istate.t);
