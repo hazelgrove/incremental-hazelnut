@@ -36,9 +36,9 @@ module Iexp = {
   and binder = parent // pointer from a variable occurrence to binding location
   and bound_vars = ref(list(upper)); // pointers from a binder to the variable occurrences it binds
 
-  // let add_bound_var = (var: upper, bound_vars: bound_vars) => {
-  //   bound_vars.contents = [var, ...bound_vars.contents];
-  // };
+  let add_bound_var = (var: upper, bound_vars: bound_vars) => {
+    bound_vars.contents = [var, ...bound_vars.contents];
+  };
 
   let remove_bound_var = (var: upper, bound_vars: bound_vars) => {
     bound_vars.contents =
@@ -195,6 +195,18 @@ let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
     switch (lower.upper.middle) {
     | Lam(_, _, _, _, _, bound_vars) =>
       Iexp.remove_bound_var(var, bound_vars)
+    | _ => ()
+    }
+  };
+};
+
+let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+  switch (parent) {
+  | Deleted
+  | Root(_) => ()
+  | Lower(lower) =>
+    switch (lower.upper.middle) {
+    | Lam(_, _, _, _, _, bound_vars) => Iexp.add_bound_var(var, bound_vars)
     | _ => ()
     }
   };
@@ -409,6 +421,7 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
         middle: Var(x, mark, parent),
       };
       replace(e, e');
+      bind_to_binder(e', parent);
       let update_list = freshen_ana_parent(e'.parent) @ [Update.NewSyn(e')];
       (CursorExp(e'), UpdateQueue.push_list(update_list, q));
     | _ => no_op
@@ -542,7 +555,7 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
     | NumLit(_) => apply_action((c, q), Delete)
     | Lam(bind, _, _, _, body_lower, bound_vars) =>
       let body = body_lower.child;
-      let parent = body.parent;
+      let parent = e.parent;
 
       replace(e, body);
 
