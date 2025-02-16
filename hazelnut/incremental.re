@@ -642,8 +642,12 @@ let update_step = ((c, q): Istate.t): option(Istate.t) => {
         e2.ana = t_in;
         low.upper.syn = t_out;
         m.contents = m';
+        e1.marked = false;
         let update_list = [Update.NewAna(e2), Update.NewSyn(low.upper)];
         (c, UpdateQueue.push_list(update_list, q'));
+      | _ when Option.is_some(low.ana) =>
+        low.marked = !type_consistent_opt(e.syn, low.ana);
+        (c, q');
       | _ => (c, q') // todo
       }
     }

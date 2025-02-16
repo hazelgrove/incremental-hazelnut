@@ -59,14 +59,22 @@ let matched_arrow_typ_opt =
   };
 };
 
-let rec _type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
+let rec type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
   switch (t1, t2) {
   | (Hole, _) => true
   | (_, Hole) => true
   | (Num, Num) => true
   | (Arrow(t11, t12), Arrow(t21, t22)) =>
-    _type_consistent(t11, t21) && _type_consistent(t12, t22)
+    type_consistent(t11, t21) && type_consistent(t12, t22)
   | _ => false
+  };
+};
+
+let type_consistent_opt = (t1: option(Htyp.t), t2: option(Htyp.t)): bool => {
+  switch (t1, t2) {
+  | (None, _) => true
+  | (_, None) => true
+  | (Some(t1), Some(t2)) => type_consistent(t1, t2)
   };
 };
 
