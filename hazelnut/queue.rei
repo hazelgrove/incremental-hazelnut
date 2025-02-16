@@ -1,6 +1,7 @@
 module type Comparable = {
   [@deriving sexp]
   type t;
+  let eq: (t, t) => bool;
   let leq: (t, t) => bool;
 };
 

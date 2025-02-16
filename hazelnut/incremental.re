@@ -64,6 +64,16 @@ module Update = {
     | NewAnn(e) => fst(e.interval)
     | NewAsc(e) => fst(e.interval);
 
+  let eq = (update1: t, update2: t): bool => {
+    switch (update1, update2) {
+    | (NewSyn(e1), NewSyn(e2)) => e1 === e2
+    | (NewAna(e1), NewAna(e2)) => e1 === e2
+    | (NewAnn(e1), NewAnn(e2)) => e1 === e2
+    | (NewAsc(e1), NewAsc(e2)) => e1 === e2
+    | _ => false
+    };
+  };
+
   let leq = (update1: t, update2: t): bool =>
     priority(update1) <= priority(update2);
 };
@@ -726,6 +736,9 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
 };
 
 let update_step = (s: Istate.t): option(Istate.t) => {
+  print_endline(
+    string_of_int(List.length(UpdateQueue.list_of_t(s.q))) ++ " updates.",
+  );
   let+ (update, q') = UpdateQueue.pop(s.q);
   switch (update) {
   | NewSyn(e) =>
