@@ -120,10 +120,10 @@ and pexp_of_iexp_middle =
       | _ => pexp_of_htyp(t.contents)
       };
     pexp_markif(
-      m2,
+      m2.contents,
       LamAscIncon,
       pexp_markif(
-        m1,
+        m1.contents,
         NonArrowLam,
         Lam(
           pexp_of_bind(x),

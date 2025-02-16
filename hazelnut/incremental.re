@@ -15,7 +15,7 @@ module Iexp = {
     | Var(string, bool, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(Bind.t, ref(Htyp.t), bool, bool, lower, bound_vars)
+    | Lam(Bind.t, ref(Htyp.t), ref(bool), ref(bool), lower, bound_vars)
     | Ap(lower, ref(bool), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
@@ -335,7 +335,10 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
     | Lam(_, t, m1, m2, _, _) =>
       let unwrapped = apply_action((CursorExp(e), q), Unwrap(One));
       let rewrapped =
-        apply_action(unwrapped, WrapLamInner(Hole, t.contents, m1, m2));
+        apply_action(
+          unwrapped,
+          WrapLamInner(Hole, t.contents, m1.contents, m2.contents),
+        );
       let moved_down = apply_action(rewrapped, MoveDown(One));
       moved_down;
     | _ => failwith("CursorBind on non lambda")
@@ -345,7 +348,10 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
     | Lam(Hole, t, m1, m2, _, _) =>
       let unwrapped = apply_action((CursorExp(e), q), Unwrap(One));
       let rewrapped =
-        apply_action(unwrapped, WrapLamInner(Var(x), t.contents, m1, m2));
+        apply_action(
+          unwrapped,
+          WrapLamInner(Var(x), t.contents, m1.contents, m2.contents),
+        );
       let moved_down = apply_action(rewrapped, MoveDown(One));
       moved_down;
     | _ => failwith("CursorBind on non lambda")
@@ -481,13 +487,13 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       };
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
-        ana: None,
+        ana: Some(Hole),
         marked: false,
         child: e2,
       };
       let new_mid: Iexp.middle =
         Ap(new_lower_left, ref(false), new_lower_right);
-      let new_upper: Iexp.upper = {parent, syn: None, middle: new_mid};
+      let new_upper: Iexp.upper = {parent, syn: Some(Hole), middle: new_mid};
 
       splice(new_lower_left, new_upper);
       splice(new_lower_right, new_upper);
@@ -512,7 +518,8 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
       child: body,
     };
     let new_bounds = ref([]);
-    let new_mid = Iexp.Lam(x, ref(t), m1, m2, new_lower, new_bounds);
+    let new_mid =
+      Iexp.Lam(x, ref(t), ref(m1), ref(m2), new_lower, new_bounds);
     let new_upper: Iexp.upper = {
       parent: body.parent,
       syn: body.syn,
@@ -540,14 +547,14 @@ let rec apply_action = ((c, q): Istate.t, a: Iaction.t): Istate.t => {
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
       upper: dummy_upper,
-      ana: None,
+      ana: Some(Hole),
       marked: false,
       child: e,
     };
     let new_mid: Iexp.middle = Asc(new_lower, ref(Htyp.Hole));
     let new_upper: Iexp.upper = {
       parent: e.parent,
-      syn: None,
+      syn: Some(Hole),
       middle: new_mid,
     };
 
@@ -656,15 +663,34 @@ let update_step = ((c, q): Istate.t): option(Istate.t) => {
         let update_list = [Update.NewSyn(parent.upper)];
         (c, UpdateQueue.push_list(update_list, q'));
       | _ when Option.is_some(parent.ana) =>
-        // UPDATE: StepNewSynConsist
+        // UPDATE: StepSynConsist
         parent.marked = !type_consistent_opt(e.syn, parent.ana);
         (c, q');
-      | _ => (c, q') // todo
+      | _ => failwith("unrecognized update step")
       }
     }
-  | NewAna(_e) => (c, q') // todo
+  | NewAna(parent) =>
+    switch (parent.child.middle) {
+    | Lam(_, t_ann, m_ana, m_ann, body, _) =>
+      // UPDATE: StepAnaFun
+      let (t_in, t_out, m_ana') = matched_arrow_typ_opt(parent.ana);
+      let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
+      m_ana.contents = m_ana';
+      m_ann.contents = m_ann';
+      body.ana = t_out;
+      parent.child.syn =
+        arrow_unless(t_ann.contents, body.child.syn, parent.ana);
+      parent.marked = false;
+      let update_list = [Update.NewAna(body), Update.NewSyn(parent.child)];
+      (c, UpdateQueue.push_list(update_list, q'));
+    | _ =>
+      // This case must come after the above case. Relies on the term being subsumable.
+      // UPDATE: StepAnaConsist
+      parent.marked = !type_consistent_opt(parent.child.syn, parent.ana);
+      (c, q');
+    }
   | NewAnn(e) =>
-    // UPDATE: StepNewAnnFun
+    // UPDATE: StepAnnFun
     switch (e.middle) {
     | Lam(_, t, _, _, _, bound_vars) =>
       let update = var => var_syn(var, t.contents);
