@@ -1,4 +1,5 @@
 open Hazelnut;
+open Order;
 
 module Iexp: {
   [@deriving sexp]
@@ -85,7 +86,11 @@ module Icursor: {
 
 module Istate: {
   [@deriving sexp]
-  type t = (Icursor.t, UpdateQueue.t);
+  type t = {
+    c: Icursor.t,
+    q: UpdateQueue.t,
+    om: OM.t,
+  };
 };
 
 let initial_root: Iexp.parent;

@@ -58,10 +58,10 @@ let pexp_markif = (b: bool, m: Mark.t, exp: Pexp.t): Pexp.t =>
     exp;
   };
 
-let rec pexp_of_iexp = (e: Iexp.upper, (cursor, updates): Istate.t): Pexp.t => {
-  let d = pexp_of_iexp_middle(e.middle, (cursor, updates));
+let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
+  let d = pexp_of_iexp_middle(e.middle, s);
   let d: Pexp.t =
-    switch (cursor) {
+    switch (s.c) {
     | CursorExp(e') when e' === e => Cursor(d)
     | CursorBind(e') when e' === e =>
       switch (d) {
@@ -97,25 +97,21 @@ let rec pexp_of_iexp = (e: Iexp.upper, (cursor, updates): Istate.t): Pexp.t => {
     | NewAsc(_) => (d, syn)
     };
   };
-  switch (List.fold_left(implement_updates, (d, None), updates)) {
+  switch (List.fold_left(implement_updates, (d, None), s.q)) {
   | (d', Some(t)) => NewSyn(d', pexp_of_htyp(t))
   | (d', None) => d'
   };
 }
 
-and pexp_of_iexp_middle =
-    (e: Iexp.middle, (cursor, updates): Istate.t): Pexp.t => {
+and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
   switch (e) {
   | Var(x, m, _binders) => pexp_markif(m, Free, Var(x))
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
-    Plus(
-      pexp_of_iexp_lower(e1, (cursor, updates)),
-      pexp_of_iexp_lower(e2, (cursor, updates)),
-    )
+    Plus(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
   | Lam(x, t, m1, m2, body, _bound_vars) =>
     let pt =
-      switch (cursor) {
+      switch (s.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
@@ -125,40 +121,28 @@ and pexp_of_iexp_middle =
       pexp_markif(
         m1.contents,
         NonArrowLam,
-        Lam(
-          pexp_of_bind(x),
-          pt,
-          pexp_of_iexp_lower(body, (cursor, updates)),
-        ),
+        Lam(pexp_of_bind(x), pt, pexp_of_iexp_lower(body, s)),
       ),
     );
   | Ap(e1, m, e2) =>
     pexp_markif(
       m.contents,
       NonArrowAp,
-      Ap(
-        pexp_of_iexp_lower(e1, (cursor, updates)),
-        pexp_of_iexp_lower(e2, (cursor, updates)),
-      ),
+      Ap(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
     )
   | Asc(body, t) =>
     let pt =
-      switch (cursor) {
+      switch (s.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
-    Asc(pexp_of_iexp_lower(body, (cursor, updates)), pt);
+    Asc(pexp_of_iexp_lower(body, s), pt);
   | EHole => Hole
   };
 }
 
-and pexp_of_iexp_lower = (e: Iexp.lower, (cursor, updates): Istate.t): Pexp.t => {
-  let d =
-    pexp_markif(
-      e.marked,
-      Inconsistent,
-      pexp_of_iexp(e.child, (cursor, updates)),
-    );
+and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
+  let d = pexp_markif(e.marked, Inconsistent, pexp_of_iexp(e.child, s));
   let filter_updates = (u: Update.t) => {
     switch (u) {
     | NewAna(e') when e === e' => e.ana
@@ -168,7 +152,7 @@ and pexp_of_iexp_lower = (e: Iexp.lower, (cursor, updates): Istate.t): Pexp.t =>
     | NewAsc(_) => None
     };
   };
-  switch (List.filter_map(filter_updates, updates)) {
+  switch (List.filter_map(filter_updates, s.q)) {
   | [t, ..._] => NewAna(d, pexp_of_htyp(t))
   | [] => d
   };
