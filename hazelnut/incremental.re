@@ -212,21 +212,32 @@ let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   };
 };
 
+let var_syn = (e: Iexp.upper, syn: Htyp.t) => {
+  switch (e.middle) {
+  | Var(_) => e.syn = Some(syn)
+  | _ => failwith("var_syn called on non-var")
+  };
+};
+
 // precondition: e.middle is a Var
 // makes them all synthesize [syn], marks them all as [m], and updates their
 // binding on both ends.
-let update_var = (e: Iexp.upper, syn: Htyp.t, m: bool, binder: Iexp.binder) => {
+let update_var =
+    (e: Iexp.upper, syn: Htyp.t, m: bool, new_binder: Iexp.binder) => {
   switch (e.middle) {
   | Var(var_name, _, old_binder) =>
     // remove this var from its previous binder
     unbind_from_binder(e, old_binder);
     // set the local binder, mark, and syn type
-    let m': Iexp.middle = Var(var_name, m, binder);
-    let e': Iexp.upper = {parent: e.parent, syn: Some(syn), middle: m'};
-    set_child_in_parent(e.parent, e');
-    // e.parent = Deleted;
-    // replace(e, e');
-    e';
+    let new_mid: Iexp.middle = Var(var_name, m, new_binder);
+
+    let new_upper: Iexp.upper = {
+      parent: e.parent,
+      syn: Some(syn),
+      middle: new_mid,
+    };
+    replace(e, new_upper);
+    new_upper;
   | _ => failwith("update_var called on non-var")
   };
 };
@@ -246,8 +257,7 @@ let rec capture_name =
   | Var(var_name, _, _) =>
     if (name == var_name) {
       print_endline("capturing " ++ var_name);
-      let e' = update_var(e, syn, m, binder);
-      [e'];
+      [update_var(e, syn, m, binder)];
     } else {
       [];
     }
@@ -622,7 +632,17 @@ let update_step = ((c, q): Istate.t): option(Istate.t) => {
   switch (update) {
   | NewSyn(_e) => None
   | NewAna(_e) => None
-  | NewAnn(_e) => None
+  | NewAnn(e) =>
+    switch (e.middle) {
+    | Lam(_, t, _, _, _, bound_vars) =>
+      let update = var => var_syn(var, t.contents);
+      let _ = List.map(update, bound_vars.contents);
+      let update_list =
+        freshen_ana_parent(e.parent)
+        @ List.map(var => Update.NewSyn(var), bound_vars.contents);
+      Some((c, UpdateQueue.push_list(update_list, q')));
+    | _ => failwith("NewAnn on non-lam")
+    }
   | NewAsc(e) =>
     switch (e.middle) {
     | Asc(low, asc) =>

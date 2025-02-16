@@ -126,7 +126,7 @@ let rec string_of_pexp: Pexp.t => string =
   | Asc(e, t) as outer =>
     paren(e, outer, Side.Left) ++ ": " ++ paren(t, outer, Side.Right)
   | Hole => "?"
-  | Mark(e, m) => "{ " ++ string_of_pexp(e) ++ "| " ++ m ++ "}"
+  | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"
 
 and paren = (inner: Pexp.t, outer: Pexp.t, side: Side.t): string => {
   let unparenned = string_of_pexp(inner);
