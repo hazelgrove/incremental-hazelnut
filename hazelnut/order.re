@@ -29,7 +29,7 @@ module OM = {
 
   let insert_before = (elem: Element.t, om: t): Element.t => {
     om.contents = List.map(x => (-1.) *. x, List.rev(om.contents));
-    let elem' = insert(elem, om);
+    let elem' = insert((-1.) *. elem, om);
     om.contents = List.map(x => (-1.) *. x, List.rev(om.contents));
     (-1.) *. elem';
   };

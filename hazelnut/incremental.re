@@ -562,10 +562,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     let interval = interval_around(e, s.om);
     switch (child) {
     | One =>
-      let hole = exp_hole_upper(interval_before(e, s.om));
+      let hole = exp_hole_upper(interval_after(e, s.om));
       make_plus_with_children(e.parent, interval, e, hole, q);
     | Two =>
-      let hole = exp_hole_upper(interval_after(e, s.om));
+      let hole = exp_hole_upper(interval_before(e, s.om));
       make_plus_with_children(e.parent, interval, hole, e, q);
     | Three => no_op
     };
