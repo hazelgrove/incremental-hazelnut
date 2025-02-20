@@ -1,8 +1,11 @@
 open Sexplib.Std;
 
+let compare_float = Float.compare;
+
 module Element = {
-  [@deriving sexp]
+  [@deriving (sexp, compare)]
   type t = float;
+  let string_of_element = string_of_float;
 };
 
 module OM = {
@@ -17,7 +20,7 @@ module OM = {
     let suffix = List.filter(e => e > elem, l);
     let elem' =
       switch (suffix) {
-      | [] => elem +. 2048.
+      | [] => elem +. 16.
       | [h, ..._] => (elem +. h) /. 2.
       };
     om.contents = prefix @ [elem'] @ suffix;
@@ -28,7 +31,7 @@ module OM = {
     om.contents = List.map(x => (-1.) *. x, List.rev(om.contents));
     let elem' = insert(elem, om);
     om.contents = List.map(x => (-1.) *. x, List.rev(om.contents));
-    elem';
+    (-1.) *. elem';
   };
 
   let leq = (e1: Element.t, e2: Element.t) => e1 <= e2;

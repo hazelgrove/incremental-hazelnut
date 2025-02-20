@@ -1,5 +1,6 @@
 // open Sexplib.Std;
 open Incremental;
+open Order;
 
 module Pexp: {
   [@deriving (sexp, compare)]
@@ -17,6 +18,7 @@ module Pexp: {
     | Plus(t, t)
     | Asc(t, t)
     | Hole
+    | Interval(Element.t, t, Element.t)
     | Mark(t, string);
 };
 

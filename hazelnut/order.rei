@@ -1,8 +1,9 @@
 // open Sexplib.Std;
 
 module Element: {
-  [@deriving sexp]
+  [@deriving (sexp, compare)]
   type t;
+  let string_of_element: t => string;
 };
 
 module OM: {

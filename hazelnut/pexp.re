@@ -1,5 +1,6 @@
 open Sexplib.Std;
 open Hazelnut;
+open Order;
 open Incremental;
 
 let compare_string = String.compare;
@@ -21,6 +22,7 @@ module Pexp = {
     | Plus(t, t)
     | Asc(t, t)
     | Hole
+    | Interval(Element.t, t, Element.t)
     | Mark(t, string);
 };
 
@@ -29,6 +31,11 @@ let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Num => Num
   | Hole => Hole;
+
+let pexp_of_htyp_opt: option(Htyp.t) => Pexp.t =
+  fun
+  | Some(t) => pexp_of_htyp(t)
+  | None => Var("■");
 
 let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   fun
@@ -57,51 +64,77 @@ let pexp_markif = (b: Mark.t, m: MarkMessage.t, exp: Pexp.t): Pexp.t =>
   | Marked => Mark(exp, string_of_mark_message(m))
   };
 
+let rec unwrap_extras: Pexp.t => (Pexp.t, Pexp.t => Pexp.t) =
+  fun
+  | Mark(e, m) => {
+      let (e', rewrap) = unwrap_extras(e);
+      (e', (x => Mark(rewrap(x), m)));
+    }
+  | Cursor(e) => {
+      let (e', rewrap) = unwrap_extras(e);
+      (e', (x => Cursor(rewrap(x))));
+    }
+  | NewAna(e, t) => {
+      let (e', rewrap) = unwrap_extras(e);
+      (e', (x => NewAna(rewrap(x), t)));
+    }
+  | NewSyn(e, t) => {
+      let (e', rewrap) = unwrap_extras(e);
+      (e', (x => NewSyn(rewrap(x), t)));
+    }
+  | New(e) => {
+      let (e', rewrap) = unwrap_extras(e);
+      (e', (x => New(rewrap(x))));
+    }
+  | Interval(n1, e, n2) => {
+      let (e', rewrap) = unwrap_extras(e);
+      (e', (x => Interval(n1, rewrap(x), n2)));
+    }
+  | e => (e, (x => x));
+
 let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
-  let d = pexp_of_iexp_middle(e.middle, s);
-  let d: Pexp.t =
+  let middle = pexp_of_iexp_middle(e.middle, s);
+
+  let with_cursor: Pexp.t =
     switch (s.c) {
-    | CursorExp(e') when e' === e => Cursor(d)
-    | CursorBind(e') when e' === e =>
-      switch (d) {
-      | Lam(x, t, body) => Lam(Cursor(x), t, body)
-      | _ => failwith("CursorBind on non-function")
-      }
-    | _ => d
+    | CursorExp(e') when e' === e => Cursor(middle)
+    | _ => middle
     };
+
+  let with_interval: Pexp.t =
+    Interval(fst(e.interval), with_cursor, snd(e.interval));
+
   let newify: Pexp.t => Pexp.t =
     fun
     // | New(t) => New(t)
     | t => New(t);
-  let implement_updates =
-      ((d, syn): (Pexp.t, option(Htyp.t)), u: Update.t)
-      : (Pexp.t, option(Htyp.t)) => {
+
+  let implement_updates = (d: Pexp.t, u: Update.t): Pexp.t => {
     switch (u) {
-    | NewSyn(e') when e === e' => (d, e.syn)
-    | NewSyn(_) => (d, syn)
-    | NewAna(_) => (d, syn)
+    | NewSyn(e') when e === e' => NewSyn(d, pexp_of_htyp_opt(e.syn))
+    | NewSyn(_) => d
+    | NewAna(_) => d
     | NewAnn(e') when e === e' =>
-      switch (d) {
-      | Cursor(Lam(x, t, body)) => (Cursor(Lam(x, newify(t), body)), syn)
-      | Lam(x, t, body) => (Lam(x, newify(t), body), syn)
-      | _ => failwith("NewAnn on non-function")
+      switch (unwrap_extras(d)) {
+      | (Lam(x, t, body), rewrap) => rewrap(Lam(x, newify(t), body))
+      | _ => failwith("NewAnn on non lambda (pexp)")
       }
-    | NewAnn(_) => (d, syn)
+    | NewAnn(_) => d
     | NewAsc(e') when e === e' =>
-      switch (d) {
-      | Cursor(Asc(body, t)) => (Cursor(Asc(body, newify(t))), syn)
-      | Asc(body, t) => (Asc(body, newify(t)), syn)
-      | _ => failwith("NewAsc on non-ascription")
+      switch (unwrap_extras(d)) {
+      | (Asc(body, t), rewrap) => rewrap(Asc(body, newify(t)))
+      | _ => failwith("NewAsc on non ascription (pexp)")
       }
-    | NewAsc(_) => (d, syn)
+    | NewAsc(_) => d
     };
   };
-  switch (
-    List.fold_left(implement_updates, (d, None), UpdateQueue.list_of_t(s.q))
-  ) {
-  | (d', Some(t)) => NewSyn(d', pexp_of_htyp(t))
-  | (d', None) => d'
-  };
+  let with_new_types =
+    List.fold_left(
+      implement_updates,
+      with_interval,
+      UpdateQueue.list_of_t(s.q),
+    );
+  with_new_types;
 }
 
 and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
@@ -111,19 +144,21 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
   | Plus(e1, e2) =>
     Plus(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
   | Lam(x, t, m1, m2, body, _bound_vars) =>
+    let pb: Pexp.t =
+      switch (s.c) {
+      | CursorBind(e') when e'.middle === e => Cursor(pexp_of_bind(x))
+      | _ => pexp_of_bind(x)
+      };
     let pt =
       switch (s.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
+    let lower = pexp_of_iexp_lower(body, s);
     pexp_markif(
       m2.contents,
       LamAnnIncon,
-      pexp_markif(
-        m1.contents,
-        NonArrowLam,
-        Lam(pexp_of_bind(x), pt, pexp_of_iexp_lower(body, s)),
-      ),
+      pexp_markif(m1.contents, NonArrowLam, Lam(pb, pt, lower)),
     );
   | Ap(e1, m, e2) =>
     pexp_markif(
@@ -175,6 +210,7 @@ let rec prec: Pexp.t => int =
   | Plus(_) => 3
   | Asc(_) => 4
   | Hole => 0
+  | Interval(_) => 0
   | Mark(_, _) => 0;
 
 module Side = {
@@ -199,6 +235,7 @@ let rec assoc: Pexp.t => Side.t =
   | Plus(_) => Left
   | Asc(_) => Left
   | Hole => Atom
+  | Interval(_) => Atom
   | Mark(_, _) => Atom;
 
 let rec string_of_pexp: Pexp.t => string =
@@ -230,6 +267,14 @@ let rec string_of_pexp: Pexp.t => string =
   | Asc(e, t) as outer =>
     paren(e, outer, Side.Left) ++ ": " ++ paren(t, outer, Side.Right)
   | Hole => "?"
+  | Interval(n1, e, n2) =>
+    "{"
+    ++ Element.string_of_element(n1)
+    ++ "]"
+    ++ string_of_pexp(e)
+    ++ "["
+    ++ Element.string_of_element(n2)
+    ++ "}"
   | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"
 
 and paren = (inner: Pexp.t, outer: Pexp.t, side: Side.t): string => {
