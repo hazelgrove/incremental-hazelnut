@@ -6,16 +6,16 @@ module Iexp: {
   type lower = {
     mutable upper,
     mutable ana: option(Htyp.t),
-    mutable marked: bool,
+    mutable marked: Mark.t,
     mutable child: upper,
   }
 
   and middle =
-    | Var(string, bool, binder)
+    | Var(string, Mark.t, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(Bind.t, ref(Htyp.t), ref(bool), ref(bool), lower, bound_vars)
-    | Ap(lower, ref(bool), lower)
+    | Lam(Bind.t, ref(Htyp.t), ref(Mark.t), ref(Mark.t), lower, bound_vars)
+    | Ap(lower, ref(Mark.t), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
 
@@ -58,7 +58,7 @@ module Iaction: {
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapLam
-    | WrapLamInner(Bind.t, Htyp.t, bool, bool)
+    | WrapLamInner(Bind.t, Htyp.t, Mark.t, Mark.t)
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };

@@ -21,3 +21,4 @@ module Pexp: {
 };
 
 let pexp_of_iexp: (Iexp.upper, Istate.t) => Pexp.t;
+let string_of_pexp: Pexp.t => string;

@@ -42,20 +42,19 @@ let pexp_of_bind: Hazelnut.Bind.t => Pexp.t = {
   | Var(x) => Var(x);
 };
 
-let string_of_mark: Hazelnut.Mark.t => string = {
+let string_of_mark_message: Hazelnut.MarkMessage.t => string = {
   fun
   | Free => "Free"
   | NonArrowAp => "NonArrowAp"
   | NonArrowLam => "NonArrowLam"
-  | LamAscIncon => "LamAscIncon"
+  | LamAnnIncon => "LamAnnIncon"
   | Inconsistent => "Inconsistent";
 };
 
-let pexp_markif = (b: bool, m: Mark.t, exp: Pexp.t): Pexp.t =>
-  if (b) {
-    Mark(exp, string_of_mark(m));
-  } else {
-    exp;
+let pexp_markif = (b: Mark.t, m: MarkMessage.t, exp: Pexp.t): Pexp.t =>
+  switch (b) {
+  | Unmarked => exp
+  | Marked => Mark(exp, string_of_mark_message(m))
   };
 
 let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
@@ -119,7 +118,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       };
     pexp_markif(
       m2.contents,
-      LamAscIncon,
+      LamAnnIncon,
       pexp_markif(
         m1.contents,
         NonArrowLam,
@@ -157,6 +156,99 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
   switch (List.filter_map(filter_updates, UpdateQueue.list_of_t(s.q))) {
   | [t, ..._] => NewAna(d, pexp_of_htyp(t))
   | [] => d
+  };
+};
+
+// Lower is tighter
+let rec prec: Pexp.t => int =
+  fun
+  | Cursor(e) => prec(e)
+  | NewSyn(_, _) => 5
+  | NewAna(_, _) => 5
+  | New(_) => 3
+  | Arrow(_) => 1
+  | Num => 0
+  | Var(_) => 0
+  | Lam(_) => 0
+  | Ap(_) => 2
+  | NumLit(_) => 0
+  | Plus(_) => 3
+  | Asc(_) => 4
+  | Hole => 0
+  | Mark(_, _) => 0;
+
+module Side = {
+  type t =
+    | Left
+    | Right
+    | Atom;
+};
+
+let rec assoc: Pexp.t => Side.t =
+  fun
+  | Cursor(e) => assoc(e)
+  | NewSyn(_, _) => Left
+  | NewAna(_, _) => Left
+  | New(_) => Left
+  | Arrow(_) => Right
+  | Num => Atom
+  | Var(_) => Atom
+  | Lam(_) => Atom
+  | Ap(_) => Left
+  | NumLit(_) => Atom
+  | Plus(_) => Left
+  | Asc(_) => Left
+  | Hole => Atom
+  | Mark(_, _) => Atom;
+
+let rec string_of_pexp: Pexp.t => string =
+  fun
+  | Cursor(e) => "👉" ++ string_of_pexp(e) ++ "👈"
+  | NewSyn(e, t) as outer =>
+    paren(e, outer, Side.Left) ++ "⇒" ++ paren(t, outer, Side.Right) ++ "*"
+  | NewAna(e, t) as outer =>
+    paren(e, outer, Side.Left) ++ "⇐" ++ paren(t, outer, Side.Right) ++ "*"
+  | New(t) => string_of_pexp(t) ++ "*"
+  | Arrow(t1, t2) as outer =>
+    paren(t1, outer, Side.Left) ++ " → " ++ paren(t2, outer, Side.Right)
+  | Num => "Num"
+  | Var(x) => x
+  | Lam(x, a, e) =>
+    "fun "
+    ++ string_of_pexp(x)
+    ++ ": "
+    ++ string_of_pexp(a)
+    ++ " ↦ ("
+    ++ string_of_pexp(e)
+    ++ ")"
+
+  | Ap(e1, e2) as outer =>
+    paren(e1, outer, Side.Left) ++ " " ++ paren(e2, outer, Side.Right)
+  | NumLit(n) => string_of_int(n)
+  | Plus(e1, e2) as outer =>
+    paren(e1, outer, Side.Left) ++ " + " ++ paren(e2, outer, Side.Right)
+  | Asc(e, t) as outer =>
+    paren(e, outer, Side.Left) ++ ": " ++ paren(t, outer, Side.Right)
+  | Hole => "?"
+  | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"
+
+and paren = (inner: Pexp.t, outer: Pexp.t, side: Side.t): string => {
+  let unparenned = string_of_pexp(inner);
+  let parenned = "(" ++ unparenned ++ ")";
+
+  let prec_inner = prec(inner);
+  let prec_outer = prec(outer);
+
+  if (prec_inner < prec_outer) {
+    unparenned;
+  } else if (prec_inner > prec_outer) {
+    parenned;
+  } else {
+    switch (assoc(inner), side) {
+    | (Side.Left, Side.Right)
+    | (Side.Right, Side.Left) => parenned
+    | _ => unparenned
+    };
   };
 };
 

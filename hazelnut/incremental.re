@@ -9,16 +9,16 @@ module Iexp = {
   type lower = {
     mutable upper,
     mutable ana: option(Htyp.t),
-    mutable marked: bool,
+    mutable marked: Mark.t,
     mutable child: upper,
   }
 
   and middle =
-    | Var(string, bool, binder)
+    | Var(string, Mark.t, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(Bind.t, ref(Htyp.t), ref(bool), ref(bool), lower, bound_vars)
-    | Ap(lower, ref(bool), lower)
+    | Lam(Bind.t, ref(Htyp.t), ref(Mark.t), ref(Mark.t), lower, bound_vars)
+    | Ap(lower, ref(Mark.t), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
 
@@ -152,7 +152,7 @@ module Iaction = {
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapLam
-    | WrapLamInner(Bind.t, Htyp.t, bool, bool)
+    | WrapLamInner(Bind.t, Htyp.t, Mark.t, Mark.t)
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
@@ -206,15 +206,15 @@ let freshen_ana_parent = (parent: Iexp.parent): list(Update.t) => {
 // Finds the looks up [name] in the context of [e].
 // Returns the binding site (or root), the synthesized type, and whether [name] is free.
 let rec look_up_binder =
-        (e: Iexp.upper, name: string): (Iexp.parent, Htyp.t, bool) => {
+        (e: Iexp.upper, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
   switch (e.parent) {
   | Deleted
-  | Root(_) => (e.parent, Hole, true)
+  | Root(_) => (e.parent, Hole, Marked)
   | Lower(lower) =>
     switch (lower.upper.middle) {
     | Lam(bind, lam_ty, _, _, _, _) =>
       if (bind == Var(name)) {
-        (e.parent, lam_ty.contents, false);
+        (e.parent, lam_ty.contents, Unmarked);
       } else {
         look_up_binder(lower.upper, name);
       }
@@ -259,7 +259,7 @@ let var_syn = (e: Iexp.upper, syn: Htyp.t) => {
 // makes them all synthesize [syn], marks them all as [m], and updates their
 // binding on both ends.
 let update_var =
-    (e: Iexp.upper, syn: Htyp.t, m: bool, new_binder: Iexp.binder) => {
+    (e: Iexp.upper, syn: Htyp.t, m: Mark.t, new_binder: Iexp.binder) => {
   switch (e.middle) {
   | Var(var_name, _, old_binder) =>
     // remove this var from its previous binder
@@ -286,7 +286,7 @@ let rec capture_name =
           e: Iexp.upper,
           name: string,
           syn: Htyp.t,
-          m: bool,
+          m: Mark.t,
           binder: Iexp.binder,
         )
         : list(Iexp.upper) => {
@@ -506,13 +506,13 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper,
         ana: Some(Num),
-        marked: false,
+        marked: Unmarked,
         child: e1,
       };
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
         ana: Some(Num),
-        marked: false,
+        marked: Unmarked,
         child: e2,
       };
       let new_mid: Iexp.middle = Plus(new_lower_left, new_lower_right);
@@ -555,17 +555,17 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper,
         ana: None,
-        marked: false,
+        marked: Unmarked,
         child: e1,
       };
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
         ana: Some(Hole),
-        marked: false,
+        marked: Unmarked,
         child: e2,
       };
       let new_mid: Iexp.middle =
-        Ap(new_lower_left, ref(false), new_lower_right);
+        Ap(new_lower_left, ref(Mark.Unmarked), new_lower_right);
       let new_upper: Iexp.upper = {
         parent,
         syn: Some(Hole),
@@ -596,12 +596,13 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       make_ap_with_children(e.parent, interval, hole, e, q);
     | Three => no_op
     };
-  | (_, WrapLam) => apply_action(s, WrapLamInner(Hole, Hole, false, false))
+  | (_, WrapLam) =>
+    apply_action(s, WrapLamInner(Hole, Hole, Unmarked, Unmarked))
   | (CursorExp(body), WrapLamInner(x, t, m1, m2)) =>
     let new_lower: Iexp.lower = {
       upper: dummy_upper,
       ana: None,
-      marked: false,
+      marked: Unmarked,
       child: body,
     };
     let new_bounds = ref([]);
@@ -620,7 +621,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       switch (x) {
       | Hole => []
       | Var(name) =>
-        capture_name(body, name, t, false, Iexp.Lower(new_lower))
+        capture_name(body, name, t, Unmarked, Iexp.Lower(new_lower))
       };
     print_endline(string_of_int(List.length(newly_bound)) ++ " captured");
     new_bounds.contents = newly_bound;
@@ -640,7 +641,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     let new_lower: Iexp.lower = {
       upper: dummy_upper,
       ana: Some(Hole),
-      marked: false,
+      marked: Unmarked,
       child: e,
     };
     let new_mid: Iexp.middle = Asc(new_lower, ref(Htyp.Hole));
@@ -755,19 +756,19 @@ let update_step = (s: Istate.t): option(Istate.t) => {
         e2.ana = t_in;
         parent.upper.syn = t_out;
         m.contents = m';
-        e1.marked = false;
+        e1.marked = Unmarked;
         let update_list = [Update.NewAna(e2), Update.NewSyn(parent.upper)];
         {...s, q: UpdateQueue.push_list(update_list, q')};
       | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
         // UPDATE: StepSynFun
         parent.upper.syn =
           arrow_unless(t.contents, body.child.syn, parent.ana);
-        body.marked = false;
+        body.marked = Unmarked;
         let update_list = [Update.NewSyn(parent.upper)];
         {...s, q: UpdateQueue.push_list(update_list, q')};
       | _ when Option.is_some(parent.ana) =>
         // UPDATE: StepSynConsist
-        parent.marked = !type_consistent_opt(e.syn, parent.ana);
+        parent.marked = type_consistent_opt(e.syn, parent.ana);
         {...s, q: q'};
       | _ => failwith("unrecognized update step")
       }
@@ -783,13 +784,13 @@ let update_step = (s: Istate.t): option(Istate.t) => {
       body.ana = t_out;
       parent.child.syn =
         arrow_unless(t_ann.contents, body.child.syn, parent.ana);
-      parent.marked = false;
+      parent.marked = Unmarked;
       let update_list = [Update.NewAna(body), Update.NewSyn(parent.child)];
       {...s, q: UpdateQueue.push_list(update_list, q')};
     | _ =>
       // This case must come after the above case. Relies on the term being subsumable.
       // UPDATE: StepAnaConsist
-      parent.marked = !type_consistent_opt(parent.child.syn, parent.ana);
+      parent.marked = type_consistent_opt(parent.child.syn, parent.ana);
       {...s, q: q'};
     }
   | NewAnn(e) =>
