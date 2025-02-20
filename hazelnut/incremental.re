@@ -211,14 +211,27 @@ let rec look_up_binder =
   | Deleted
   | Root(_) => (e.parent, Hole, Marked)
   | Lower(lower) =>
+    // print_endline("found lower while unshadowing...");
     switch (lower.upper.middle) {
     | Lam(bind, lam_ty, _, _, _, _) =>
+      // print_endline("... it's a lam ...");
       if (bind == Var(name)) {
-        (e.parent, lam_ty.contents, Unmarked);
+        (
+          // print_endline("... a match!");
+          e.parent,
+          lam_ty.contents,
+          Unmarked,
+        );
       } else {
-        look_up_binder(lower.upper, name);
+        // print_endline("... not a match.");
+        look_up_binder(
+          lower.upper,
+          name,
+        );
       }
-    | _ => look_up_binder(lower.upper, name)
+    | _ =>
+      // print_endline("... it's not a lam.");
+      look_up_binder(lower.upper, name)
     }
   };
 };
@@ -293,8 +306,10 @@ let rec capture_name =
   switch (e.middle) {
   | Var(var_name, _, _) =>
     if (name == var_name) {
-      print_endline("capturing " ++ var_name);
-      [update_var(e, syn, m, binder)];
+      [
+        // print_endline("capturing " ++ var_name);
+        update_var(e, syn, m, binder),
+      ];
     } else {
       [];
     }
@@ -623,7 +638,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       | Var(name) =>
         capture_name(body, name, t, Unmarked, Iexp.Lower(new_lower))
       };
-    print_endline(string_of_int(List.length(newly_bound)) ++ " captured");
+    // print_endline(string_of_int(List.length(newly_bound)) ++ " captured");
     new_bounds.contents = newly_bound;
 
     let update_list =
@@ -679,7 +694,11 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind) {
       | Hole => ()
       | Var(x) =>
-        let (new_binder, t, m) = look_up_binder(e, x);
+        let (new_binder, t, m) = look_up_binder(body, x);
+        // switch (m) {
+        // | Unmarked => print_endline("Found unshadow")
+        // | Marked => print_endline("No unshadow found")
+        // };
         let update = var => update_var(var, t, m, new_binder);
         let _ = List.map(update, bound_vars.contents);
         ();
