@@ -417,15 +417,19 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     }
   | (CursorBind(e), InsertVar(x)) =>
     switch (e.middle) {
-    | Lam(Hole, t, m1, m2, _, _) =>
-      let unwrapped = apply_action({...s, c: CursorExp(e)}, Unwrap(One));
-      let rewrapped =
-        apply_action(
-          unwrapped,
-          WrapLamInner(Var(x), t.contents, m1.contents, m2.contents),
-        );
-      let moved_down = apply_action(rewrapped, MoveDown(One));
-      moved_down;
+    | Lam(binder, t, m1, m2, _, _) =>
+      switch (binder) {
+      | Hole =>
+        let unwrapped = apply_action({...s, c: CursorExp(e)}, Unwrap(One));
+        let rewrapped =
+          apply_action(
+            unwrapped,
+            WrapLamInner(Var(x), t.contents, m1.contents, m2.contents),
+          );
+        let moved_down = apply_action(rewrapped, MoveDown(One));
+        moved_down;
+      | _ => no_op
+      }
     | _ => failwith("CursorBind on non lambda")
     }
   | (CursorBind(_), _) => no_op
