@@ -691,24 +691,26 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       // update bound variables to outer binder
-      switch (bind) {
-      | Hole => ()
-      | Var(x) =>
-        let (new_binder, t, m) = look_up_binder(body, x);
-        // switch (m) {
-        // | Unmarked => print_endline("Found unshadow")
-        // | Marked => print_endline("No unshadow found")
-        // };
-        let update = var => update_var(var, t, m, new_binder);
-        let _ = List.map(update, bound_vars.contents);
-        ();
-      };
+      let newly_bound =
+        switch (bind) {
+        | Hole => []
+        | Var(x) =>
+          let (new_binder, t, m) = look_up_binder(body, x);
+          // switch (m) {
+          // | Unmarked => print_endline("Found unshadow")
+          // | Marked => print_endline("No unshadow found")
+          // };
+          let update = var => update_var(var, t, m, new_binder);
+          List.map(update, bound_vars.contents);
+        };
 
       // because updating vars could have deleted the body
       let new_body = child_of_parent(parent);
 
       let update_list =
-        freshen_ana_parent(parent) @ [Update.NewSyn(new_body)];
+        freshen_ana_parent(parent)
+        @ List.map(e => Update.NewSyn(e), newly_bound)
+        @ [Update.NewSyn(new_body)];
       {
         ...s,
         c: CursorExp(new_body),
