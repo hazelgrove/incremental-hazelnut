@@ -51,6 +51,7 @@ module Action = {
   type action =
     | HazelnutAction(Iaction.t)
     | UpdateStep
+    | UpdateStepOut
     | UpdateInput(input_location, string)
     | ShowWarning(string);
 
@@ -64,7 +65,7 @@ module State = {
 
 let apply_action =
     (model: Model.t, actions: Action.t, _, ~schedule_action as _): Model.t => {
-  let f = (model: Model.t, action: Action.action): Model.t => {
+  let rec f = (model: Model.t, action: Action.action): Model.t => {
     let state = model.state;
 
     let warn = (warning: string): Model.t =>
@@ -75,6 +76,12 @@ let apply_action =
       | _ => false
       },
     );
+
+    let marking_validate = () =>
+      marked_correctly(child_of_parent(state.root))
+        ? print_endline("marking correct")
+        : failwith("marking validation error");
+
     switch (action) {
     | HazelnutAction(action) =>
       try({
@@ -83,11 +90,19 @@ let apply_action =
       }) {
       | Unimplemented => warn("Unimplemented")
       }
+    | UpdateStepOut =>
+      switch (update_step(state.istate)) {
+      | Some(istate') =>
+        f(Model.set({...state, istate: istate'}), UpdateStepOut)
+      | None =>
+        marking_validate();
+        model;
+      }
     | UpdateStep =>
       switch (update_step(state.istate)) {
       | Some(istate') => Model.set({...state, istate: istate'})
       | None =>
-        assert(marked_correctly(child_of_parent(state.root)));
+        marking_validate();
         model;
       }
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
@@ -180,8 +195,11 @@ let view =
         );
       };
 
-      let update_button =
-        Node.div([button("Update Step", Action.UpdateStep, None)]);
+      let update_buttons =
+        Node.div([
+          button("Update Step", Action.UpdateStep, None),
+          button("All Update Steps", Action.UpdateStepOut, None),
+        ]);
 
       let move_buttons =
         Node.div([
@@ -266,7 +284,7 @@ let view =
         Node.div([button("Delete", Action.HazelnutAction(Delete), None)]);
 
       Node.div([
-        update_button,
+        update_buttons,
         move_buttons,
         construct_buttons,
         unwrap_buttons,
