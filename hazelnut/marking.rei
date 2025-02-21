@@ -1,2 +1,2 @@
 open Incremental;
-let marked_correctly: Iexp.upper => bool;
+let marked_correctly: Iexp.upper => option(Iexp.upper);

@@ -78,9 +78,13 @@ let apply_action =
     );
 
     let marking_validate = () =>
-      marked_correctly(child_of_parent(state.root))
-        ? print_endline("marking correct")
-        : failwith("marking validation error");
+      switch (marked_correctly(child_of_parent(state.root))) {
+      | None => print_endline("marking correct")
+      | Some(e') =>
+        print_endline("ERROR: should see:");
+        print_endline(string_of_pexp(pexp_of_iexp(e', state.istate)));
+        failwith("<>");
+      };
 
     switch (action) {
     | HazelnutAction(action) =>

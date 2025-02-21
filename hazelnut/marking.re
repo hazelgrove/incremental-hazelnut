@@ -1,6 +1,7 @@
 open Hazelnut;
 open Incremental;
 open Order;
+// open Pexp;
 
 type bareExp =
   | Var(string)
@@ -118,7 +119,7 @@ let rec mark_syn = (ctx: ctx): (bareExp => Iexp.upper) =>
 and mark_ana = (ctx: ctx, ana: Htyp.t): (bareExp => Iexp.lower) =>
   fun
   | Lam(x, t, e) => {
-      let (t1, t2, m1) = matched_arrow_typ(t);
+      let (t1, t2, m1) = matched_arrow_typ(ana);
       let m2 = type_consistent(t, t1);
       let body = mark_ana(extend_ctx_bind(ctx, x, t), t2, e);
       let middle: Iexp.middle =
@@ -158,4 +159,5 @@ and equiv_lower = (e1: Iexp.lower, e2: Iexp.lower): bool =>
   && e1.marked == e2.marked
   && equiv_upper(e1.child, e2.child);
 
-let marked_correctly = e => equiv_upper(e, remark(e));
+let marked_correctly = e =>
+  equiv_upper(e, remark(e)) ? None : Some(remark(e));
