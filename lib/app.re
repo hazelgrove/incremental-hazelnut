@@ -65,7 +65,7 @@ module State = {
 
 let apply_action =
     (model: Model.t, actions: Action.t, _, ~schedule_action as _): Model.t => {
-  let rec f = (model: Model.t, action: Action.action): Model.t => {
+  let f = (model: Model.t, action: Action.action): Model.t => {
     let state = model.state;
 
     let warn = (warning: string): Model.t =>
@@ -101,13 +101,7 @@ let apply_action =
       | Unimplemented => warn("Unimplemented")
       }
     | UpdateStepOut =>
-      switch (update_step(state.istate)) {
-      | Some(istate') =>
-        f(Model.set({...state, istate: istate'}), UpdateStepOut)
-      | None =>
-        marking_validate();
-        model;
-      }
+      Model.set({...state, istate: all_update_steps(state.istate)})
     | UpdateStep =>
       switch (update_step(state.istate)) {
       | Some(istate') => Model.set({...state, istate: istate'})

@@ -846,3 +846,9 @@ let update_step = (s: Istate.t): option(Istate.t) => {
     }
   };
 };
+
+let rec all_update_steps = (s: Istate.t): Istate.t =>
+  switch (update_step(s)) {
+  | None => s
+  | Some(s') => all_update_steps(s')
+  };

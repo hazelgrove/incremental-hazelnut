@@ -1,3 +1,3 @@
 (test
- (name hazelnut_test)
- (libraries hazelnut_lib alcotest))
+ (name test_validity)
+ (libraries hazelnut_lib app_lib alcotest))
