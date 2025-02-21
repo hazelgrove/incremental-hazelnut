@@ -66,22 +66,26 @@ let matched_arrow_typ_opt =
   };
 };
 
-let rec type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
+let rec is_type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
   switch (t1, t2) {
   | (Hole, _)
   | (_, Hole) => true
   | (Num, Num) => true
   | (Arrow(t11, t12), Arrow(t21, t22)) =>
-    type_consistent(t11, t21) && type_consistent(t12, t22)
+    is_type_consistent(t11, t21) && is_type_consistent(t12, t22)
   | _ => false
   };
+};
+
+let type_consistent = (t1: Htyp.t, t2: Htyp.t): Mark.t => {
+  is_type_consistent(t1, t2) ? Unmarked : Marked;
 };
 
 let type_consistent_opt = (t1: option(Htyp.t), t2: option(Htyp.t)): Mark.t => {
   switch (t1, t2) {
   | (None, _) => Unmarked
   | (_, None) => Unmarked
-  | (Some(t1), Some(t2)) => type_consistent(t1, t2) ? Unmarked : Marked
+  | (Some(t1), Some(t2)) => type_consistent(t1, t2)
   };
 };
 

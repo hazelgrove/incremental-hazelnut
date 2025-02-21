@@ -4,6 +4,7 @@ open Monad_lib.Monad;
 open Hazelnut_lib.Hazelnut;
 open Hazelnut_lib.Incremental;
 open Hazelnut_lib.Pexp;
+open Hazelnut_lib.Marking;
 
 [@deriving (sexp, fields)]
 type state = {
@@ -85,7 +86,9 @@ let apply_action =
     | UpdateStep =>
       switch (update_step(state.istate)) {
       | Some(istate') => Model.set({...state, istate: istate'})
-      | None => model
+      | None =>
+        assert(marked_correctly(child_of_parent(state.root)));
+        model;
       }
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
     | UpdateInput(Let, let_input) => Model.set({...state, let_input})

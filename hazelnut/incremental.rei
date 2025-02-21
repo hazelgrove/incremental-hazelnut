@@ -96,7 +96,9 @@ module Istate: {
   };
 };
 
+let dummy_upper: Iexp.upper;
 let initial_root: Iexp.parent;
 let initial_state: Istate.t;
+let child_of_parent: Iexp.parent => Iexp.upper;
 let apply_action: (Istate.t, Iaction.t) => Istate.t;
 let update_step: Istate.t => option(Istate.t);
