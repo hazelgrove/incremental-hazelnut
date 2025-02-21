@@ -81,7 +81,13 @@ let apply_action =
       switch (marked_correctly(child_of_parent(state.root))) {
       | None => print_endline("marking correct")
       | Some(e') =>
-        print_endline("ERROR: should see:");
+        print_endline("ERROR: see:");
+        print_endline(
+          string_of_pexp(
+            pexp_of_iexp(child_of_parent(state.root), state.istate),
+          ),
+        );
+        print_endline("should see:");
         print_endline(string_of_pexp(pexp_of_iexp(e', state.istate)));
         failwith("<>");
       };
@@ -138,11 +144,7 @@ let view =
     //   mark_syn(TypCtx.empty, e_no_cursor);
 
     // let e_folded = fold_zexp_mexp(e_cursor, e_marked);
-    let root_display_exp =
-      switch (state.root) {
-      | Root(r) => pexp_of_iexp(r.root_child, state.istate)
-      | _ => failwith("impossible")
-      };
+    let root_display_exp = pexp_of_root(state.root, state.istate);
 
     let root_string = string_of_pexp(root_display_exp);
 
@@ -151,7 +153,7 @@ let view =
         Node.p([Node.textf("%s", root_string)]),
         // Node.p([Node.textf("%s", string_of_pexp(pexp_of_htyp(t)))]),
       ]);
-    print_endline("should see " ++ root_string);
+    print_endline(root_string);
 
     let buttons = {
       let button =

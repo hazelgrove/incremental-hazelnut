@@ -139,16 +139,33 @@ let rec equiv_upper = (e1: Iexp.upper, e2: Iexp.upper): bool =>
   e1.syn == e2.syn && equiv_middle(e1.middle, e2.middle)
 
 and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
+  let return = b => {
+    b
+      ? b
+      : {
+        print_endline("inequiv!");
+        b;
+      };
+  };
   switch (e1, e2) {
-  | (Var(x1, m1, _), Var(x2, m2, _)) => (x1, m1) == (x2, m2)
-  | (NumLit(x1), NumLit(x2)) => x1 == x2
+  | (Var(x1, m1, _), Var(x2, m2, _)) =>
+    print_endline("comparing var");
+    return((x1, m1) == (x2, m2));
+  | (NumLit(x1), NumLit(x2)) =>
+    print_endline("comparing numlit");
+    return(x1 == x2);
   | (Plus(e1, e2), Plus(e3, e4)) =>
-    equiv_lower(e1, e3) && equiv_lower(e2, e4)
+    print_endline("comparing plus");
+    return(equiv_lower(e1, e3) && equiv_lower(e2, e4));
   | (Lam(x1, t1, m1, m2, e1, _), Lam(x2, t2, m3, m4, e2, _)) =>
-    (x1, t1, m1, m2) == (x2, t2, m3, m4) && equiv_lower(e1, e2)
+    print_endline("comparing lam");
+    return((x1, t1, m1, m2) == (x2, t2, m3, m4) && equiv_lower(e1, e2));
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
-    equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4)
-  | (Asc(e1, t1), Asc(e2, t2)) => equiv_lower(e1, e2) && t1 == t2
+    print_endline("comparing ap");
+    return(equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4));
+  | (Asc(e1, t1), Asc(e2, t2)) =>
+    print_endline("comparing asc");
+    equiv_lower(e1, e2) && t1 == t2;
   | (EHole, EHole) => true
   | _ => false
   };

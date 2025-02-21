@@ -67,7 +67,7 @@ module Update: {
   [@deriving sexp]
   type t =
     | NewSyn(Iexp.upper)
-    | NewAna(Iexp.lower)
+    | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper);
 

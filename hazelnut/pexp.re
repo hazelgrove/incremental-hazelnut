@@ -185,7 +185,7 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
   let d = pexp_markif(e.marked, Inconsistent, pexp_of_iexp(e.child, s));
   let filter_updates = (u: Update.t) => {
     switch (u) {
-    | NewAna(e') when e === e' => e.ana
+    | NewAna(Lower(e')) when e === e' => e.ana
     | NewAna(_) => None
     | NewSyn(_) => None
     | NewAnn(_) => None
@@ -195,6 +195,25 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
   switch (List.filter_map(filter_updates, UpdateQueue.list_of_t(s.q))) {
   | [t, ..._] => NewAna(d, pexp_of_htyp(t))
   | [] => d
+  };
+};
+
+let pexp_of_root = (parent: Iexp.parent, s: Istate.t): Pexp.t => {
+  switch (parent) {
+  | Root(e) =>
+    let d = pexp_of_iexp(e.root_child, s);
+    let filter_updates = (u: Update.t) => {
+      switch (u) {
+      | NewAna(Root(e')) when e' === e => true
+      | NewAna(_) => false
+      | NewSyn(_) => false
+      | NewAnn(_) => false
+      | NewAsc(_) => false
+      };
+    };
+    List.exists(filter_updates, UpdateQueue.list_of_t(s.q))
+      ? NewAna(d, pexp_of_htyp_opt(None)) : d;
+  | _ => failwith("non-rooy root (pexp)")
   };
 };
 
