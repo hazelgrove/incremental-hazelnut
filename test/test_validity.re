@@ -30,4 +30,9 @@ let a1: list(list(Iaction.t)) = [
   [MoveUp, MoveDown(Two), WrapArrow(One)],
 ];
 
-test_actionses(a1);
+let a2: list(list(Iaction.t)) = [
+  [InsertVar("x"), WrapAp(One), WrapLam, MoveDown(One), InsertVar("x")],
+  [MoveUp, MoveDown(Two), InsertNumType],
+];
+
+test_actionses(a1 @ [[Iaction.Delete]] @ a2);
