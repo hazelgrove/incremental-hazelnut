@@ -1,0 +1,10 @@
+(executables
+ (names eval)
+ (public_names eval)
+ (libraries core unix core_unix.sys_unix core_unix.time_unix core_unix yojson hazelnut_lib pprint)
+ (preprocess
+  (pps ppx_deriving.show ppx_jane)))
+
+(env
+  (dev
+    (flags (:standard -warn-error -A))))
