@@ -16,6 +16,7 @@ type state = {
   let_input: string,
   lit_input: string,
   bool_input: string,
+  action_string: string,
 };
 
 module Model = {
@@ -34,6 +35,7 @@ module Model = {
       let_input: "",
       lit_input: "",
       bool_input: "true | false",
+      action_string: "",
     });
   // let cutoff = (t1: t, t2: t): bool => compare(t1, t2) == 0;
   let cutoff = (_: t, _: t): bool => false;
@@ -89,19 +91,23 @@ let apply_action =
         );
         print_endline("should see:");
         print_endline(string_of_pexp(pexp_of_iexp(e', state.istate)));
-        failwith("<>");
+        failwith("Marking failure");
       };
 
     switch (action) {
     | HazelnutAction(action) =>
       try({
         let istate' = apply_action(state.istate, action);
-        Model.set({...state, istate: istate'});
+        let action_string =
+          state.action_string ++ string_of_action(action) ++ ",";
+        Model.set({...state, action_string, istate: istate'});
       }) {
       | Unimplemented => warn("Unimplemented")
       }
     | UpdateStepOut =>
-      Model.set({...state, istate: all_update_steps(state.istate)})
+      let istate' = all_update_steps(state.istate);
+      marking_validate();
+      Model.set({...state, istate: istate'});
     | UpdateStep =>
       switch (update_step(state.istate)) {
       | Some(istate') => Model.set({...state, istate: istate'})
@@ -300,7 +306,12 @@ let view =
         },
       );
 
-    Node.div([expression, buttons, warning]);
+    let action_string =
+      Node.div([
+        Node.p([Node.textf("%s", "[" ++ state.action_string ++ "]")]),
+      ]);
+
+    Node.div([expression, buttons, action_string, warning]);
   };
 
   Node.body([body]);

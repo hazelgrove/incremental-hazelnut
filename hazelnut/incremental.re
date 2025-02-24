@@ -39,7 +39,14 @@ module Iexp = {
     | Var(string, Mark.t, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(Bind.t, ref(Htyp.t), ref(Mark.t), ref(Mark.t), lower, bound_vars)
+    | Lam(
+        ref(Bind.t),
+        ref(Htyp.t),
+        ref(Mark.t),
+        ref(Mark.t),
+        lower,
+        bound_vars,
+      )
     | Ap(lower, ref(Mark.t), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
@@ -300,7 +307,7 @@ let rec look_up_binder =
     switch (lower.upper.middle) {
     | Lam(bind, lam_ty, _, _, _, _) =>
       // print_endline("... it's a lam ...");
-      if (bind == Var(name)) {
+      if (bind.contents == Var(name)) {
         (
           // print_endline("... a match!");
           e.parent,
@@ -381,20 +388,14 @@ let update_var =
 // Finds all (syntactically) free variables with given name, updates them,
 // and returns them as a list.
 let rec capture_name =
-        (
-          e: Iexp.upper,
-          name: string,
-          syn: Htyp.t,
-          m: Mark.t,
-          binder: Iexp.binder,
-        )
+        (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder)
         : list(Iexp.upper) => {
   switch (e.middle) {
   | Var(var_name, _, _) =>
     if (name == var_name) {
       [
         // print_endline("capturing " ++ var_name);
-        update_var(e, syn, m, binder),
+        update_var(e, syn, Unmarked, binder),
       ];
     } else {
       [];
@@ -402,21 +403,21 @@ let rec capture_name =
   | NumLit(_) => []
   | Plus(lower_a, lower_b) =>
     List.append(
-      capture_name(lower_a.child, name, syn, m, binder),
-      capture_name(lower_b.child, name, syn, m, binder),
+      capture_name(lower_a.child, name, syn, binder),
+      capture_name(lower_b.child, name, syn, binder),
     )
   | Lam(bind, _, _, _, body_lower, _) =>
-    if (bind == Var(name)) {
+    if (bind.contents == Var(name)) {
       [];
     } else {
-      capture_name(body_lower.child, name, syn, m, binder);
+      capture_name(body_lower.child, name, syn, binder);
     }
   | Ap(actor, _, param) =>
     List.append(
-      capture_name(actor.child, name, syn, m, binder),
-      capture_name(param.child, name, syn, m, binder),
+      capture_name(actor.child, name, syn, binder),
+      capture_name(param.child, name, syn, binder),
     )
-  | Asc(lower, _) => capture_name(lower.child, name, syn, m, binder)
+  | Asc(lower, _) => capture_name(lower.child, name, syn, binder)
   | EHole => []
   };
 };
@@ -525,17 +526,18 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     }
   | (CursorBind(e), InsertVar(x)) =>
     switch (e.middle) {
-    | Lam(binder, t, m1, m2, _, _) =>
-      switch (binder) {
+    | Lam(binder, t, _m1, _m2, body, bounds) =>
+      switch (binder.contents) {
       | Hole =>
-        let unwrapped = apply_action({...s, c: CursorExp(e)}, Unwrap(One));
-        let rewrapped =
-          apply_action(
-            unwrapped,
-            WrapLamInner(Var(x), t.contents, m1.contents, m2.contents),
-          );
-        let moved_down = apply_action(rewrapped, MoveDown(One));
-        moved_down;
+        binder.contents = Var(x);
+        let newly_bound =
+          capture_name(body.child, x, t.contents, Iexp.Lower(body));
+        bounds.contents = newly_bound;
+        let update_list =
+          [Update.NewAna(e.parent)]
+          @ List.map(e => Update.NewSyn(e), newly_bound)
+          @ [NewAna(Lower(body)), NewSyn(body.child)];
+        {c, q: UpdateQueue.push_list(update_list, q)};
       | _ => no_op
       }
     | _ => failwith("CursorBind on non lambda")
@@ -748,7 +750,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     };
     let new_bounds = ref([]);
     let new_mid =
-      Iexp.Lam(x, ref(t), ref(m1), ref(m2), new_lower, new_bounds);
+      Iexp.Lam(ref(x), ref(t), ref(m1), ref(m2), new_lower, new_bounds);
     let new_upper: Iexp.upper = {
       parent: body.parent,
       syn: body.syn,
@@ -767,8 +769,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     let newly_bound =
       switch (x) {
       | Hole => []
-      | Var(name) =>
-        capture_name(body, name, t, Unmarked, Iexp.Lower(new_lower))
+      | Var(name) => capture_name(body, name, t, Iexp.Lower(new_lower))
       };
     // print_endline(string_of_int(List.length(newly_bound)) ++ " captured");
     new_bounds.contents = newly_bound;
@@ -819,7 +820,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
 
       // update bound variables to outer binder
       let newly_bound =
-        switch (bind) {
+        switch (bind.contents) {
         | Hole => []
         | Var(x) =>
           let (new_binder, t, m) = look_up_binder(body, x);
@@ -968,7 +969,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
       let update = var => var_syn(var, t.contents);
       let _ = List.map(update, bound_vars.contents);
       let update_list =
-        [Update.NewAna(e.parent)]
+        [Update.NewAna(e.parent)]  // TODO: check if e.parent is deleted.
         @ List.map(var => Update.NewSyn(var), bound_vars.contents);
       {...s, q: UpdateQueue.push_list(update_list, q')};
     | _ => failwith("NewAnn on non-lam")

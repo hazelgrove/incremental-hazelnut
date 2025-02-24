@@ -20,7 +20,7 @@ and erase_middle: Iexp.middle => bareExp =
   | Var(x, _, _) => Var(x)
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) => Plus(erase_lower(e1), erase_lower(e2))
-  | Lam(x, t, _, _, e, _) => Lam(x, t.contents, erase_lower(e))
+  | Lam(x, t, _, _, e, _) => Lam(x.contents, t.contents, erase_lower(e))
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
   | EHole => EHole
@@ -95,7 +95,7 @@ let rec mark_syn = (ctx: ctx): (bareExp => Iexp.upper) =>
       let syn = Option.get(body.syn);
       wrap_upper(
         Lam(
-          x,
+          ref(x),
           ref(t),
           ref(Mark.Unmarked),
           ref(Mark.Unmarked),
@@ -125,7 +125,7 @@ and mark_ana = (ctx: ctx, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let m2 = type_consistent(t, t1);
       let body = mark_ana(extend_ctx_bind(ctx, x, t), t2, e);
       let middle: Iexp.middle =
-        Lam(x, ref(t), ref(m1), ref(m2), body, ref([]));
+        Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref([]));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | b => {

@@ -8,6 +8,28 @@ let compare_float = Float.compare;
 
 // let show_intervals = false;
 
+let string_of_child: Child.t => string =
+  fun
+  | One => "One"
+  | Two => "Two"
+  | Three => "Three";
+
+let string_of_action: Iaction.t => string =
+  fun
+  | MoveUp => "MoveUp"
+  | MoveDown(c) => "MoveDown(" ++ string_of_child(c) ++ ")"
+  | Delete => "Delete"
+  | WrapArrow(c) => "WrapArrow(" ++ string_of_child(c) ++ ")"
+  | InsertNumType => "InsertNumType"
+  | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
+  | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
+  | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
+  | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
+  | WrapLam => "WrapLam"
+  | WrapLamInner(_) => "WrapLamInner(...)"
+  | WrapAsc => "WrapAsc"
+  | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
+
 module Pexp = {
   [@deriving (sexp, compare)]
   type t =
@@ -45,7 +67,7 @@ let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
   | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z));
 
-let pexp_of_bind: Hazelnut.Bind.t => Pexp.t = {
+let pexp_of_bind: Bind.t => Pexp.t = {
   fun
   | Hole => Hole
   | Var(x) => Var(x);
@@ -145,8 +167,9 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
   | Lam(x, t, m1, m2, body, _bound_vars) =>
     let pb: Pexp.t =
       switch (s.c) {
-      | CursorBind(e') when e'.middle === e => Cursor(pexp_of_bind(x))
-      | _ => pexp_of_bind(x)
+      | CursorBind(e') when e'.middle === e =>
+        Cursor(pexp_of_bind(x.contents))
+      | _ => pexp_of_bind(x.contents)
       };
     let pt =
       switch (s.c) {

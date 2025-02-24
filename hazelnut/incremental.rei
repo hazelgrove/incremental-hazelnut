@@ -24,7 +24,14 @@ module Iexp: {
     | Var(string, Mark.t, binder)
     | NumLit(int)
     | Plus(lower, lower)
-    | Lam(Bind.t, ref(Htyp.t), ref(Mark.t), ref(Mark.t), lower, bound_vars)
+    | Lam(
+        ref(Bind.t),
+        ref(Htyp.t),
+        ref(Mark.t),
+        ref(Mark.t),
+        lower,
+        bound_vars,
+      )
     | Ap(lower, ref(Mark.t), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
