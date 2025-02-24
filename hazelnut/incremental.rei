@@ -78,19 +78,18 @@ module Iaction: {
 };
 
 module Update: {
-  [@deriving sexp]
-  type t =
+  type update =
     | NewSyn(Iexp.upper)
     | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper);
-
+  type t;
   let leq: (t, t) => bool;
 };
 
 module UpdateQueue: {
   type t;
-  let list_of_t: t => list(Update.t);
+  let list_of_t: t => list(Update.update);
 };
 
 module Icursor: {

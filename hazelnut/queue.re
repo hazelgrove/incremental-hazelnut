@@ -7,7 +7,6 @@ open Sexplib.Std;
 module type Comparable = {
   [@deriving sexp]
   type t;
-  let eq: (t, t) => bool;
   let leq: (t, t) => bool;
 };
 
@@ -38,11 +37,7 @@ module PQueue = (Elem: Comparable) => {
     | (Leaf, q2) => q2
     | (q1, Leaf) => q1
     | (Node(e1, _, q1l, q1r), Node(e2, _, q2l, q2r)) =>
-      // I added this first case for dedup - not sure if it breaks the invariant
-      // it doesn't work as dedup, wonder why
-      if (Elem.eq(e1, e2)) {
-        merge(q1l, merge(q2, q1r));
-      } else if (Elem.leq(e1, e2)) {
+      if (Elem.leq(e1, e2)) {
         merge_with_root(e1, q1l, merge(q2, q1r));
       } else {
         merge_with_root(e2, q2l, merge(q1, q2r));

@@ -85,31 +85,29 @@ let child_of_parent = (p: Iexp.parent): Iexp.upper => {
 
 module Update = {
   [@deriving sexp]
-  type t =
+  type update =
     | NewSyn(Iexp.upper)
     | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper);
 
+  [@deriving sexp]
+  type t = (update, T.t);
+
   let priority =
     fun
     | NewSyn(e) => snd(e.interval)
-    | NewAna(e) => fst(child_of_parent(e).interval)
+    | NewAna(e) => {
+        print_endline("prioirty of ana");
+        let p = fst(child_of_parent(e).interval);
+        print_endline("prioryt of ana OK");
+        p;
+      }
     | NewAnn(e) => fst(e.interval)
     | NewAsc(e) => fst(e.interval);
 
-  let eq = (update1: t, update2: t): bool => {
-    switch (update1, update2) {
-    | (NewSyn(e1), NewSyn(e2)) => e1 === e2
-    | (NewAna(e1), NewAna(e2)) => e1 === e2
-    | (NewAnn(e1), NewAnn(e2)) => e1 === e2
-    | (NewAsc(e1), NewAsc(e2)) => e1 === e2
-    | _ => false
-    };
-  };
-
   let leq = (update1: t, update2: t): bool =>
-    compare(priority(update1), priority(update2)) < 0;
+    compare(snd(update1), snd(update2)) < 0;
 };
 
 module UpdateQueue = {
@@ -129,30 +127,30 @@ module UpdateQueue = {
 
   // is this bad practice to shadow the old push?
   // will return unit later
-  let push = (u: Update.t, q: t): t => {
+  let push = (u: Update.update, q: t): t => {
     switch (u) {
     | NewSyn(e) when !e.in_queue_upper.syn =>
       e.in_queue_upper.syn = true;
-      push(u, q);
+      push((u, Update.priority(u)), q);
     | NewAna(p) when !in_queue_parent(p) =>
       set_in_queue_parent(true, p);
-      push(u, q);
+      push((u, Update.priority(u)), q);
     | NewAnn(e) when !e.in_queue_upper.ann =>
       e.in_queue_upper.ann = true;
-      push(u, q);
+      push((u, Update.priority(u)), q);
     | NewAsc(e) when !e.in_queue_upper.asc =>
       e.in_queue_upper.asc = true;
-      push(u, q);
+      push((u, Update.priority(u)), q);
     | _ => q
     };
   };
 
-  let push_list = (es: list(Update.t), q: t) => {
+  let push_list = (es: list(Update.update), q: t) => {
     List.fold_left((q', e) => push(e, q'), q, es);
   };
 
-  let pop = (q: t): option((Update.t, t)) => {
-    let+ (u, q') = pop(q);
+  let pop = (q: t): option((Update.update, t)) => {
+    let+ ((u, _), q') = pop(q);
     switch (u) {
     | NewSyn(e) =>
       assert(e.in_queue_upper.syn);
@@ -169,6 +167,8 @@ module UpdateQueue = {
     };
     (u, q');
   };
+
+  let list_of_t = q => List.map(fst, list_of_t(q));
 };
 
 module Icursor = {
@@ -478,6 +478,17 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
   let no_op = s;
   let c = s.c;
   let q = s.q;
+
+  print_endline(
+    string_of_int(List.length(UpdateQueue.list_of_t(q))) ++ " updates.",
+  );
+
+  switch (c) {
+  | CursorExp(e) when e.parent == Deleted =>
+    failwith("cursor has deleted parent :(")
+  | _ => ()
+  };
+
   switch (c, a) {
   | (CursorBind(e), MoveUp) => {...s, c: CursorExp(e)}
   | (CursorBind(e), Delete) =>
@@ -585,6 +596,12 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     | _ => no_op
     }
   | (CursorExp(e), InsertVar(x)) =>
+    print_endline(
+      switch (e.parent) {
+      | Deleted => "DELETED PARENT OF CURSOR??"
+      | _ => "oh okay"
+      },
+    );
     switch (e.middle) {
     | EHole =>
       let (parent, ty, mark) = look_up_binder(e, x);
@@ -598,9 +615,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, e');
       bind_to_binder(e', parent);
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
-      {c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
+      let q' = UpdateQueue.push_list(update_list, q);
+      {c: CursorExp(e'), q: q'};
     | _ => no_op
-    }
+    };
   | (CursorExp(e), WrapPlus(child)) =>
     let make_plus_with_children = (parent, interval, e1, e2, q): Istate.t => {
       let new_lower_left: Iexp.lower = {
@@ -676,7 +694,6 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
 
       splice(new_lower_left, new_upper);
       splice(new_lower_right, new_upper);
-
       let update_list = [
         Update.NewAna(new_upper.parent),
         Update.NewSyn(e1),
@@ -714,6 +731,11 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       interval: interval_around(body),
       middle: new_mid,
       in_queue_upper: InQueue.default_upper,
+    };
+
+    switch (body.parent) {
+    | Deleted => print_endline("alack")
+    | _ => ()
     };
 
     splice(new_lower, new_upper);
@@ -835,6 +857,13 @@ let update_step = (s: Istate.t): option(Istate.t) => {
   print_endline(
     string_of_int(List.length(UpdateQueue.list_of_t(s.q))) ++ " updates.",
   );
+
+  switch (s.c) {
+  | CursorExp(e) when e.parent == Deleted =>
+    failwith("cursor has deleted parent :(")
+  | _ => ()
+  };
+
   let+ (update, q') = UpdateQueue.pop(s.q);
   switch (update) {
   | NewSyn(e) =>
