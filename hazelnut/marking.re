@@ -34,8 +34,9 @@ let dummy_interval = (T.null, T.null);
 let wrap_upper = (m: Iexp.middle, syn: option(Htyp.t)): Iexp.upper => {
   parent: Deleted,
   syn,
-  interval: dummy_interval,
   middle: m,
+  interval: dummy_interval,
+  in_queue_upper: InQueue.default_upper,
 };
 
 let wrap_lower =
@@ -44,6 +45,7 @@ let wrap_lower =
   ana,
   marked,
   child: e,
+  in_queue_lower: InQueue.default_lower,
 };
 
 type ctx = string => option(Htyp.t);

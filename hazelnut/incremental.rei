@@ -1,6 +1,15 @@
 open Hazelnut;
 open Total_order;
 
+module InQueue: {
+  type upper;
+  type lower;
+  type root;
+  let default_lower: lower;
+  let default_root: root;
+  let default_upper: upper;
+};
+
 module Iexp: {
   [@deriving sexp]
   type lower = {
@@ -8,6 +17,7 @@ module Iexp: {
     mutable ana: option(Htyp.t),
     mutable marked: Mark.t,
     mutable child: upper,
+    in_queue_lower: InQueue.lower,
   }
 
   and middle =
@@ -22,15 +32,19 @@ module Iexp: {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
-    mutable interval: (T.t, T.t),
     middle,
+    mutable interval: (T.t, T.t),
+    in_queue_upper: InQueue.upper,
   }
 
-  and child_ref = {mutable root_child: upper}
+  and root = {
+    mutable root_child: upper,
+    in_queue_root: InQueue.root,
+  }
 
   and parent =
     | Deleted // root of a subtree that has been deleted
-    | Root(child_ref) // root of the main program
+    | Root(root) // root of the main program
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location

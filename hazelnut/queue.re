@@ -56,10 +56,6 @@ module PQueue = (Elem: Comparable) => {
     merge(eq, q);
   };
 
-  let push_list = (es: list(Elem.t), q: t): t => {
-    List.fold_left((q', e) => push(e, q'), q, es);
-  };
-
   let pop = (q: t): option((Elem.t, t)) =>
     switch (q) {
     | Leaf => None

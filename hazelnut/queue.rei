@@ -13,7 +13,6 @@ module PQueue:
 
     let empty: t;
     let push: (Elem.t, t) => t;
-    let push_list: (list(Elem.t), t) => t;
     let pop: t => option((Elem.t, t));
     let list_of_t: t => list(Elem.t);
   };

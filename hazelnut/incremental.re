@@ -4,6 +4,27 @@ open Total_order;
 open Queue;
 open Monad_lib.Monad; // Uncomment this line to use the maybe monad
 
+module InQueue = {
+  [@deriving sexp]
+  type upper = {
+    mutable syn: bool,
+    mutable ann: bool,
+    mutable asc: bool,
+  };
+
+  [@deriving sexp]
+  type lower = {mutable ana: bool};
+
+  [@deriving sexp]
+  type root = {mutable ana: bool};
+
+  let default_lower: lower = {ana: false};
+
+  let default_root: root = {ana: false};
+
+  let default_upper: upper = {syn: false, asc: false, ann: false};
+};
+
 module Iexp = {
   [@deriving sexp]
   type lower = {
@@ -11,6 +32,7 @@ module Iexp = {
     mutable ana: option(Htyp.t),
     mutable marked: Mark.t,
     mutable child: upper,
+    in_queue_lower: InQueue.lower,
   }
 
   and middle =
@@ -25,15 +47,19 @@ module Iexp = {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
-    mutable interval: (T.t, T.t),
     middle,
+    mutable interval: (T.t, T.t),
+    in_queue_upper: InQueue.upper,
   }
 
-  and child_ref = {mutable root_child: upper}
+  and root = {
+    mutable root_child: upper,
+    in_queue_root: InQueue.root,
+  }
 
   and parent =
     | Deleted // root of a subtree that has been deleted
-    | Root(child_ref) // root of the main program
+    | Root(root) // root of the main program
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location
@@ -86,19 +112,64 @@ module Update = {
     compare(priority(update1), priority(update2)) < 0;
 };
 
-module UpdateQueue = PQueue(Update);
-// {
-//   [@deriving sexp]
-//   type t = list(Update.t);
-//   let push = (u, q: t) => [u, ...q];
-//   let push_list = (u: list(Update.t), q: t) =>
-//     List.fold_left((q', u') => push(u', q'), q, u);
-//   let pop = (q: t) =>
-//     switch (q) {
-//     | [] => None
-//     | [u, ...q'] => Some((u, q'))
-//     };
-// };
+module UpdateQueue = {
+  include PQueue(Update);
+
+  let in_queue_parent: Iexp.parent => bool =
+    fun
+    | Deleted => false
+    | Root(r) => r.in_queue_root.ana
+    | Lower(e) => e.in_queue_lower.ana;
+
+  let set_in_queue_parent = (b: bool): (Iexp.parent => unit) =>
+    fun
+    | Deleted => ()
+    | Root(r) => r.in_queue_root.ana = b
+    | Lower(e) => e.in_queue_lower.ana = b;
+
+  // is this bad practice to shadow the old push?
+  // will return unit later
+  let push = (u: Update.t, q: t): t => {
+    switch (u) {
+    | NewSyn(e) when !e.in_queue_upper.syn =>
+      e.in_queue_upper.syn = true;
+      push(u, q);
+    | NewAna(p) when !in_queue_parent(p) =>
+      set_in_queue_parent(true, p);
+      push(u, q);
+    | NewAnn(e) when !e.in_queue_upper.ann =>
+      e.in_queue_upper.ann = true;
+      push(u, q);
+    | NewAsc(e) when !e.in_queue_upper.asc =>
+      e.in_queue_upper.asc = true;
+      push(u, q);
+    | _ => q
+    };
+  };
+
+  let push_list = (es: list(Update.t), q: t) => {
+    List.fold_left((q', e) => push(e, q'), q, es);
+  };
+
+  let pop = (q: t): option((Update.t, t)) => {
+    let+ (u, q') = pop(q);
+    switch (u) {
+    | NewSyn(e) =>
+      assert(e.in_queue_upper.syn);
+      e.in_queue_upper.syn = false;
+    | NewAna(p) =>
+      assert(in_queue_parent(p));
+      set_in_queue_parent(false, p);
+    | NewAnn(e) =>
+      assert(e.in_queue_upper.ann);
+      e.in_queue_upper.ann = false;
+    | NewAsc(e) =>
+      assert(e.in_queue_upper.asc);
+      e.in_queue_upper.asc = false;
+    };
+    (u, q');
+  };
+};
 
 module Icursor = {
   [@deriving sexp]
@@ -120,6 +191,7 @@ let exp_hole_upper = (i: (T.t, T.t)): Iexp.upper => {
   parent: Deleted,
   syn: Some(Hole),
   interval: i,
+  in_queue_upper: InQueue.default_upper,
   middle: EHole,
 };
 
@@ -130,7 +202,10 @@ let second_om = T.add_next(initial_om);
 let initial_exp = exp_hole_upper((initial_om, second_om));
 
 let initial_root: Iexp.parent = {
-  let r: Iexp.child_ref = {root_child: initial_exp};
+  let r: Iexp.root = {
+    root_child: initial_exp,
+    in_queue_root: InQueue.default_root,
+  };
   initial_exp.parent = Root(r);
   Root(r);
 };
@@ -261,7 +336,7 @@ let var_syn = (e: Iexp.upper, syn: Htyp.t) => {
 
 // precondition: e.middle is a Var
 // makes them all synthesize [syn], marks them all as [m], and updates their
-// binding on both ends.
+// binding on both ends. It also marks them as on the update queue with new syn.
 let update_var =
     (e: Iexp.upper, syn: Htyp.t, m: Mark.t, new_binder: Iexp.binder) => {
   switch (e.middle) {
@@ -274,8 +349,9 @@ let update_var =
     let new_upper: Iexp.upper = {
       parent: e.parent,
       syn: Some(syn),
-      interval: e.interval,
       middle: new_mid,
+      interval: e.interval,
+      in_queue_upper: InQueue.default_upper,
     };
     replace(e, new_upper);
     new_upper;
@@ -484,8 +560,9 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     let e': Iexp.upper = {
       parent: e.parent,
       syn: Some(Hole),
-      interval: e.interval,
       middle: EHole,
+      interval: e.interval,
+      in_queue_upper: InQueue.default_upper,
     };
     replace(e, e');
     let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
@@ -498,8 +575,9 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       let e': Iexp.upper = {
         parent: e.parent,
         syn: Some(Num),
-        interval: e.interval,
         middle: NumLit(x),
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper,
       };
       replace(e, e');
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
@@ -515,6 +593,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         syn: Some(ty),
         interval: e.interval,
         middle: Var(x, mark, parent),
+        in_queue_upper: InQueue.default_upper,
       };
       replace(e, e');
       bind_to_binder(e', parent);
@@ -529,12 +608,14 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         ana: Some(Num),
         marked: Unmarked,
         child: e1,
+        in_queue_lower: InQueue.default_lower,
       };
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
         ana: Some(Num),
         marked: Unmarked,
         child: e2,
+        in_queue_lower: InQueue.default_lower,
       };
       let new_mid: Iexp.middle = Plus(new_lower_left, new_lower_right);
       let new_upper: Iexp.upper = {
@@ -542,6 +623,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         syn: Some(Num),
         interval,
         middle: new_mid,
+        in_queue_upper: InQueue.default_upper,
       };
 
       splice(new_lower_left, new_upper);
@@ -573,12 +655,14 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         ana: None,
         marked: Unmarked,
         child: e1,
+        in_queue_lower: InQueue.default_lower,
       };
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
         ana: Some(Hole),
         marked: Unmarked,
         child: e2,
+        in_queue_lower: InQueue.default_lower,
       };
       let new_mid: Iexp.middle =
         Ap(new_lower_left, ref(Mark.Unmarked), new_lower_right);
@@ -587,6 +671,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         syn: Some(Hole),
         interval,
         middle: new_mid,
+        in_queue_upper: InQueue.default_upper,
       };
 
       splice(new_lower_left, new_upper);
@@ -618,6 +703,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       ana: None,
       marked: Unmarked,
       child: body,
+      in_queue_lower: InQueue.default_lower,
     };
     let new_bounds = ref([]);
     let new_mid =
@@ -627,6 +713,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       syn: body.syn,
       interval: interval_around(body),
       middle: new_mid,
+      in_queue_upper: InQueue.default_upper,
     };
 
     splice(new_lower, new_upper);
@@ -652,6 +739,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       ana: Some(Hole),
       marked: Unmarked,
       child: e,
+      in_queue_lower: InQueue.default_lower,
     };
     let new_mid: Iexp.middle = Asc(new_lower, ref(Htyp.Hole));
     let new_upper: Iexp.upper = {
@@ -659,6 +747,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       syn: Some(Hole),
       interval: interval_around(e),
       middle: new_mid,
+      in_queue_upper: InQueue.default_upper,
     };
 
     splice(new_lower, new_upper);
