@@ -1,10 +1,10 @@
 open Sexplib.Std;
 open Hazelnut;
-open Order;
 open Incremental;
 
 let compare_string = String.compare;
 let compare_int = Int.compare;
+let compare_float = Float.compare;
 
 // let show_intervals = false;
 
@@ -24,7 +24,7 @@ module Pexp = {
     | Plus(t, t)
     | Asc(t, t)
     | Hole
-    | Interval(Element.t, t, Element.t)
+    | Interval(float, t, float)
     | Mark(t, string);
 };
 
@@ -108,11 +108,6 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
   //     ? Interval(fst(e.interval), with_cursor, snd(e.interval))
   //     : with_cursor;
 
-  let newify: Pexp.t => Pexp.t =
-    fun
-    // | New(t) => New(t)
-    | t => New(t);
-
   let implement_updates = (d: Pexp.t, u: Update.t): Pexp.t => {
     switch (u) {
     | NewSyn(e') when e === e' => NewSyn(d, pexp_of_htyp_opt(e.syn))
@@ -120,13 +115,13 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
     | NewAna(_) => d
     | NewAnn(e') when e === e' =>
       switch (unwrap_extras(d)) {
-      | (Lam(x, t, body), rewrap) => rewrap(Lam(x, newify(t), body))
+      | (Lam(x, t, body), rewrap) => rewrap(Lam(x, New(t), body))
       | _ => failwith("NewAnn on non lambda (pexp)")
       }
     | NewAnn(_) => d
     | NewAsc(e') when e === e' =>
       switch (unwrap_extras(d)) {
-      | (Asc(body, t), rewrap) => rewrap(Asc(body, newify(t)))
+      | (Asc(body, t), rewrap) => rewrap(Asc(body, New(t)))
       | _ => failwith("NewAsc on non ascription (pexp)")
       }
     | NewAsc(_) => d
@@ -292,11 +287,11 @@ let rec string_of_pexp: Pexp.t => string =
   | Hole => "?"
   | Interval(n1, e, n2) =>
     "{"
-    ++ Element.string_of_element(n1)
+    ++ string_of_float(n1)
     ++ "]"
     ++ string_of_pexp(e)
     ++ "["
-    ++ Element.string_of_element(n2)
+    ++ string_of_float(n2)
     ++ "}"
   | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"
 
