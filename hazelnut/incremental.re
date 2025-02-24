@@ -103,8 +103,25 @@ module Update = {
     | NewAnn(e) => fst(e.interval)
     | NewAsc(e) => fst(e.interval);
 
-  let leq = (update1: t, update2: t): bool =>
-    compare(priority(update1), priority(update2)) < 0;
+  // only called on updates with the same priority
+  // NewAnn or NewAsc should always come first
+  let compare_constructors = (update1, update2) =>
+    switch (update1, update2) {
+    | (NewAnn(_), _) => true
+    | (NewAsc(_), _) => true
+    | (_, NewAnn(_)) => false
+    | (_, NewAsc(_)) => false
+    | _ => true
+    };
+
+  let leq = (update1: t, update2: t): bool => {
+    let comparison = compare(priority(update1), priority(update2));
+    if (comparison == 0) {
+      compare_constructors(update1, update2);
+    } else {
+      comparison < 0;
+    };
+  };
 };
 
 module UpdateQueue = {
@@ -878,11 +895,13 @@ let update_step = (s: Istate.t): option(Istate.t) => {
     | Deleted // => failwith("no stepping in deleted terms!!")
     | Root(_) =>
       //UPDATE: TopStep
-      {...s, q: q'}
+      print_endline("TopStep");
+      {...s, q: q'};
     | Lower(parent) =>
       switch (parent.upper.middle) {
       | Ap(e1, m, e2) when e1.child === e =>
         // UPDATE: StepAp
+        print_endline("StepAp");
         let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
         e2.ana = t_in;
         parent.upper.syn = t_out;
@@ -895,6 +914,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
         {...s, q: UpdateQueue.push_list(update_list, q')};
       | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
         // UPDATE: StepSynFun
+        print_endline("StepSynFun");
         parent.upper.syn =
           arrow_unless(t.contents, body.child.syn, parent.ana);
         body.marked = Unmarked;
@@ -902,6 +922,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
         {...s, q: UpdateQueue.push_list(update_list, q')};
       | _ when Option.is_some(parent.ana) =>
         // UPDATE: StepSynConsist
+        print_endline("StepSynConsist");
         parent.marked = type_consistent_opt(e.syn, parent.ana);
         {...s, q: q'};
       | _ => failwith("unrecognized update step")
@@ -922,6 +943,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
     switch (child.middle) {
     | Lam(_, t_ann, m_ana, m_ann, body, _) =>
       // UPDATE: StepAnaFun
+      print_endline("StepAnaFun");
       let (t_in, t_out, m_ana') = matched_arrow_typ_opt(ana);
       let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
       m_ana.contents = m_ana';
@@ -934,11 +956,13 @@ let update_step = (s: Istate.t): option(Istate.t) => {
     | _ =>
       // This case must come after the above case. Relies on the term being subsumable.
       // UPDATE: StepAnaConsist
+      print_endline("StepAnaConsist");
       mark_parent(type_consistent_opt(child.syn, ana));
       {...s, q: q'};
     };
   | NewAnn(e) =>
     // UPDATE: StepAnnFun
+    print_endline("StepAnnFun");
     switch (e.middle) {
     | Lam(_, t, _, _, _, bound_vars) =>
       let update = var => var_syn(var, t.contents);
@@ -948,9 +972,10 @@ let update_step = (s: Istate.t): option(Istate.t) => {
         @ List.map(var => Update.NewSyn(var), bound_vars.contents);
       {...s, q: UpdateQueue.push_list(update_list, q')};
     | _ => failwith("NewAnn on non-lam")
-    }
+    };
   | NewAsc(e) =>
     // UPDATE: StepAsc
+    print_endline("StepAsc");
     switch (e.middle) {
     | Asc(low, asc) =>
       e.syn = Some(asc.contents);
@@ -958,7 +983,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
       let update_list = [Update.NewAna(Lower(low)), Update.NewSyn(e)];
       {...s, q: UpdateQueue.push_list(update_list, q')};
     | _ => failwith("NewAsc on non-asc")
-    }
+    };
   };
 };
 
