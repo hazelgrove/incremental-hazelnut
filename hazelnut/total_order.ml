@@ -19,6 +19,7 @@ module T : sig
   val is_valid : t -> bool
   val compare : t -> t -> int
   val add_next : t -> t
+  val add_before : t -> t
   val splice : ?inclusive:bool -> t -> t -> unit
   val set_invalidator : t -> (t -> unit) -> unit
   val reset_invalidator : t -> unit
@@ -228,6 +229,8 @@ end = struct
           rebalance (if parent.parent_label == 0 then 0 else 1) parent parent.front parent.front
       end;
       ts'
+
+  let add_before = failwith("TODO")
 
   (** Splice two elements [ts] and [ts'] in a total-order such that, [ts] is immediately followed by [ts'], removing all elements between them;
       optionally, if [inclusive] is [true], [ts] and [ts'] will also be removed. *)
