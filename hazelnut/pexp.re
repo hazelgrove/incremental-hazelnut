@@ -6,7 +6,7 @@ open Incremental;
 let compare_string = String.compare;
 let compare_int = Int.compare;
 
-let show_intervals = false;
+// let show_intervals = false;
 
 module Pexp = {
   [@deriving (sexp, compare)]
@@ -103,10 +103,10 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
     | _ => middle
     };
 
-  let with_interval: Pexp.t =
-    show_intervals
-      ? Interval(fst(e.interval), with_cursor, snd(e.interval))
-      : with_cursor;
+  // let with_interval: Pexp.t =
+  //   show_intervals
+  //     ? Interval(fst(e.interval), with_cursor, snd(e.interval))
+  //     : with_cursor;
 
   let newify: Pexp.t => Pexp.t =
     fun
@@ -135,7 +135,7 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
   let with_new_types =
     List.fold_left(
       implement_updates,
-      with_interval,
+      with_cursor,
       UpdateQueue.list_of_t(s.q),
     );
   with_new_types;

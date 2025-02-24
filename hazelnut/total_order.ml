@@ -11,9 +11,13 @@
         https://github.com/matthewhammer/ceal/blob/4b933a8/src/lib/runtime/totalorder.c
 *)
 
+open Sexplib0
+
 module T : sig
   type parent
   type t
+  val sexp_of_t : t -> Sexp.t
+  val t_of_sexp : Sexp.t -> t
   val null : t
   val create : unit -> t
   val is_valid : t -> bool
@@ -24,6 +28,9 @@ module T : sig
   val set_invalidator : t -> (t -> unit) -> unit
   val reset_invalidator : t -> unit
 end = struct
+
+  let sexp_of_t = failwith("TODO")  
+  let t_of_sexp = failwith("TODO")
   let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
   let label_bits = Sys.word_size - 2 (* use only the positive range *)
   let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)

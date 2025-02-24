@@ -1,6 +1,6 @@
 open Hazelnut;
 open Incremental;
-open Order;
+open Total_order;
 // open Pexp;
 
 type bareExp =
@@ -29,7 +29,7 @@ and erase_upper = (e: Iexp.upper): bareExp => {
   erase_middle(e.middle);
 };
 
-let dummy_interval = (fst(OM.init()), fst(OM.init()));
+let dummy_interval = (T.create(), T.create());
 
 let wrap_upper = (m: Iexp.middle, syn: option(Htyp.t)): Iexp.upper => {
   parent: Deleted,

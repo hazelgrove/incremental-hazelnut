@@ -1,6 +1,6 @@
 open Sexplib.Std;
 open Hazelnut;
-open Order;
+open Total_order;
 open Queue;
 open Monad_lib.Monad; // Uncomment this line to use the maybe monad
 
@@ -25,7 +25,7 @@ module Iexp = {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
-    interval: (Element.t, Element.t),
+    interval: (T.t, T.t),
     middle,
   }
 
@@ -113,22 +113,21 @@ module Istate = {
   type t = {
     c: Icursor.t,
     q: UpdateQueue.t,
-    om: OM.t,
   };
 };
 
-let exp_hole_upper = (i: (Element.t, Element.t)): Iexp.upper => {
+let exp_hole_upper = (i: (T.t, T.t)): Iexp.upper => {
   parent: Deleted,
   syn: Some(Hole),
   interval: i,
   middle: EHole,
 };
 
-let (initial_elem, om) = OM.init();
+let initial_om = T.create();
 
-let second_elem = OM.insert(initial_elem, om);
+let second_om = T.add_next(initial_om);
 
-let initial_exp = exp_hole_upper((initial_elem, second_elem));
+let initial_exp = exp_hole_upper((initial_om, second_om));
 
 let initial_root: Iexp.parent = {
   let r: Iexp.child_ref = {root_child: initial_exp};
@@ -137,7 +136,7 @@ let initial_root: Iexp.parent = {
 };
 
 let initial_cursor: Icursor.t = CursorExp(initial_exp);
-let initial_state: Istate.t = {c: initial_cursor, q: UpdateQueue.empty, om};
+let initial_state: Istate.t = {c: initial_cursor, q: UpdateQueue.empty};
 
 module Child = {
   [@deriving (sexp, compare)]
@@ -165,7 +164,7 @@ module Iaction = {
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
-let dummy_upper = exp_hole_upper((initial_elem, second_elem));
+let dummy_upper = exp_hole_upper((initial_om, second_om));
 
 let set_child_in_parent = (p: Iexp.parent, c: Iexp.upper): unit => {
   switch (p) {
@@ -327,21 +326,21 @@ let rec capture_name =
   };
 };
 
-let interval_around = (e: Iexp.upper, om) => {
-  let elem1 = OM.insert_before(fst(e.interval), om);
-  let elem2 = OM.insert(snd(e.interval), om);
+let interval_around = (e: Iexp.upper) => {
+  let elem1 = T.add_before(fst(e.interval));
+  let elem2 = T.add_next(snd(e.interval));
   (elem1, elem2);
 };
 
-let interval_after = (e: Iexp.upper, om) => {
-  let elem2 = OM.insert(snd(e.interval), om);
-  let elem1 = OM.insert(snd(e.interval), om);
+let interval_after = (e: Iexp.upper) => {
+  let elem2 = T.add_next(snd(e.interval));
+  let elem1 = T.add_next(snd(e.interval));
   (elem1, elem2);
 };
 
-let interval_before = (e: Iexp.upper, om) => {
-  let elem1 = OM.insert_before(fst(e.interval), om);
-  let elem2 = OM.insert_before(fst(e.interval), om);
+let interval_before = (e: Iexp.upper) => {
+  let elem1 = T.add_before(fst(e.interval));
+  let elem2 = T.add_before(fst(e.interval));
   (elem1, elem2);
 };
 
@@ -432,12 +431,12 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       let z' = apply_action_typ(z, a);
       let t' = erase_typ(z');
       t.contents = t';
-      {...s, c: CursorTyp(e, z'), q: UpdateQueue.push(NewAnn(e), q)};
+      {c: CursorTyp(e, z'), q: UpdateQueue.push(NewAnn(e), q)};
     | Asc(_, t) =>
       let z' = apply_action_typ(z, a);
       let t' = erase_typ(z');
       t.contents = t';
-      {...s, c: CursorTyp(e, z'), q: UpdateQueue.push(NewAsc(e), q)};
+      {c: CursorTyp(e, z'), q: UpdateQueue.push(NewAsc(e), q)};
     | _ => failwith("CursorTyp on node with no type")
     }
   | (CursorExp(e), MoveUp) =>
@@ -479,7 +478,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     };
     replace(e, e');
     let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
-    {...s, c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
+    {c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
   | (CursorExp(_), InsertNumType)
   | (CursorExp(_), WrapArrow(_)) => no_op
   | (CursorExp(e), InsertNumLit(x)) =>
@@ -493,7 +492,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       };
       replace(e, e');
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
-      {...s, c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
     | _ => no_op
     }
   | (CursorExp(e), InsertVar(x)) =>
@@ -509,7 +508,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, e');
       bind_to_binder(e', parent);
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
-      {...s, c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
     | _ => no_op
     }
   | (CursorExp(e), WrapPlus(child)) =>
@@ -544,19 +543,15 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewSyn(new_upper),
       ];
 
-      {
-        ...s,
-        c: CursorExp(new_upper),
-        q: UpdateQueue.push_list(update_list, q),
-      };
+      {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
     };
-    let interval = interval_around(e, s.om);
+    let interval = interval_around(e);
     switch (child) {
     | One =>
-      let hole = exp_hole_upper(interval_after(e, s.om));
+      let hole = exp_hole_upper(interval_after(e));
       make_plus_with_children(e.parent, interval, e, hole, q);
     | Two =>
-      let hole = exp_hole_upper(interval_before(e, s.om));
+      let hole = exp_hole_upper(interval_before(e));
       make_plus_with_children(e.parent, interval, hole, e, q);
     | Three => no_op
     };
@@ -591,20 +586,16 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewSyn(e1),
         Update.NewAna(Lower(new_lower_left)),
       ];
-      {
-        ...s,
-        c: CursorExp(new_upper),
-        q: UpdateQueue.push_list(update_list, q),
-      };
+      {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
     };
     // this must come before the calls to interval_before or _after. It mutates s.som.
-    let interval = interval_around(e, s.om);
+    let interval = interval_around(e);
     switch (child) {
     | One =>
-      let hole = exp_hole_upper(interval_after(e, s.om));
+      let hole = exp_hole_upper(interval_after(e));
       make_ap_with_children(e.parent, interval, e, hole, q);
     | Two =>
-      let hole = exp_hole_upper(interval_before(e, s.om));
+      let hole = exp_hole_upper(interval_before(e));
       make_ap_with_children(e.parent, interval, hole, e, q);
     | Three => no_op
     };
@@ -623,7 +614,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     let new_upper: Iexp.upper = {
       parent: body.parent,
       syn: body.syn,
-      interval: interval_around(body, s.om),
+      interval: interval_around(body),
       middle: new_mid,
     };
 
@@ -642,11 +633,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       [Update.NewAna(new_upper.parent)]
       @ List.map(e => Update.NewSyn(e), newly_bound)
       @ [NewAna(Lower(new_lower)), NewSyn(body)];
-    {
-      ...s,
-      c: CursorExp(new_upper),
-      q: UpdateQueue.push_list(update_list, q),
-    };
+    {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
 
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
@@ -659,7 +646,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     let new_upper: Iexp.upper = {
       parent: e.parent,
       syn: Some(Hole),
-      interval: interval_around(e, s.om),
+      interval: interval_around(e),
       middle: new_mid,
     };
 
@@ -671,11 +658,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       Update.NewAna(Lower(new_lower)),
     ];
 
-    {
-      ...s,
-      c: CursorExp(new_upper),
-      q: UpdateQueue.push_list(update_list, q),
-    };
+    {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
 
   | (CursorExp(e), Unwrap(child)) =>
     switch (e.middle) {
@@ -709,11 +692,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         [Update.NewAna(parent)]
         @ List.map(e => Update.NewSyn(e), newly_bound)
         @ [Update.NewSyn(new_body)];
-      {
-        ...s,
-        c: CursorExp(new_body),
-        q: UpdateQueue.push_list(update_list, q),
-      };
+      {c: CursorExp(new_body), q: UpdateQueue.push_list(update_list, q)};
 
     | Ap(fun_lower, _, arg_lower) =>
       let body =
@@ -726,7 +705,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
-      {...s, c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
 
     | Plus(left_arg, right_arg) =>
       let body =
@@ -739,7 +718,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
-      {...s, c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
 
     | Asc(body_lower, _ty) =>
       let body = body_lower.child;
@@ -747,7 +726,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
-      {...s, c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
     }
   };
 };

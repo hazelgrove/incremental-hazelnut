@@ -1,5 +1,5 @@
 open Hazelnut;
-open Order;
+open Total_order;
 
 module Iexp: {
   [@deriving sexp]
@@ -22,7 +22,7 @@ module Iexp: {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
-    interval: (Element.t, Element.t),
+    interval: (T.t, T.t),
     middle,
   }
 
@@ -92,7 +92,6 @@ module Istate: {
   type t = {
     c: Icursor.t,
     q: UpdateQueue.t,
-    om: OM.t,
   };
 };
 
