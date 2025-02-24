@@ -29,8 +29,6 @@ module T : sig
   val reset_invalidator : t -> unit
 end = struct
 
-  let sexp_of_t = failwith("TODO")  
-  let t_of_sexp = failwith("TODO")
   let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
   let label_bits = Sys.word_size - 2 (* use only the positive range *)
   let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)
@@ -74,6 +72,10 @@ end = struct
       invalidator=nop;
   }
   (**/**)
+
+  
+  let sexp_of_t = fun _ -> Sexp.Atom("unimplemented")
+  let t_of_sexp = fun _ -> null
 
   (** Create a new total order and return its initial element. *)
   let create () =
