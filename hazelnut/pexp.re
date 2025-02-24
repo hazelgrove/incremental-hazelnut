@@ -113,7 +113,7 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
     // | New(t) => New(t)
     | t => New(t);
 
-  let implement_updates = (d: Pexp.t, u: Update.update): Pexp.t => {
+  let implement_updates = (d: Pexp.t, u: Update.t): Pexp.t => {
     switch (u) {
     | NewSyn(e') when e === e' => NewSyn(d, pexp_of_htyp_opt(e.syn))
     | NewSyn(_) => d
@@ -183,7 +183,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
 
 and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
   let d = pexp_markif(e.marked, Inconsistent, pexp_of_iexp(e.child, s));
-  let filter_updates = (u: Update.update) => {
+  let filter_updates = (u: Update.t) => {
     switch (u) {
     | NewAna(Lower(e')) when e === e' => e.ana
     | NewAna(_) => None
@@ -202,7 +202,7 @@ let pexp_of_root = (parent: Iexp.parent, s: Istate.t): Pexp.t => {
   switch (parent) {
   | Root(e) =>
     let d = pexp_of_iexp(e.root_child, s);
-    let filter_updates = (u: Update.update) => {
+    let filter_updates = (u: Update.t) => {
       switch (u) {
       | NewAna(Root(e')) when e' === e => true
       | NewAna(_) => false

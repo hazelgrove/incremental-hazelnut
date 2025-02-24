@@ -78,18 +78,17 @@ module Iaction: {
 };
 
 module Update: {
-  type update =
+  type t =
     | NewSyn(Iexp.upper)
     | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper);
-  type t;
   let leq: (t, t) => bool;
 };
 
 module UpdateQueue: {
   type t;
-  let list_of_t: t => list(Update.update);
+  let list_of_t: t => list(Update.t);
 };
 
 module Icursor: {

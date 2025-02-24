@@ -85,14 +85,11 @@ let child_of_parent = (p: Iexp.parent): Iexp.upper => {
 
 module Update = {
   [@deriving sexp]
-  type update =
+  type t =
     | NewSyn(Iexp.upper)
     | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper);
-
-  [@deriving sexp]
-  type t = (update, T.t);
 
   let priority =
     fun
@@ -107,7 +104,7 @@ module Update = {
     | NewAsc(e) => fst(e.interval);
 
   let leq = (update1: t, update2: t): bool =>
-    compare(snd(update1), snd(update2)) < 0;
+    compare(priority(update1), priority(update2)) < 0;
 };
 
 module UpdateQueue = {
@@ -127,30 +124,30 @@ module UpdateQueue = {
 
   // is this bad practice to shadow the old push?
   // will return unit later
-  let push = (u: Update.update, q: t): t => {
+  let push = (u: Update.t, q: t): t => {
     switch (u) {
     | NewSyn(e) when !e.in_queue_upper.syn =>
       e.in_queue_upper.syn = true;
-      push((u, Update.priority(u)), q);
+      push(u, q);
     | NewAna(p) when !in_queue_parent(p) =>
       set_in_queue_parent(true, p);
-      push((u, Update.priority(u)), q);
+      push(u, q);
     | NewAnn(e) when !e.in_queue_upper.ann =>
       e.in_queue_upper.ann = true;
-      push((u, Update.priority(u)), q);
+      push(u, q);
     | NewAsc(e) when !e.in_queue_upper.asc =>
       e.in_queue_upper.asc = true;
-      push((u, Update.priority(u)), q);
+      push(u, q);
     | _ => q
     };
   };
 
-  let push_list = (es: list(Update.update), q: t) => {
+  let push_list = (es: list(Update.t), q: t) => {
     List.fold_left((q', e) => push(e, q'), q, es);
   };
 
-  let pop = (q: t): option((Update.update, t)) => {
-    let+ ((u, _), q') = pop(q);
+  let pop = (q: t): option((Update.t, t)) => {
+    let+ (u, q') = pop(q);
     switch (u) {
     | NewSyn(e) =>
       assert(e.in_queue_upper.syn);
@@ -167,8 +164,6 @@ module UpdateQueue = {
     };
     (u, q');
   };
-
-  let list_of_t = q => List.map(fst, list_of_t(q));
 };
 
 module Icursor = {
