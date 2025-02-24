@@ -185,7 +185,7 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
   let d = pexp_markif(e.marked, Inconsistent, pexp_of_iexp(e.child, s));
   let filter_updates = (u: Update.t) => {
     switch (u) {
-    | NewAna(Lower(e')) when e === e' => e.ana
+    | NewAna(Lower(e')) when e === e' => Some(e.ana)
     | NewAna(_) => None
     | NewSyn(_) => None
     | NewAnn(_) => None
@@ -193,7 +193,7 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
     };
   };
   switch (List.filter_map(filter_updates, UpdateQueue.list_of_t(s.q))) {
-  | [t, ..._] => NewAna(d, pexp_of_htyp(t))
+  | [t, ..._] => NewAna(d, pexp_of_htyp_opt(t))
   | [] => d
   };
 };
