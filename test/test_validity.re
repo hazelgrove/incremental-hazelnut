@@ -35,7 +35,7 @@ let a2: list(list(Iaction.t)) = [
   [MoveUp, MoveDown(Two), InsertNumType],
 ];
 
-let a3: list(list(Iaction.t)) = [
+let binding_insert: list(list(Iaction.t)) = [
   [
     InsertVar("x"),
     WrapLam,
@@ -47,19 +47,7 @@ let a3: list(list(Iaction.t)) = [
   ],
 ];
 
-// let a4: list(list(Iaction.t)) = [
-//   [
-//     InsertVar("x"),
-//     WrapLam,
-//     MoveDown(Two),
-//     InsertNumType,
-//     MoveUp,
-//     MoveDown(One),
-//     InsertVar("x"),
-//   ],
-// ];
-
-let a4: list(list(Iaction.t)) = [
+let binding_delete: list(list(Iaction.t)) = [
   [
     InsertVar("x"),
     WrapLam,
@@ -74,12 +62,52 @@ let a4: list(list(Iaction.t)) = [
   ],
 ];
 
+let inconsistent: list(list(Iaction.t)) = [
+  [WrapAsc, MoveDown(Two), WrapArrow(Two), MoveUp, WrapPlus(One)],
+];
+
+let non_arrow_ap: list(list(Iaction.t)) = [
+  [InsertNumLit(4), WrapAp(One)],
+];
+
+let non_arrow_lam: list(list(Iaction.t)) = [
+  [WrapLam, WrapAsc, MoveDown(Two), InsertNumType],
+];
+
+let lam_ann_inconsistent: list(list(Iaction.t)) = [
+  [
+    WrapLam,
+    MoveDown(Two),
+    WrapArrow(Two),
+    MoveUp,
+    WrapAsc,
+    MoveDown(Two),
+    WrapArrow(One),
+    MoveDown(One),
+    InsertNumType,
+  ],
+];
+
+let free_var: list(list(Iaction.t)) = [
+  [InsertVar("x"), WrapLam, MoveDown(One), InsertVar("x"), Delete],
+];
+
 test_actionses(
   a1
   @ [[Iaction.Delete]]
   @ a2
   @ [[Iaction.Delete]]
-  @ a3
+  @ binding_insert
   @ [[Iaction.Delete]]
-  @ a4,
+  @ binding_delete
+  @ [[Iaction.Delete]]
+  @ inconsistent
+  @ [[Iaction.Delete]]
+  @ non_arrow_ap
+  @ [[Iaction.Delete]]
+  @ non_arrow_lam
+  @ [[Iaction.Delete]]
+  @ lam_ann_inconsistent
+  @ [[Iaction.Delete]]
+  @ free_var,
 );
