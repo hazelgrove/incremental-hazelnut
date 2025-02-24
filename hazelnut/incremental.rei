@@ -22,7 +22,7 @@ module Iexp: {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
-    interval: (T.t, T.t),
+    mutable interval: (T.t, T.t),
     middle,
   }
 

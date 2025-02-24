@@ -25,7 +25,7 @@ module Iexp = {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
-    interval: (T.t, T.t),
+    mutable interval: (T.t, T.t),
     middle,
   }
 
@@ -83,7 +83,7 @@ module Update = {
   };
 
   let leq = (update1: t, update2: t): bool =>
-    priority(update1) <= priority(update2);
+    compare(priority(update1), priority(update2)) < 0;
 };
 
 module UpdateQueue = PQueue(Update);
@@ -326,22 +326,33 @@ let rec capture_name =
   };
 };
 
+let add_two = b => {
+  let c = T.add_next(b);
+  let d = T.add_next(c);
+  (c, d);
+};
+
 let interval_around = (e: Iexp.upper) => {
-  let elem1 = T.add_before(fst(e.interval));
-  let elem2 = T.add_next(snd(e.interval));
-  (elem1, elem2);
+  let (a, b) = e.interval;
+  let (c, d) = add_two(b);
+  // a < b < c < d
+  e.interval = (b, c);
+  (a, d);
 };
 
 let interval_after = (e: Iexp.upper) => {
-  let elem2 = T.add_next(snd(e.interval));
-  let elem1 = T.add_next(snd(e.interval));
-  (elem1, elem2);
+  let (_a, b) = e.interval;
+  let (c, d) = add_two(b);
+  // a < b < c < d
+  (c, d);
 };
 
 let interval_before = (e: Iexp.upper) => {
-  let elem1 = T.add_before(fst(e.interval));
-  let elem2 = T.add_before(fst(e.interval));
-  (elem1, elem2);
+  let (a, b) = e.interval;
+  let (c, d) = add_two(b);
+  // a < b < c < d
+  e.interval = (c, d);
+  (a, b);
 };
 
 let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
