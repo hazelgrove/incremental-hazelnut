@@ -213,7 +213,7 @@ let pexp_of_root = (parent: Iexp.parent, s: Istate.t): Pexp.t => {
     };
     List.exists(filter_updates, UpdateQueue.list_of_t(s.q))
       ? NewAna(d, pexp_of_htyp_opt(None)) : d;
-  | _ => failwith("non-rooy root (pexp)")
+  | _ => failwith("non-root root (pexp)")
   };
 };
 

@@ -5,9 +5,9 @@ module InQueue: {
   type upper;
   type lower;
   type root;
-  let default_lower: lower;
-  let default_root: root;
-  let default_upper: upper;
+  let default_lower: unit => lower;
+  let default_root: unit => root;
+  let default_upper: unit => upper;
 };
 
 module Iexp: {
