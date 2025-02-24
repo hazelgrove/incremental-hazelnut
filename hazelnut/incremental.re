@@ -298,10 +298,10 @@ let upper_of_parent = (p: Iexp.parent): option(Iexp.upper) => {
 // Finds the looks up [name] in the context of [e].
 // Returns the binding site (or root), the synthesized type, and whether [name] is free.
 let rec look_up_binder =
-        (e: Iexp.upper, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
-  switch (e.parent) {
+        (parent: Iexp.parent, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
+  switch (parent) {
   | Deleted
-  | Root(_) => (e.parent, Hole, Marked)
+  | Root(_) => (parent, Hole, Marked)
   | Lower(lower) =>
     // print_endline("found lower while unshadowing...");
     switch (lower.upper.middle) {
@@ -310,20 +310,20 @@ let rec look_up_binder =
       if (bind.contents == Var(name)) {
         (
           // print_endline("... a match!");
-          e.parent,
+          parent,
           lam_ty.contents,
           Unmarked,
         );
       } else {
         // print_endline("... not a match.");
         look_up_binder(
-          lower.upper,
+          lower.upper.parent,
           name,
         );
       }
     | _ =>
       // print_endline("... it's not a lam.");
-      look_up_binder(lower.upper, name)
+      look_up_binder(lower.upper.parent, name)
     }
   };
 };
@@ -513,32 +513,39 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorBind(e), MoveUp) => {...s, c: CursorExp(e)}
   | (CursorBind(e), Delete) =>
     switch (e.middle) {
-    | Lam(_, t, m1, m2, _, _) =>
-      let unwrapped = apply_action({...s, c: CursorExp(e)}, Unwrap(One));
-      let rewrapped =
-        apply_action(
-          unwrapped,
-          WrapLamInner(Hole, t.contents, m1.contents, m2.contents),
-        );
-      let moved_down = apply_action(rewrapped, MoveDown(One));
-      moved_down;
-    | _ => failwith("CursorBind on non lambda")
-    }
-  | (CursorBind(e), InsertVar(x)) =>
-    switch (e.middle) {
-    | Lam(binder, t, _m1, _m2, body, bounds) =>
-      switch (binder.contents) {
-      | Hole =>
-        binder.contents = Var(x);
-        let newly_bound =
-          capture_name(body.child, x, t.contents, Iexp.Lower(body));
-        bounds.contents = newly_bound;
+    | Lam(bind, _t, _m1, _m2, body, bound_vars) =>
+      switch (bind.contents) {
+      | Var(x) =>
+        bind.contents = Hole;
+        let (new_binder, t, m) = look_up_binder(e.parent, x);
+        let update = var => update_var(var, t, m, new_binder);
+
+        let newly_bound = List.map(update, bound_vars.contents);
+
         let update_list =
           [Update.NewAna(e.parent)]
           @ List.map(e => Update.NewSyn(e), newly_bound)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
         {c, q: UpdateQueue.push_list(update_list, q)};
-      | _ => no_op
+      | Hole => no_op
+      }
+    | _ => failwith("CursorBind on non lambda")
+    }
+  | (CursorBind(e), InsertVar(x)) =>
+    switch (e.middle) {
+    | Lam(bind, t, _m1, _m2, body, bound_vars) =>
+      switch (bind.contents) {
+      | Hole =>
+        bind.contents = Var(x);
+        let newly_bound =
+          capture_name(body.child, x, t.contents, Iexp.Lower(body));
+        bound_vars.contents = newly_bound;
+        let update_list =
+          [Update.NewAna(e.parent)]
+          @ List.map(e => Update.NewSyn(e), newly_bound)
+          @ [NewAna(Lower(body)), NewSyn(body.child)];
+        {c, q: UpdateQueue.push_list(update_list, q)};
+      | Var(_) => no_op
       }
     | _ => failwith("CursorBind on non lambda")
     }
@@ -630,7 +637,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     );
     switch (e.middle) {
     | EHole =>
-      let (parent, ty, mark) = look_up_binder(e, x);
+      let (parent, ty, mark) = look_up_binder(e.parent, x);
       let e': Iexp.upper = {
         parent: e.parent,
         syn: Some(ty),
@@ -823,7 +830,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         switch (bind.contents) {
         | Hole => []
         | Var(x) =>
-          let (new_binder, t, m) = look_up_binder(body, x);
+          let (new_binder, t, m) = look_up_binder(parent, x);
           // switch (m) {
           // | Unmarked => print_endline("Found unshadow")
           // | Marked => print_endline("No unshadow found")
