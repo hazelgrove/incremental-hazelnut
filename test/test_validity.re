@@ -138,9 +138,99 @@ let big_example_broken_up: list(list(Iaction.t)) = [
   [MoveUp, MoveDown(Two), WrapArrow(One)],
 ];
 
-let nonsense: list(list(Iaction.t)) = [
+let unwrap: list(list(Iaction.t)) = [
   [WrapPlus(One), Unwrap(One)],
   [WrapPlus(One)],
+];
+
+let nonsense: list(list(Iaction.t)) = [
+  [WrapAp(Two), Unwrap(One), WrapAp(Two), WrapPlus(One)],
+  [MoveDown(Two), InsertVar(""), InsertNumType, WrapArrow(Two), WrapLam],
+  [Unwrap(Two), Unwrap(Two), Unwrap(Two)],
+  [
+    WrapPlus(Two),
+    WrapAp(Two),
+    WrapArrow(Two),
+    InsertVar(""),
+    MoveDown(Two),
+    WrapArrow(Two),
+    MoveUp,
+    Delete,
+    WrapPlus(Two),
+    WrapAsc,
+    InsertVar(""),
+    MoveDown(Three),
+    MoveDown(One),
+    MoveDown(One),
+    MoveDown(Two),
+    WrapArrow(Two),
+    InsertVar(""),
+    WrapAp(One),
+    WrapPlus(Two),
+    Unwrap(Two),
+    Delete,
+    Unwrap(Two),
+  ],
+  [WrapPlus(Two), WrapAp(Two), WrapArrow(Two)],
+  [MoveDown(Three), MoveDown(Two), MoveDown(Two)],
+  [
+    WrapLam,
+    MoveDown(Three),
+    WrapAp(Two),
+    Delete,
+    Delete,
+    WrapLam,
+    Unwrap(One),
+    WrapLam,
+    WrapPlus(One),
+    WrapAp(One),
+    WrapAp(Two),
+    WrapAsc,
+    InsertVar(""),
+    WrapArrow(Two),
+    WrapArrow(One),
+    Unwrap(Two),
+    MoveDown(Three),
+    Delete,
+    MoveDown(Two),
+    Unwrap(Two),
+    WrapAp(One),
+    WrapAsc,
+    WrapPlus(One),
+    Unwrap(One),
+    Unwrap(Two),
+    WrapAp(Two),
+    InsertNumType,
+    WrapArrow(One),
+    MoveDown(One),
+    MoveDown(One),
+    WrapArrow(One),
+    WrapArrow(Two),
+  ],
+  [WrapLam, WrapAsc, WrapPlus(Two), Unwrap(Two)],
+  [
+    Delete,
+    Unwrap(One),
+    WrapPlus(Two),
+    WrapAp(Two),
+    WrapLam,
+    WrapArrow(Two),
+    MoveDown(Two),
+    MoveDown(One),
+    MoveUp,
+    MoveDown(One),
+    MoveDown(Two),
+    WrapArrow(One),
+    WrapArrow(One),
+    InsertVar(""),
+    WrapAp(One),
+    WrapAsc,
+    WrapPlus(Two),
+    Unwrap(One),
+  ],
+  [Delete, WrapPlus(Two)],
+  [WrapAsc, WrapAp(One), InsertVar("")],
+  [WrapArrow(Two), MoveDown(Two), MoveDown(One)],
 ];
 
 test_actionses(
@@ -165,6 +255,8 @@ test_actionses(
   @ big_example
   @ [[Iaction.Delete]]
   @ big_example_broken_up
+  @ [[Iaction.Delete]]
+  @ unwrap
   @ [[Iaction.Delete]]
   @ nonsense,
 );
