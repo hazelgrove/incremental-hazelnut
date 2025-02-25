@@ -18,6 +18,7 @@ module Iexp: {
     mutable marked: Mark.t,
     mutable child: upper,
     in_queue_lower: InQueue.lower,
+    mutable deleted_lower: bool,
   }
 
   and middle =
@@ -42,6 +43,7 @@ module Iexp: {
     middle,
     mutable interval: (T.t, T.t),
     in_queue_upper: InQueue.upper,
+    mutable deleted_upper: bool,
   }
 
   and root = {

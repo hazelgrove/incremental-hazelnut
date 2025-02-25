@@ -33,6 +33,7 @@ module Iexp = {
     mutable marked: Mark.t,
     mutable child: upper,
     in_queue_lower: InQueue.lower,
+    mutable deleted_lower: bool,
   }
 
   and middle =
@@ -57,6 +58,7 @@ module Iexp = {
     middle,
     mutable interval: (T.t, T.t),
     in_queue_upper: InQueue.upper,
+    mutable deleted_upper: bool,
   }
 
   and root = {
@@ -146,6 +148,12 @@ module UpdateQueue = {
     | Root(r) => r.in_queue_root.ana = b
     | Lower(e) => e.in_queue_lower.ana = b;
 
+  let deleted_parent: Iexp.parent => bool =
+    fun
+    | Deleted => true
+    | Root(_) => false
+    | Lower(e) => e.deleted_lower;
+
   // is this bad practice to shadow the old push?
   // will return unit later
   let push = (u: Update.t, q: t): t => {
@@ -177,23 +185,42 @@ module UpdateQueue = {
     List.fold_left((q', e) => push(e, q'), q, es);
   };
 
-  let pop = (q: t): option((Update.t, t)) => {
-    let+ (u, q') = pop(q);
+  let rec update_pop = (q: t): option((Update.t, t)) => {
+    let* (u, q') = pop(q);
     switch (u) {
     | NewSyn(e) =>
       assert(e.in_queue_upper.syn);
       e.in_queue_upper.syn = false;
+      if (e.deleted_upper) {
+        update_pop(q');
+      } else {
+        Some((u, q'));
+      };
     | NewAna(p) =>
       assert(in_queue_parent(p));
       set_in_queue_parent(false, p);
+      if (deleted_parent(p)) {
+        update_pop(q');
+      } else {
+        Some((u, q'));
+      };
     | NewAnn(e) =>
       assert(e.in_queue_upper.ann);
       e.in_queue_upper.ann = false;
+      if (e.deleted_upper) {
+        update_pop(q');
+      } else {
+        Some((u, q'));
+      };
     | NewAsc(e) =>
       assert(e.in_queue_upper.asc);
       e.in_queue_upper.asc = false;
+      if (e.deleted_upper) {
+        update_pop(q');
+      } else {
+        Some((u, q'));
+      };
     };
-    (u, q');
   };
 };
 
@@ -219,6 +246,7 @@ let exp_hole_upper = (i: (T.t, T.t)): Iexp.upper => {
   interval: i,
   in_queue_upper: InQueue.default_upper(),
   middle: EHole,
+  deleted_upper: false,
 };
 
 let initial_om = T.create();
@@ -377,6 +405,7 @@ let update_var =
       middle: new_mid,
       interval: e.interval,
       in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
     };
     replace(e, new_upper);
     new_upper;
@@ -427,6 +456,32 @@ let rec capture_name =
 //   let captured_updates = List.map(e => Update.NewSyn(e), newly_bound);
 //   (newly_bound, captured_updates);
 // };
+
+let rec delete_lower = (e: Iexp.lower) => {
+  e.deleted_lower = true;
+  delete_upper(e.child);
+}
+
+and delete_middle = (e: Iexp.middle) => {
+  switch (e) {
+  | EHole
+  | Var(_)
+  | NumLit(_) => ()
+  | Asc(e, _) => delete_lower(e)
+  | Lam(_, _, _, _, e, _) => delete_lower(e)
+  | Plus(e1, e2) =>
+    delete_lower(e1);
+    delete_lower(e2);
+  | Ap(e1, _, e2) =>
+    delete_lower(e1);
+    delete_lower(e2);
+  };
+}
+
+and delete_upper = (e: Iexp.upper) => {
+  e.deleted_upper = true;
+  delete_middle(e.middle);
+};
 
 let add_two = b => {
   let c = T.add_next(b);
@@ -607,13 +662,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       middle: EHole,
       interval: e.interval,
       in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
     };
-    print_endline("syn in queue: " ++ string_of_bool(e'.in_queue_upper.syn));
+    delete_upper(e);
     replace(e, e');
-    print_endline(
-      "syn in queue (post): " ++ string_of_bool(e'.in_queue_upper.syn),
-    );
-    // print_endline("test eq: " ++ string_of_bool(e === e'));
     let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
     {c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
   | (CursorExp(_), InsertNumType)
@@ -627,6 +679,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         middle: NumLit(x),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
       };
       replace(e, e');
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
@@ -649,6 +702,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         interval: e.interval,
         middle: Var(x, mark, parent),
         in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
       };
       replace(e, e');
       bind_to_binder(e', parent);
@@ -665,6 +719,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         marked: Unmarked,
         child: e1,
         in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
       };
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
@@ -672,6 +727,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         marked: Unmarked,
         child: e2,
         in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
       };
       let new_mid: Iexp.middle = Plus(new_lower_left, new_lower_right);
       let new_upper: Iexp.upper = {
@@ -680,6 +736,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         interval,
         middle: new_mid,
         in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
       };
 
       splice(new_lower_left, new_upper);
@@ -712,6 +769,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         marked: Unmarked,
         child: e1,
         in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
       };
       let new_lower_right: Iexp.lower = {
         upper: dummy_upper,
@@ -719,6 +777,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         marked: Unmarked,
         child: e2,
         in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
       };
       let new_mid: Iexp.middle =
         Ap(new_lower_left, ref(Mark.Unmarked), new_lower_right);
@@ -728,6 +787,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         interval,
         middle: new_mid,
         in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
       };
 
       splice(new_lower_left, new_upper);
@@ -757,6 +817,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       marked: Unmarked,
       child: body,
       in_queue_lower: InQueue.default_lower(),
+      deleted_lower: false,
     };
     let new_mid =
       Iexp.Lam(
@@ -773,6 +834,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       interval: interval_around(body),
       middle: new_mid,
       in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
     };
 
     splice(new_lower, new_upper);
@@ -791,6 +853,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       marked: Unmarked,
       child: e,
       in_queue_lower: InQueue.default_lower(),
+      deleted_lower: false,
     };
     let new_mid: Iexp.middle = Asc(new_lower, ref(Htyp.Hole));
     let new_upper: Iexp.upper = {
@@ -799,6 +862,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       interval: interval_around(e),
       middle: new_mid,
       in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
     };
 
     splice(new_lower, new_upper);
@@ -820,6 +884,8 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       let body = body_lower.child;
       let parent = e.parent;
 
+      e.deleted_upper = true;
+      body_lower.deleted_lower = true;
       replace(e, body);
 
       // update bound variables to outer binder
@@ -846,26 +912,34 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       {c: CursorExp(new_body), q: UpdateQueue.push_list(update_list, q)};
 
     | Ap(fun_lower, _, arg_lower) =>
-      let body =
+      let (body_lower, deleted_lower) =
         switch (child) {
-        | One => fun_lower.child
-        | Two => arg_lower.child
+        | One => (fun_lower, arg_lower)
+        | Two => (arg_lower, fun_lower)
         | Three => raise(Unimplemented)
         };
+      let body = body_lower.child;
 
+      e.deleted_upper = true;
+      body_lower.deleted_lower = true;
+      delete_lower(deleted_lower);
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
       {c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
 
     | Plus(left_arg, right_arg) =>
-      let body =
+      let (body_lower, deleted_lower) =
         switch (child) {
-        | One => left_arg.child
-        | Two => right_arg.child
+        | One => (left_arg, right_arg)
+        | Two => (right_arg, left_arg)
         | Three => raise(Unimplemented)
         };
+      let body = body_lower.child;
 
+      e.deleted_upper = true;
+      body_lower.deleted_lower = true;
+      delete_lower(deleted_lower);
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
@@ -874,6 +948,8 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     | Asc(body_lower, _ty) =>
       let body = body_lower.child;
 
+      e.deleted_upper = true;
+      body_lower.deleted_lower = true;
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
@@ -893,7 +969,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
   | _ => ()
   };
 
-  let+ (update, q') = UpdateQueue.pop(s.q);
+  let+ (update, q') = UpdateQueue.update_pop(s.q);
   switch (update) {
   | NewSyn(e) =>
     switch (e.parent) {
