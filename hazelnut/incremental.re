@@ -1,6 +1,6 @@
 open Sexplib.Std;
 open Hazelnut;
-open Total_order;
+open Order;
 // open Queue;
 // open Monad_lib.Monad;
 
@@ -89,5 +89,26 @@ let child_of_parent = (p: Iexp.parent): Iexp.upper => {
   | Deleted => failwith("child of deleted")
   | Root(r) => r.root_child
   | Lower(r) => r.child
+  };
+};
+
+let initial_om = T.create();
+let initial_interval = (initial_om, T.add_next(initial_om));
+
+let exp_hole_upper = (i: (T.t, T.t)): Iexp.upper => {
+  parent: Deleted,
+  syn: Some(Hole),
+  interval: i,
+  in_queue_upper: InQueue.default_upper(),
+  middle: EHole,
+  deleted_upper: false,
+};
+
+let dummy_upper = exp_hole_upper(initial_interval);
+
+let var_syn = (e: Iexp.upper, syn: Htyp.t) => {
+  switch (e.middle) {
+  | Var(_) => e.syn = Some(syn)
+  | _ => failwith("var_syn called on non-var")
   };
 };

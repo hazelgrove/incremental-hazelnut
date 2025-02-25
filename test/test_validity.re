@@ -1,6 +1,8 @@
 open Hazelnut_lib.Incremental;
 open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
+open Hazelnut_lib.State;
+open Hazelnut_lib.Update;
 
 let apply_actions = (actions: list(Iaction.t), s): Istate.t => {
   List.fold_left(apply_action, s, actions);

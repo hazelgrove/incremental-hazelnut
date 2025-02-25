@@ -1,5 +1,5 @@
 open Hazelnut;
-open Total_order;
+open Order;
 
 module InQueue: {
   type upper = {
@@ -69,3 +69,9 @@ module Iexp: {
 };
 
 let child_of_parent: Iexp.parent => Iexp.upper;
+
+let initial_interval: (T.t, T.t);
+let exp_hole_upper: ((T.t, T.t)) => Iexp.upper;
+let dummy_upper: Iexp.upper;
+
+let var_syn: (Iexp.upper, Htyp.t) => unit;

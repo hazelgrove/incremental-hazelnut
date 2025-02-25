@@ -1,8 +1,6 @@
 open Hazelnut;
 open Incremental;
-open Actions;
-open Total_order;
-// open Pexp;
+open Order;
 
 type bareExp =
   | Var(string)
