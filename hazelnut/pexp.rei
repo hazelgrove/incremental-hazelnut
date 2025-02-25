@@ -1,5 +1,6 @@
 // open Sexplib.Std;
 open Incremental;
+open Actions;
 
 module Pexp: {
   [@deriving (sexp, compare)]

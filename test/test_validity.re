@@ -1,4 +1,5 @@
 open Hazelnut_lib.Incremental;
+open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 
 let apply_actions = (actions: list(Iaction.t), s): Istate.t => {

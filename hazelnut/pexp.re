@@ -1,6 +1,8 @@
 open Sexplib.Std;
 open Hazelnut;
 open Incremental;
+open Actions;
+open UpdateQueue;
 
 let compare_string = String.compare;
 let compare_int = Int.compare;
