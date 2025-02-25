@@ -26,7 +26,6 @@ let string_of_action: Iaction.t => string =
   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
   | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
   | WrapLam => "WrapLam"
-  | WrapLamInner(_) => "WrapLamInner(...)"
   | WrapAsc => "WrapAsc"
   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
 

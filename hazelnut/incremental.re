@@ -260,7 +260,6 @@ module Iaction = {
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapLam
-    | WrapLamInner(Bind.t, Htyp.t, Mark.t, Mark.t)
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
@@ -490,7 +489,6 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (z, WrapPlus(_)) => z
   | (z, WrapAp(_)) => z
   | (z, WrapLam) => z
-  | (z, WrapLamInner(_)) => z
   };
 };
 
@@ -745,9 +743,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       make_ap_with_children(e.parent, interval, hole, e, q);
     | Three => no_op
     };
-  | (_, WrapLam) =>
-    apply_action(s, WrapLamInner(Hole, Hole, Unmarked, Unmarked))
-  | (CursorExp(body), WrapLamInner(x, t, m1, m2)) =>
+  | (CursorExp(body), WrapLam) =>
     let new_lower: Iexp.lower = {
       upper: dummy_upper,
       ana: None,
@@ -755,9 +751,15 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       child: body,
       in_queue_lower: InQueue.default_lower(),
     };
-    let new_bounds = ref([]);
     let new_mid =
-      Iexp.Lam(ref(x), ref(t), ref(m1), ref(m2), new_lower, new_bounds);
+      Iexp.Lam(
+        ref(Bind.Hole),
+        ref(Htyp.Hole),
+        ref(Mark.Unmarked),
+        ref(Mark.Unmarked),
+        new_lower,
+        ref([]),
+      );
     let new_upper: Iexp.upper = {
       parent: body.parent,
       syn: body.syn,
@@ -766,25 +768,13 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       in_queue_upper: InQueue.default_upper(),
     };
 
-    switch (body.parent) {
-    | Deleted => print_endline("alack")
-    | _ => ()
-    };
-
     splice(new_lower, new_upper);
 
-    let newly_bound =
-      switch (x) {
-      | Hole => []
-      | Var(name) => capture_name(body, name, t, Iexp.Lower(new_lower))
-      };
-    // print_endline(string_of_int(List.length(newly_bound)) ++ " captured");
-    new_bounds.contents = newly_bound;
-
-    let update_list =
-      [Update.NewAna(new_upper.parent)]
-      @ List.map(e => Update.NewSyn(e), newly_bound)
-      @ [NewAna(Lower(new_lower)), NewSyn(body)];
+    let update_list = [
+      Update.NewAna(new_upper.parent),
+      NewAna(Lower(new_lower)),
+      NewSyn(body),
+    ];
     {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
 
   | (CursorExp(e), WrapAsc) =>

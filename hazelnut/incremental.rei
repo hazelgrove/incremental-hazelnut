@@ -79,7 +79,6 @@ module Iaction: {
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapLam
-    | WrapLamInner(Bind.t, Htyp.t, Mark.t, Mark.t)
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
