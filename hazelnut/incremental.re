@@ -104,9 +104,7 @@ module Update = {
     fun
     | NewSyn(e) => snd(e.interval)
     | NewAna(e) => {
-        print_endline("prioirty of ana");
         let p = fst(child_of_parent(e).interval);
-        print_endline("prioryt of ana OK");
         p;
       }
     | NewAnn(e) => fst(e.interval)
@@ -138,9 +136,15 @@ module UpdateQueue = {
 
   let in_queue_parent: Iexp.parent => bool =
     fun
-    | Deleted => false
-    | Root(r) => r.in_queue_root.ana
-    | Lower(e) => e.in_queue_lower.ana;
+    | Deleted => true
+    | Root(r) => {
+        print_endline("in queue root?");
+        r.in_queue_root.ana;
+      }
+    | Lower(e) => {
+        print_endline("in queue lower?");
+        e.in_queue_lower.ana;
+      };
 
   let set_in_queue_parent = (b: bool): (Iexp.parent => unit) =>
     fun
@@ -148,15 +152,15 @@ module UpdateQueue = {
     | Root(r) => r.in_queue_root.ana = b
     | Lower(e) => e.in_queue_lower.ana = b;
 
-  let deleted_parent: Iexp.parent => bool =
+  let _deleted_parent: Iexp.parent => bool =
     fun
     | Deleted => true
     | Root(_) => false
     | Lower(e) => e.deleted_lower;
 
-  // is this bad practice to shadow the old push?
+  // is this bad practice to shadow the old update_push?
   // will return unit later
-  let push = (u: Update.t, q: t): t => {
+  let update_push = (u: Update.t, q: t): t => {
     switch (u) {
     | NewSyn(e) when !e.in_queue_upper.syn =>
       print_endline("adding syn to queue");
@@ -181,44 +185,55 @@ module UpdateQueue = {
     };
   };
 
-  let push_list = (es: list(Update.t), q: t) => {
-    List.fold_left((q', e) => push(e, q'), q, es);
+  let update_push_list = (es: list(Update.t), q: t) => {
+    List.fold_left((q', e) => update_push(e, q'), q, es);
   };
 
-  let rec update_pop = (q: t): option((Update.t, t)) => {
-    let* (u, q') = pop(q);
+  // the queue may or may not change, and if it does, it may or may not return
+  // a popped element. hence the double option.
+  let rec update_pop = (q: t): option((option(Update.t), t)) => {
+    let recurse = q_var => {
+      switch (update_pop(q_var)) {
+      | None => (None, q_var)
+      | Some((u, q_var)) => (u, q_var)
+      };
+    };
+    let+ (u, q) = pop(q);
     switch (u) {
     | NewSyn(e) =>
       assert(e.in_queue_upper.syn);
       e.in_queue_upper.syn = false;
       if (e.deleted_upper) {
-        update_pop(q');
+        print_endline("deleted syn: skipping");
+        recurse(q);
       } else {
-        Some((u, q'));
+        (Some(u), q);
       };
     | NewAna(p) =>
+      // this is currently failing
       assert(in_queue_parent(p));
       set_in_queue_parent(false, p);
-      if (deleted_parent(p)) {
-        update_pop(q');
+      if (_deleted_parent(p)) {
+        print_endline("deleted ana: skipping");
+        recurse(q);
       } else {
-        Some((u, q'));
+        (Some(u), q);
       };
     | NewAnn(e) =>
       assert(e.in_queue_upper.ann);
       e.in_queue_upper.ann = false;
       if (e.deleted_upper) {
-        update_pop(q');
+        recurse(q);
       } else {
-        Some((u, q'));
+        (Some(u), q);
       };
     | NewAsc(e) =>
       assert(e.in_queue_upper.asc);
       e.in_queue_upper.asc = false;
       if (e.deleted_upper) {
-        update_pop(q');
+        recurse(q);
       } else {
-        Some((u, q'));
+        (Some(u), q);
       };
     };
   };
@@ -586,7 +601,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
           [Update.NewAna(e.parent)]
           @ List.map(e => Update.NewSyn(e), newly_bound)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
-        {c, q: UpdateQueue.push_list(update_list, q)};
+        {c, q: UpdateQueue.update_push_list(update_list, q)};
       | Hole => no_op
       }
     | _ => failwith("CursorBind on non lambda")
@@ -604,7 +619,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
           [Update.NewAna(e.parent)]
           @ List.map(e => Update.NewSyn(e), newly_bound)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
-        {c, q: UpdateQueue.push_list(update_list, q)};
+        {c, q: UpdateQueue.update_push_list(update_list, q)};
       | Var(_) => no_op
       }
     | _ => failwith("CursorBind on non lambda")
@@ -617,12 +632,12 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       let z' = apply_action_typ(z, a);
       let t' = erase_typ(z');
       t.contents = t';
-      {c: CursorTyp(e, z'), q: UpdateQueue.push(NewAnn(e), q)};
+      {c: CursorTyp(e, z'), q: UpdateQueue.update_push(NewAnn(e), q)};
     | Asc(_, t) =>
       let z' = apply_action_typ(z, a);
       let t' = erase_typ(z');
       t.contents = t';
-      {c: CursorTyp(e, z'), q: UpdateQueue.push(NewAsc(e), q)};
+      {c: CursorTyp(e, z'), q: UpdateQueue.update_push(NewAsc(e), q)};
     | _ => failwith("CursorTyp on node with no type")
     }
   | (CursorExp(e), MoveUp) =>
@@ -667,7 +682,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
     delete_upper(e);
     replace(e, e');
     let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
-    {c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
+    {c: CursorExp(e'), q: UpdateQueue.update_push_list(update_list, q)};
   | (CursorExp(_), InsertNumType)
   | (CursorExp(_), WrapArrow(_)) => no_op
   | (CursorExp(e), InsertNumLit(x)) =>
@@ -683,7 +698,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       };
       replace(e, e');
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
-      {c: CursorExp(e'), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(e'), q: UpdateQueue.update_push_list(update_list, q)};
     | _ => no_op
     }
   | (CursorExp(e), InsertVar(x)) =>
@@ -707,7 +722,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, e');
       bind_to_binder(e', parent);
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
-      let q' = UpdateQueue.push_list(update_list, q);
+      let q' = UpdateQueue.update_push_list(update_list, q);
       {c: CursorExp(e'), q: q'};
     | _ => no_op
     };
@@ -749,7 +764,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewSyn(new_upper),
       ];
 
-      {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
+      {
+        c: CursorExp(new_upper),
+        q: UpdateQueue.update_push_list(update_list, q),
+      };
     };
     let interval = interval_around(e);
     switch (child) {
@@ -797,7 +815,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewSyn(e1),
         Update.NewAna(Lower(new_lower_left)),
       ];
-      {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
+      {
+        c: CursorExp(new_upper),
+        q: UpdateQueue.update_push_list(update_list, q),
+      };
     };
     // this must come before the calls to interval_before or _after. It mutates s.som.
     let interval = interval_around(e);
@@ -844,7 +865,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       NewAna(Lower(new_lower)),
       NewSyn(body),
     ];
-    {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
+    {
+      c: CursorExp(new_upper),
+      q: UpdateQueue.update_push_list(update_list, q),
+    };
 
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
@@ -873,7 +897,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       Update.NewAna(Lower(new_lower)),
     ];
 
-    {c: CursorExp(new_upper), q: UpdateQueue.push_list(update_list, q)};
+    {
+      c: CursorExp(new_upper),
+      q: UpdateQueue.update_push_list(update_list, q),
+    };
 
   | (CursorExp(e), Unwrap(child)) =>
     switch (e.middle) {
@@ -909,7 +936,10 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         [Update.NewAna(parent)]
         @ List.map(e => Update.NewSyn(e), newly_bound)
         @ [Update.NewSyn(new_body)];
-      {c: CursorExp(new_body), q: UpdateQueue.push_list(update_list, q)};
+      {
+        c: CursorExp(new_body),
+        q: UpdateQueue.update_push_list(update_list, q),
+      };
 
     | Ap(fun_lower, _, arg_lower) =>
       let (body_lower, deleted_lower) =
@@ -926,7 +956,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
-      {c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(body), q: UpdateQueue.update_push_list(update_list, q)};
 
     | Plus(left_arg, right_arg) =>
       let (body_lower, deleted_lower) =
@@ -943,7 +973,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
-      {c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(body), q: UpdateQueue.update_push_list(update_list, q)};
 
     | Asc(body_lower, _ty) =>
       let body = body_lower.child;
@@ -953,7 +983,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
-      {c: CursorExp(body), q: UpdateQueue.push_list(update_list, q)};
+      {c: CursorExp(body), q: UpdateQueue.update_push_list(update_list, q)};
     }
   };
 };
@@ -969,102 +999,109 @@ let update_step = (s: Istate.t): option(Istate.t) => {
   | _ => ()
   };
 
-  let+ (update, q') = UpdateQueue.update_pop(s.q);
+  let+ (update, q) = UpdateQueue.update_pop(s.q);
   switch (update) {
-  | NewSyn(e) =>
-    switch (e.parent) {
-    | Deleted // => failwith("no stepping in deleted terms!!")
-    | Root(_) =>
-      //UPDATE: TopStep
-      print_endline("TopStep");
-      {...s, q: q'};
-    | Lower(parent) =>
-      switch (parent.upper.middle) {
-      | Ap(e1, m, e2) when e1.child === e =>
-        // UPDATE: StepAp
-        print_endline("StepAp");
-        let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
-        e2.ana = t_in;
-        parent.upper.syn = t_out;
-        m.contents = m';
-        e1.marked = Unmarked;
-        let update_list = [
-          Update.NewAna(Lower(e2)),
-          Update.NewSyn(parent.upper),
-        ];
-        {...s, q: UpdateQueue.push_list(update_list, q')};
-      | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
-        // UPDATE: StepSynFun
-        print_endline("StepSynFun");
-        parent.upper.syn =
-          arrow_unless(t.contents, body.child.syn, parent.ana);
-        body.marked = Unmarked;
-        let update_list = [Update.NewSyn(parent.upper)];
-        {...s, q: UpdateQueue.push_list(update_list, q')};
-      | _ when Option.is_some(parent.ana) =>
-        // UPDATE: StepSynConsist
-        print_endline("StepSynConsist");
-        parent.marked = type_consistent_opt(e.syn, parent.ana);
-        {...s, q: q'};
-      | _ => failwith("unrecognized update step")
+  | None => {...s, q}
+  | Some(update) =>
+    switch (update) {
+    | NewSyn(e) =>
+      switch (e.parent) {
+      | Deleted // => failwith("no stepping in deleted terms!!")
+      | Root(_) =>
+        //UPDATE: TopStep
+        print_endline("TopStep");
+        {...s, q};
+      | Lower(parent) =>
+        switch (parent.upper.middle) {
+        | Ap(e1, m, e2) when e1.child === e =>
+          // UPDATE: StepAp
+          print_endline("StepAp");
+          let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
+          e2.ana = t_in;
+          parent.upper.syn = t_out;
+          m.contents = m';
+          e1.marked = Unmarked;
+          let update_list = [
+            Update.NewAna(Lower(e2)),
+            Update.NewSyn(parent.upper),
+          ];
+          {...s, q: UpdateQueue.update_push_list(update_list, q)};
+        | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
+          // UPDATE: StepSynFun
+          print_endline("StepSynFun");
+          parent.upper.syn =
+            arrow_unless(t.contents, body.child.syn, parent.ana);
+          body.marked = Unmarked;
+          let update_list = [Update.NewSyn(parent.upper)];
+          {...s, q: UpdateQueue.update_push_list(update_list, q)};
+        | _ when Option.is_some(parent.ana) =>
+          // UPDATE: StepSynConsist
+          print_endline("StepSynConsist");
+          parent.marked = type_consistent_opt(e.syn, parent.ana);
+          {...s, q};
+        | _ => failwith("unrecognized update step")
+        }
       }
+    | NewAna(parent) =>
+      let child = child_of_parent(parent);
+      let ana =
+        switch (parent) {
+        | Lower(lower) => lower.ana
+        | _ => None
+        };
+      let mark_parent = m =>
+        switch (parent) {
+        | Lower(lower) => lower.marked = m
+        | _ => ()
+        };
+      switch (child.middle) {
+      | Lam(_, t_ann, m_ana, m_ann, body, _) =>
+        // UPDATE: StepAnaFun
+        print_endline("StepAnaFun");
+        let (t_in, t_out, m_ana') = matched_arrow_typ_opt(ana);
+        let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
+        m_ana.contents = m_ana';
+        m_ann.contents = m_ann';
+        body.ana = t_out;
+        child.syn = arrow_unless(t_ann.contents, body.child.syn, ana);
+        mark_parent(Unmarked);
+        let update_list = [
+          Update.NewAna(Lower(body)),
+          Update.NewSyn(child),
+        ];
+        {...s, q: UpdateQueue.update_push_list(update_list, q)};
+      | _ =>
+        // This case must come after the above case. Relies on the term being subsumable.
+        // UPDATE: StepAnaConsist
+        print_endline("StepAnaConsist");
+        mark_parent(type_consistent_opt(child.syn, ana));
+        {...s, q};
+      };
+    | NewAnn(e) =>
+      // UPDATE: StepAnnFun
+      print_endline("StepAnnFun");
+      switch (e.middle) {
+      | Lam(_, t, _, _, _, bound_vars) =>
+        let update = var => var_syn(var, t.contents);
+        let _ = List.map(update, bound_vars.contents);
+        let update_list =
+          [Update.NewAna(e.parent)]  // TODO: check if e.parent is deleted.
+          @ List.map(var => Update.NewSyn(var), bound_vars.contents);
+        {...s, q: UpdateQueue.update_push_list(update_list, q)};
+      | _ => failwith("NewAnn on non-lam")
+      };
+    | NewAsc(e) =>
+      // UPDATE: StepAsc
+      print_endline("StepAsc");
+      switch (e.middle) {
+      | Asc(low, asc) =>
+        e.syn = Some(asc.contents);
+        low.ana = Some(asc.contents);
+        let update_list = [Update.NewAna(Lower(low)), Update.NewSyn(e)];
+        {...s, q: UpdateQueue.update_push_list(update_list, q)};
+      | _ => failwith("NewAsc on non-asc")
+      };
     }
-  | NewAna(parent) =>
-    let child = child_of_parent(parent);
-    let ana =
-      switch (parent) {
-      | Lower(lower) => lower.ana
-      | _ => None
-      };
-    let mark_parent = m =>
-      switch (parent) {
-      | Lower(lower) => lower.marked = m
-      | _ => ()
-      };
-    switch (child.middle) {
-    | Lam(_, t_ann, m_ana, m_ann, body, _) =>
-      // UPDATE: StepAnaFun
-      print_endline("StepAnaFun");
-      let (t_in, t_out, m_ana') = matched_arrow_typ_opt(ana);
-      let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
-      m_ana.contents = m_ana';
-      m_ann.contents = m_ann';
-      body.ana = t_out;
-      child.syn = arrow_unless(t_ann.contents, body.child.syn, ana);
-      mark_parent(Unmarked);
-      let update_list = [Update.NewAna(Lower(body)), Update.NewSyn(child)];
-      {...s, q: UpdateQueue.push_list(update_list, q')};
-    | _ =>
-      // This case must come after the above case. Relies on the term being subsumable.
-      // UPDATE: StepAnaConsist
-      print_endline("StepAnaConsist");
-      mark_parent(type_consistent_opt(child.syn, ana));
-      {...s, q: q'};
-    };
-  | NewAnn(e) =>
-    // UPDATE: StepAnnFun
-    print_endline("StepAnnFun");
-    switch (e.middle) {
-    | Lam(_, t, _, _, _, bound_vars) =>
-      let update = var => var_syn(var, t.contents);
-      let _ = List.map(update, bound_vars.contents);
-      let update_list =
-        [Update.NewAna(e.parent)]  // TODO: check if e.parent is deleted.
-        @ List.map(var => Update.NewSyn(var), bound_vars.contents);
-      {...s, q: UpdateQueue.push_list(update_list, q')};
-    | _ => failwith("NewAnn on non-lam")
-    };
-  | NewAsc(e) =>
-    // UPDATE: StepAsc
-    print_endline("StepAsc");
-    switch (e.middle) {
-    | Asc(low, asc) =>
-      e.syn = Some(asc.contents);
-      low.ana = Some(asc.contents);
-      let update_list = [Update.NewAna(Lower(low)), Update.NewSyn(e)];
-      {...s, q: UpdateQueue.push_list(update_list, q')};
-    | _ => failwith("NewAsc on non-asc")
-    };
   };
 };
 

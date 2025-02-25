@@ -138,6 +138,11 @@ let big_example_broken_up: list(list(Iaction.t)) = [
   [MoveUp, MoveDown(Two), WrapArrow(One)],
 ];
 
+let nonsense: list(list(Iaction.t)) = [
+  [WrapPlus(One), Unwrap(One)],
+  [WrapPlus(One)],
+];
+
 test_actionses(
   a1
   @ [[Iaction.Delete]]
@@ -159,5 +164,7 @@ test_actionses(
   @ [[Iaction.Delete]]
   @ big_example
   @ [[Iaction.Delete]]
-  @ big_example_broken_up,
+  @ big_example_broken_up
+  @ [[Iaction.Delete]]
+  @ nonsense,
 );
