@@ -421,6 +421,13 @@ let rec capture_name =
   };
 };
 
+// let capture_name_with_updates =
+//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
+//   let newly_bound = capture_name(e, name, syn, binder);
+//   let captured_updates = List.map(e => Update.NewSyn(e), newly_bound);
+//   (newly_bound, captured_updates);
+// };
+
 let add_two = b => {
   let c = T.add_next(b);
   let d = T.add_next(c);
@@ -516,8 +523,8 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       | Var(x) =>
         bind.contents = Hole;
         let (new_binder, t, m) = look_up_binder(e.parent, x);
-        let update = var => update_var(var, t, m, new_binder);
 
+        let update = var => update_var(var, t, m, new_binder);
         let newly_bound = List.map(update, bound_vars.contents);
 
         let update_list =

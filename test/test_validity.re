@@ -92,6 +92,52 @@ let free_var: list(list(Iaction.t)) = [
   [InsertVar("x"), WrapLam, MoveDown(One), InsertVar("x"), Delete],
 ];
 
+let big_example: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapAp(Two),
+    MoveDown(One),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("y"),
+    MoveUp,
+    MoveDown(Two),
+    InsertNumType,
+    MoveUp,
+    MoveDown(Three),
+    WrapPlus(One),
+    MoveDown(One),
+    InsertVar("y"),
+    MoveUp,
+    MoveDown(Two),
+    InsertVar("y"),
+    WrapPlus(One),
+    MoveDown(Two),
+    InsertVar("x"),
+    MoveUp,
+    MoveUp,
+    MoveUp,
+    MoveUp,
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    WrapArrow(One),
+  ],
+];
+
+let big_example_broken_up: list(list(Iaction.t)) = [
+  [InsertVar("x"), WrapAp(Two), MoveDown(One), WrapLam],
+  [MoveDown(One), InsertVar("y"), MoveUp],
+  [MoveDown(Two), InsertNumType, MoveUp, MoveDown(Three), WrapPlus(One)],
+  [MoveDown(One), InsertVar("y"), MoveUp, MoveDown(Two)],
+  [InsertVar("y"), WrapPlus(One), MoveDown(Two), InsertVar("x")],
+  [MoveUp, MoveUp, MoveUp, MoveUp],
+  [WrapLam, MoveDown(One), InsertVar("x")],
+  [MoveUp, MoveDown(Two), WrapArrow(One)],
+];
+
 test_actionses(
   a1
   @ [[Iaction.Delete]]
@@ -109,5 +155,9 @@ test_actionses(
   @ [[Iaction.Delete]]
   @ lam_ann_inconsistent
   @ [[Iaction.Delete]]
-  @ free_var,
+  @ free_var
+  @ [[Iaction.Delete]]
+  @ big_example
+  @ [[Iaction.Delete]]
+  @ big_example_broken_up,
 );
