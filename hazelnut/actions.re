@@ -215,8 +215,8 @@ and delete_upper = (e: Iexp.upper) => {
 };
 
 let add_two = b => {
-  let c = T.add_next(b);
-  let d = T.add_next(c);
+  let c = Order.add_next(b);
+  let d = Order.add_next(c);
   (c, d);
 };
 

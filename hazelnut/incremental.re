@@ -56,7 +56,7 @@ module Iexp = {
     mutable parent,
     mutable syn: option(Htyp.t),
     middle,
-    mutable interval: (T.t, T.t),
+    mutable interval: (Order.t, Order.t),
     in_queue_upper: InQueue.upper,
     mutable deleted_upper: bool,
   }
@@ -92,10 +92,10 @@ let child_of_parent = (p: Iexp.parent): Iexp.upper => {
   };
 };
 
-let initial_om = T.create();
-let initial_interval = (initial_om, T.add_next(initial_om));
+let initial_om = Order.create();
+let initial_interval = (initial_om, Order.add_next(initial_om));
 
-let exp_hole_upper = (i: (T.t, T.t)): Iexp.upper => {
+let exp_hole_upper = (i: (Order.t, Order.t)): Iexp.upper => {
   parent: Deleted,
   syn: Some(Hole),
   interval: i,

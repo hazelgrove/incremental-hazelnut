@@ -13,22 +13,7 @@
 
 open Sexplib0
 
-module T : sig
-  type parent
-  type t
-  val sexp_of_t : t -> Sexp.t
-  val t_of_sexp : Sexp.t -> t
-  val null : t
-  val create : unit -> t
-  val is_valid : t -> bool
-  val compare : t -> t -> int
-  val add_next : t -> t
-  (* val add_before : t -> t *)
-  val splice : ?inclusive:bool -> t -> t -> unit
-  val set_invalidator : t -> (t -> unit) -> unit
-  val reset_invalidator : t -> unit
-end = struct
-
+module Order = struct
   let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
   let label_bits = Sys.word_size - 2 (* use only the positive range *)
   let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)
@@ -239,8 +224,6 @@ end = struct
       end;
       ts'
 
-  (* let add_before = failwith("TODO") *)
-
   (** Splice two elements [ts] and [ts'] in a total-order such that, [ts] is immediately followed by [ts'], removing all elements between them;
       optionally, if [inclusive] is [true], [ts] and [ts'] will also be removed. *)
   let splice ?(inclusive=false) ts ts' =
@@ -338,4 +321,4 @@ end = struct
       if not (is_valid ts) then invalid_arg "TotalOrder.reset_invalidator";
       ts.invalidator <- nop
 end
-include T
+

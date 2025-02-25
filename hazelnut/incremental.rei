@@ -46,7 +46,7 @@ module Iexp: {
     mutable parent,
     mutable syn: option(Htyp.t),
     middle,
-    mutable interval: (T.t, T.t),
+    mutable interval: (Order.t, Order.t),
     in_queue_upper: InQueue.upper,
     mutable deleted_upper: bool,
   }
@@ -70,8 +70,8 @@ module Iexp: {
 
 let child_of_parent: Iexp.parent => Iexp.upper;
 
-let initial_interval: (T.t, T.t);
-let exp_hole_upper: ((T.t, T.t)) => Iexp.upper;
+let initial_interval: (Order.t, Order.t);
+let exp_hole_upper: ((Order.t, Order.t)) => Iexp.upper;
 let dummy_upper: Iexp.upper;
 
 let var_syn: (Iexp.upper, Htyp.t) => unit;

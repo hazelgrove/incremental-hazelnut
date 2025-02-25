@@ -28,7 +28,7 @@ and erase_upper = (e: Iexp.upper): bareExp => {
   erase_middle(e.middle);
 };
 
-let dummy_interval = (T.null, T.null);
+let dummy_interval = (Order.null, Order.null);
 
 let wrap_upper = (m: Iexp.middle, syn: option(Htyp.t)): Iexp.upper => {
   parent: Deleted,
