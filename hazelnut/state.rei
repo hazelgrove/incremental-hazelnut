@@ -18,5 +18,5 @@ module Istate: {
   };
 };
 
-let initial_root: Iexp.parent;
-let initial_state: Istate.t;
+let initial_root: unit => Iexp.parent;
+let initial_state: unit => Istate.t;

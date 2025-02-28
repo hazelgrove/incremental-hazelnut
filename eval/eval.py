@@ -17,7 +17,7 @@ def shell(str):
 
 shell("mkdir -p log")
 shell("rm log/* || true")
-shell(f"dune exec hneval {path}")
+shell(f"dune exec eval {path}")
 
 import dominate
 from dominate.tags import *
@@ -57,18 +57,22 @@ times = []
 for m in data.values():
     times.append((m["incr"], m["baseline"]))
 
-fig, (ax1, ax2) = plt.subplots(1, 2, layout='constrained')
+fig1, ax1 = plt.subplots(layout='constrained')
+
+fig2, ax2 = plt.subplots(layout='constrained')
 
 with doc:
     def scatterplot():
         xs = [times[i][0] for i in range(len(times))]
         ys = [times[i][1] for i in range(len(times))]
+        min_value = min(min(*xs), min(*ys))
+        max_value = max(max(*xs), max(*ys))
         ax1.scatter(xs, ys, color="#1f77b4", alpha=0.3, edgecolor="none")
-    #ax1.plot([min_value, max_value], [min_value, max_value], color="black")
-    #ax1.set_xscale('log')
-    #ax1.set_yscale('log')
-    #ax1.set_xlim(min_value / 2, max_value * 2)
-    #ax1.set_ylim(min_value / 2, max_value * 2)
+        ax1.plot([min_value, max_value], [min_value, max_value], color="black")
+        ax1.set_xscale('log')
+        ax1.set_yscale('log')
+        #ax1.set_xlim(min_value / 2, max_value * 2)
+        #ax1.set_ylim(min_value / 2, max_value * 2)
 
     scatterplot()
 
@@ -83,12 +87,13 @@ with doc:
         x_range = math.exp(max(abs(math.log(max(cdf_x))), abs(math.log(min(cdf_x)))))
     
     cdf()
-
     pic_path = f"{count()}.png"
-    plt.savefig(out_path + pic_path)
+    fig1.savefig(out_path + pic_path)
     img(src=pic_path)
 
-    fig.savefig(out_path + pic_path)
+    pic_path = f"{count()}.png"
+    fig2.savefig(out_path + pic_path)
+    img(src=pic_path)
 
         
 write_to(out_path + "index.html", str(doc))

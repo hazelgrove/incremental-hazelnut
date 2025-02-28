@@ -20,7 +20,7 @@ module Istate = {
 
 let initial_exp = exp_hole_upper(initial_interval);
 
-let initial_root: Iexp.parent = {
+let initial_root = (): Iexp.parent => {
   let r: Iexp.root = {
     root_child: initial_exp,
     in_queue_root: InQueue.default_root(),
@@ -28,5 +28,8 @@ let initial_root: Iexp.parent = {
   initial_exp.parent = Root(r);
   Root(r);
 };
-let initial_cursor: Icursor.t = CursorExp(initial_exp);
-let initial_state: Istate.t = {c: initial_cursor, q: UpdateQueue.empty};
+let initial_cursor = (): Icursor.t => CursorExp(initial_exp);
+let initial_state = (): Istate.t => {
+  c: initial_cursor(),
+  q: UpdateQueue.empty,
+};

@@ -30,8 +30,8 @@ module Model = {
 
   let init = (): t =>
     set({
-      root: initial_root,
-      istate: initial_state,
+      root: initial_root(),
+      istate: initial_state(),
       // t: Hole,
       warning: None,
       var_input: "",
