@@ -12,12 +12,13 @@ let rec test_actionses_rec = (actionses: list(list(Iaction.t)), s) => {
   switch (actionses) {
   | [] => ()
   | [actions, ...actionses] =>
-    all_update_steps(apply_actions(actions, s));
-    switch (marked_correctly(child_of_parent(s.ephemeral.root))) {
+    let s' = apply_actions(actions, s);
+    all_update_steps(s');
+    switch (marked_correctly(child_of_parent(s'.ephemeral.root))) {
     | Some(_) => failwith("failed test")
     | None => ()
     };
-    test_actionses_rec(actionses, s);
+    test_actionses_rec(actionses, s');
   };
 };
 
@@ -249,32 +250,34 @@ let nonsense: list(list(Iaction.t)) = [
   [WrapArrow(Two), MoveDown(Two), MoveDown(One)],
 ];
 
-test_actionses(a1');
-
-// test_actionses(
-//   a1
-//   @ [[Iaction.Delete]]
-//   @ a2  //@ [[Iaction.Delete]] @ a3,
-//   @ [[Iaction.Delete]]
-//   @ binding_insert
-//   @ [[Iaction.Delete]]
-//   @ binding_delete
-//   @ [[Iaction.Delete]]
-//   @ inconsistent
-//   @ [[Iaction.Delete]]
-//   @ non_arrow_ap
-//   @ [[Iaction.Delete]]
-//   @ non_arrow_lam
-//   @ [[Iaction.Delete]]
-//   @ lam_ann_inconsistent
-//   @ [[Iaction.Delete]]
-//   @ free_var
-//   @ [[Iaction.Delete]]
-//   @ big_example
-//   @ [[Iaction.Delete]]
-//   @ big_example_broken_up
-//   @ [[Iaction.Delete]]
-//   @ unwrap
-//   @ [[Iaction.Delete]]
-//   @ nonsense,
-// );
+test_actionses(
+  a1
+  @ [[Iaction.Delete]]
+  @ a1'
+  @ [[Iaction.Delete]]
+  @ a2
+  @ [[Iaction.Delete]]
+  @ a3
+  @ [[Iaction.Delete]]
+  @ binding_insert
+  @ [[Iaction.Delete]]
+  @ binding_delete
+  @ [[Iaction.Delete]]
+  @ inconsistent
+  @ [[Iaction.Delete]]
+  @ non_arrow_ap
+  @ [[Iaction.Delete]]
+  @ non_arrow_lam
+  @ [[Iaction.Delete]]
+  @ lam_ann_inconsistent
+  @ [[Iaction.Delete]]
+  @ free_var
+  @ [[Iaction.Delete]]
+  @ big_example
+  @ [[Iaction.Delete]]
+  @ big_example_broken_up
+  @ [[Iaction.Delete]]
+  @ unwrap
+  @ [[Iaction.Delete]]
+  @ nonsense,
+);

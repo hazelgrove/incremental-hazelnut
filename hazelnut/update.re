@@ -19,18 +19,18 @@ let update_step = (state: Istate.t): stepped => {
       switch (e.parent) {
       | Deleted =>
         switch (update) {
-        // | NewSyn(e) =>
-        //   print_endline("NewSyn culprit");
-        //   print_endline(e.deleted_upper ? "is deleted" : "isn't deleted");
-        //   switch (e.middle) {
-        //   | Lam(_) => print_endline("on lam")
-        //   | EHole => print_endline("on hole")
-        //   | Var(_) => print_endline("on var")
-        //   | _ => print_endline("other")
-        //   };
+        | NewSyn(e) =>
+          print_endline("NewSyn culprit");
+          print_endline(e.deleted_upper ? "is deleted" : "isn't deleted");
+          switch (e.middle) {
+          | Lam(_) => print_endline("on lam")
+          | EHole => print_endline("on hole")
+          | Var(_) => print_endline("on var")
+          | _ => print_endline("other")
+          };
         | _ => ()
-        }
-      // failwith("no stepping in deleted terms!!");
+        };
+        failwith("no stepping in deleted terms!!");
       | Root(_) =>
         //UPDATE: TopStep
         print_endline("STEP: TopStep")
