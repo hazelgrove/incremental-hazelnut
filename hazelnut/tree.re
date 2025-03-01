@@ -12,39 +12,46 @@ type info('a) = {
   left: Order.t,
   right: Order.t,
   mutable max_right: Order.t,
-}
+};
+
+type node('a) =
+  | Leaf
+  | N(tree('a), info('a), tree('a))
 
 and tree('a) =
-  | Leaf
-  | Node(color, tree('a), info('a), tree('a));
+  | C(color, node('a));
 
 let set_max_right =
   fun
   | (Leaf, info, Leaf) => info.max_right = info.right
-  | (Leaf, info, Node(_, _, infoR, _)) =>
+  | (Leaf, info, N(_, infoR, _)) =>
     info.max_right = max(info.right, infoR.max_right)
-  | (Node(_, _, infoL, _), info, Leaf) =>
+  | (N(_, infoL, _), info, Leaf) =>
     info.max_right = max(info.right, infoL.max_right)
-  | (Node(_, _, infoL, _), info, Node(_, _, infoR, _)) =>
+  | (N(_, infoL, _), info, N(_, infoR, _)) =>
     info.max_right = max(info.right, max(infoL.max_right, infoR.max_right));
 
+let set_max_right_color =
+  fun
+  | (C(_, a), x, C(_, b)) => set_max_right((a, x, b));
+
 let build_node = (color, a, x, b) => {
-  set_max_right((a, x, b));
-  Node(color, a, x, b);
+  set_max_right_color((a, x, b));
+  C(color, N(a, x, b));
 };
 
 let balance: ((color, tree('a), info('a), tree('a))) => tree('a) =
   fun
-  | (B, Node(R, Node(R, a, x, b), y, c), z, d)
-  | (B, Node(R, a, x, Node(R, b, y, c)), z, d)
-  | (B, a, x, Node(R, Node(R, b, y, c), z, d))
-  | (B, a, x, Node(R, b, y, Node(R, c, z, d))) => {
+  | (B, C(R, N(C(R, N(a, x, b)), y, c)), z, d)
+  | (B, C(R, N(a, x, C(R, N(b, y, c)))), z, d)
+  | (B, a, x, C(R, N(C(R, N(b, y, c)), z, d)))
+  | (B, a, x, C(R, N(b, y, C(R, N(c, z, d))))) => {
       let axb = build_node(B, a, x, b);
       let czd = build_node(B, c, z, d);
       build_node(R, axb, y, czd);
     }
-  | (BB, Node(R, a, x, Node(R, b, y, c)), z, d)
-  | (BB, a, x, Node(R, b, y, Node(R, c, z, d))) => {
+  | (BB, C(R, N(a, x, C(R, N(b, y, c)))), z, d)
+  | (BB, a, x, C(R, N(b, y, C(R, N(c, z, d))))) => {
       let axb = build_node(B, a, x, b);
       let czd = build_node(B, c, z, d);
       build_node(B, axb, y, czd);
@@ -53,35 +60,29 @@ let balance: ((color, tree('a), info('a), tree('a))) => tree('a) =
 
 let rotate: ((color, tree('a), info('a), tree('a))) => tree('a) =
   fun
-  | (R, Node(BB, a, x, b), y, Node(B, c, z, d)) => {
-      let axb = build_node(B, a, x, b);
-      let axbyc = build_node(R, axb, y, c);
+  | (R, C(BB, axb), y, C(B, N(c, z, d))) => {
+      let axbyc = build_node(R, C(B, axb), y, c);
       balance((B, axbyc, z, d));
     }
-  | (R, Node(B, a, x, b), y, Node(BB, c, z, d)) => {
-      let czd = build_node(B, c, z, d);
-      let byczd = build_node(R, b, y, czd);
+  | (R, C(B, N(a, x, b)), y, C(BB, czd)) => {
+      let byczd = build_node(R, b, y, C(B, czd));
       balance((B, a, x, byczd));
     }
-  | (B, Node(BB, a, x, b), y, Node(B, c, z, d)) => {
-      let axb = build_node(B, a, x, b);
-      let axbyc = build_node(R, axb, y, c);
+  | (B, C(BB, axb), y, C(B, N(c, z, d))) => {
+      let axbyc = build_node(R, C(B, axb), y, c);
       balance((BB, axbyc, z, d));
     }
-  | (B, Node(B, a, x, b), y, Node(BB, c, z, d)) => {
-      let czd = build_node(B, c, z, d);
-      let byczd = build_node(R, b, y, czd);
+  | (B, C(B, N(a, x, b)), y, C(BB, czd)) => {
+      let byczd = build_node(R, b, y, C(B, czd));
       balance((BB, a, x, byczd));
     }
-  | (B, Node(BB, a, w, b), x, Node(R, Node(B, c, y, d), z, e)) => {
-      let awb = build_node(B, a, w, b);
-      let awbxc = build_node(R, awb, x, c);
+  | (B, C(BB, awb), x, C(R, N(C(B, N(c, y, d)), z, e))) => {
+      let awbxc = build_node(R, C(B, awb), x, c);
       let awbyc = balance((B, awbxc, y, d));
       build_node(B, awbyc, z, e);
     }
-  | (B, Node(R, a, w, Node(B, b, x, c)), y, Node(BB, d, z, e)) => {
-      let dze = build_node(B, d, z, e);
-      let cydze = build_node(R, c, y, dze);
+  | (B, C(R, N(a, w, C(B, N(b, x, c)))), y, C(BB, dze)) => {
+      let cydze = build_node(R, c, y, C(B, dze));
       let bxcydze = balance((B, b, x, cydze));
       build_node(B, a, w, bxcydze);
     }
@@ -89,39 +90,52 @@ let rotate: ((color, tree('a), info('a), tree('a))) => tree('a) =
 
 let blacken =
   fun
-  | Node(R, a, x, b) => Node(B, a, x, b)
+  | C(R, a) => C(B, a)
   | tree => tree;
 
 let insert = (entry: 'a, left: Order.t, right: Order.t, tree: tree('a)) => {
   let rec ins =
     fun
-    | Leaf => Node(R, Leaf, {entry, left, right, max_right: right}, Leaf)
-    | Node(color, childL, info, childR) =>
+    | C(_, Leaf) => {
+        let info = {entry, left, right, max_right: right};
+        C(R, N(C(B, Leaf), info, C(B, Leaf)));
+      }
+    | C(color, N(childL, info, childR)) =>
       if (Order.compare(left, info.left) < 0) {
         balance((color, ins(childL), info, childR));
       } else if (Order.compare(left, info.left) > 0) {
         balance((color, childL, info, ins(childR)));
       } else {
-        Node(color, childL, info, childR);
+        C(color, N(childL, info, childR));
       };
   blacken(ins(tree));
 };
 
 let redden =
   fun
-  | Node(B, Node(B, a, x, b), y, Node(B, c, z, d)) =>
-    Node(R, Node(B, a, x, b), y, Node(B, c, z, d))
+  | C(B, N(C(B, a), x, C(B, b))) => C(R, N(C(B, a), x, C(B, b)))
   | tree => tree;
 
-let delete = (entry: 'a, tree: tree('a)) => {
+let delete = (entry: 'a, left: Order.t, _right: Order.t, tree: tree('a)) => {
   let rec del =
     fun
-    | Leaf => Leaf
-    | Node(R, Leaf, info, Leaf) when info.entry === entry => Leaf
-    | Node(B, Leaf, info, Leaf) when info.entry === entry => Node()
-    | Node(B, Node(R, a, x, b), info, Leaf) when info.entry === entry =>
-      Node(B, a, x, b);
-
-  // | Node(Red, Node(Black, a, x, b), y, Node(Black, c, z, d)) =>
+    | C(BB, Leaf) => failwith("impossible (tree.re)")
+    | C(R, Leaf) => failwith("impossible (tree.re)")
+    | C(B, Leaf) => C(B, Leaf)
+    | C(R, N(C(B, Leaf), info, C(B, Leaf))) when info.entry === entry =>
+      C(B, Leaf)
+    | C(R, N(C(R, N(a, x, b)), info, C(B, Leaf)))
+        when info.entry === entry =>
+      C(B, N(a, x, b))
+    | C(B, N(C(B, Leaf), info, C(B, Leaf))) when info.entry === entry =>
+      C(BB, Leaf)
+    | C(color, N(childL, info, childR)) =>
+      if (Order.compare(left, info.left) < 0) {
+        rotate((color, del(childL), info, childR));
+      } else if (Order.compare(left, info.left) > 0) {
+        rotate((color, childL, info, del(childR)));
+      } else {
+        failwith("todo");
+      };
   del(redden(tree));
 };
