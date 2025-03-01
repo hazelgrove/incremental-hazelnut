@@ -18,18 +18,15 @@ module Istate = {
   };
 };
 
-let initial_exp = exp_hole_upper(initial_interval);
-
-let initial_root = (): Iexp.parent => {
+let initial_root_and_state = (): (Iexp.parent, Istate.t) => {
+  let initial_exp = exp_hole_upper(initial_interval);
+  let initial_cursor: Icursor.t = CursorExp(initial_exp);
   let r: Iexp.root = {
     root_child: initial_exp,
     in_queue_root: InQueue.default_root(),
   };
-  initial_exp.parent = Root(r);
-  Root(r);
-};
-let initial_cursor = (): Icursor.t => CursorExp(initial_exp);
-let initial_state = (): Istate.t => {
-  c: initial_cursor(),
-  q: UpdateQueue.empty,
+  let initial_root = Iexp.Root(r);
+  initial_exp.parent = initial_root;
+  let initial_state: Istate.t = {c: initial_cursor, q: UpdateQueue.empty};
+  (initial_root, initial_state);
 };

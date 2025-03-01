@@ -22,8 +22,7 @@ let rec test_actionses_rec = (actionses: list(list(Iaction.t)), root, s) => {
 };
 
 let test_actionses = (actionses: list(list(Iaction.t))) => {
-  let root = initial_root();
-  let s = initial_state();
+  let (root, s) = initial_root_and_state();
   test_actionses_rec(actionses, root, s);
   print_endline("all tests done.");
 };
@@ -34,8 +33,15 @@ let a1: list(list(Iaction.t)) = [
 ];
 
 let a1': list(list(Iaction.t)) = [
-  [InsertVar("x"), WrapPlus(One), WrapLam, MoveDown(One), InsertVar("x")],
-  [MoveUp, MoveDown(Two), WrapArrow(One)],
+  [
+    InsertVar("x"),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    InsertNumType,
+  ],
   [Delete],
 ];
 

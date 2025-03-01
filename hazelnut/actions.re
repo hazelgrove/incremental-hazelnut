@@ -275,10 +275,35 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   };
 };
 
+// these belong in Pexp, copied for convenience
+
+let string_of_child: Child.t => string =
+  fun
+  | One => "One"
+  | Two => "Two"
+  | Three => "Three";
+
+let string_of_action: Iaction.t => string =
+  fun
+  | MoveUp => "MoveUp"
+  | MoveDown(c) => "MoveDown(" ++ string_of_child(c) ++ ")"
+  | Delete => "Delete"
+  | WrapArrow(c) => "WrapArrow(" ++ string_of_child(c) ++ ")"
+  | InsertNumType => "InsertNumType"
+  | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
+  | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
+  | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
+  | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
+  | WrapLam => "WrapLam"
+  | WrapAsc => "WrapAsc"
+  | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
+
 let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
   let no_op = s;
   let c = s.c;
   let q = s.q;
+
+  print_endline(string_of_action(a));
 
   // print_endline(
   //   string_of_int(List.length(UpdateQueue.list_of_t(q))) ++ " updates.",

@@ -37,7 +37,10 @@ type estate = {
   istate: Istate.t,
 };
 
-let init_estate = () => {root: initial_root(), istate: initial_state()};
+let init_estate = () => {
+  let (root, istate) = initial_root_and_state();
+  {root, istate};
+};
 
 let apply_eaction = (es: estate, action: Iaction.t) => {
   {root: es.root, istate: apply_action(es.istate, action)};

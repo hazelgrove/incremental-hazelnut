@@ -29,10 +29,11 @@ module Model = {
 
   let set = (s: state): t => {state: s};
 
-  let init = (): t =>
+  let init = (): t => {
+    let (initial_root, initial_state) = initial_root_and_state();
     set({
-      root: initial_root(),
-      istate: initial_state(),
+      root: initial_root,
+      istate: initial_state,
       // t: Hole,
       warning: None,
       var_input: "",
@@ -42,6 +43,7 @@ module Model = {
       action_string: "",
       vizbit: false // meaningless, flipped so that the display updates
     });
+  };
   // let cutoff = (t1: t, t2: t): bool => compare(t1, t2) == 0;
   let cutoff = (_: t, _: t): bool => false;
 };

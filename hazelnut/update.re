@@ -20,6 +20,7 @@ let update_step = (s: Istate.t): stepped => {
         switch (update) {
         | NewSyn(e) =>
           print_endline("NewSyn culprit");
+          print_endline(e.deleted_upper ? "is deleted" : "isn't deleted");
           switch (e.middle) {
           | Lam(_) => print_endline("on lam")
           | EHole => print_endline("on hole")
