@@ -20,6 +20,7 @@ type state = {
   lit_input: string,
   bool_input: string,
   action_string: string,
+  vizbit: bool,
 };
 
 module Model = {
@@ -39,6 +40,7 @@ module Model = {
       lit_input: "",
       bool_input: "true | false",
       action_string: "",
+      vizbit: false // meaningless, flipped so that the display updates
     });
   // let cutoff = (t1: t, t2: t): bool => compare(t1, t2) == 0;
   let cutoff = (_: t, _: t): bool => false;
@@ -110,10 +112,10 @@ let apply_action =
     | UpdateStepOut =>
       all_update_steps(state.istate);
       marking_validate();
-      model;
+      Model.set({...state, vizbit: !state.vizbit});
     | UpdateStep =>
       let _ = update_step(state.istate);
-      model;
+      Model.set({...state, vizbit: !state.vizbit});
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
     | UpdateInput(Let, let_input) => Model.set({...state, let_input})
     | UpdateInput(NumLit, lit_input) => Model.set({...state, lit_input})

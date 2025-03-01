@@ -162,7 +162,7 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
 
 and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
   switch (e) {
-  | Var(x, m, _binders) => pexp_markif(m, Free, Var(x))
+  | Var(x, m, _binders) => pexp_markif(m.contents, Free, Var(x))
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
     Plus(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))

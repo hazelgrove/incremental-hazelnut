@@ -8,15 +8,27 @@ type stepped =
   | Stepped;
 
 let update_step = (s: Istate.t): stepped => {
-  // print_endline(
-  //   string_of_int(List.length(UpdateQueue.list_of_t(s.q))) ++ " updates.",
-  // );
+  print_endline(
+    string_of_int(List.length(UpdateQueue.list_of_t(s.q))) ++ " updates.",
+  );
 
   let apply_update = (update: Update.t, q): unit => {
     switch (update) {
     | NewSyn(e) =>
       switch (e.parent) {
-      | Deleted // => failwith("no stepping in deleted terms!!")
+      | Deleted =>
+        switch (update) {
+        | NewSyn(e) =>
+          print_endline("NewSyn culprit");
+          switch (e.middle) {
+          | Lam(_) => print_endline("on lam")
+          | EHole => print_endline("on hole")
+          | Var(_) => print_endline("on var")
+          | _ => print_endline("other")
+          };
+        | _ => ()
+        };
+        failwith("no stepping in deleted terms!!");
       | Root(_) =>
         //UPDATE: TopStep
         print_endline("TopStep")

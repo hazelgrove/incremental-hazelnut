@@ -122,24 +122,16 @@ let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
 // makes them all synthesize [syn], marks them all as [m], and updates their
 // binding on both ends. It also marks them as on the update queue with new syn.
 let update_var =
-    (e: Iexp.upper, syn: Htyp.t, m: Mark.t, new_binder: Iexp.binder) => {
+    (e: Iexp.upper, syn: Htyp.t, new_mark: Mark.t, new_binder: Iexp.binder)
+    : unit => {
   switch (e.middle) {
-  | Var(var_name, _, old_binder) =>
+  | Var(_, mark, binder) =>
     // remove this var from its previous binder
-    unbind_from_binder(e, old_binder);
+    unbind_from_binder(e, binder.contents);
     // set the local binder, mark, and syn type
-    let new_mid: Iexp.middle = Var(var_name, m, new_binder);
-
-    let new_upper: Iexp.upper = {
-      parent: e.parent,
-      syn: Some(syn),
-      middle: new_mid,
-      interval: e.interval,
-      in_queue_upper: InQueue.default_upper(),
-      deleted_upper: false,
-    };
-    replace(e, new_upper);
-    new_upper;
+    binder.contents = new_binder;
+    mark.contents = new_mark;
+    e.syn = Some(syn);
   | _ => failwith("update_var called on non-var")
   };
 };
@@ -152,10 +144,8 @@ let rec capture_name =
   switch (e.middle) {
   | Var(var_name, _, _) =>
     if (name == var_name) {
-      [
-        // print_endline("capturing " ++ var_name);
-        update_var(e, syn, Unmarked, binder),
-      ];
+      update_var(e, syn, Unmarked, binder);
+      [e];
     } else {
       [];
     }
@@ -305,11 +295,11 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         let (new_binder, t, m) = look_up_binder(e.parent, x);
 
         let update = var => update_var(var, t, m, new_binder);
-        let newly_bound = List.map(update, bound_vars.contents);
+        List.iter(update, bound_vars.contents);
 
         let update_list =
           [Update.NewAna(e.parent)]
-          @ List.map(e => Update.NewSyn(e), newly_bound)
+          @ List.map(e => Update.NewSyn(e), bound_vars.contents)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
         UpdateQueue.update_push_list(update_list, q);
         {c, q};
@@ -431,7 +421,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
         parent: e.parent,
         syn: Some(ty),
         interval: e.interval,
-        middle: Var(x, mark, parent),
+        middle: Var(x, ref(mark), ref(parent)),
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
       };
@@ -622,25 +612,20 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, body);
 
       // update bound variables to outer binder
-      let newly_bound =
-        switch (bind.contents) {
-        | Hole => []
-        | Var(x) =>
-          let (new_binder, t, m) = look_up_binder(parent, x);
-          // switch (m) {
-          // | Unmarked => print_endline("Found unshadow")
-          // | Marked => print_endline("No unshadow found")
-          // };
-          let update = var => update_var(var, t, m, new_binder);
-          List.map(update, bound_vars.contents);
-        };
+      switch (bind.contents) {
+      | Hole => ()
+      | Var(x) =>
+        let (new_binder, t, m) = look_up_binder(parent, x);
+        let update = var => update_var(var, t, m, new_binder);
+        List.iter(update, bound_vars.contents);
+      };
 
       // because updating vars could have deleted the body
       let new_body = child_of_parent(parent);
 
       let update_list =
         [Update.NewAna(parent)]
-        @ List.map(e => Update.NewSyn(e), newly_bound)
+        @ List.map(e => Update.NewSyn(e), bound_vars.contents)
         @ [Update.NewSyn(new_body)];
       UpdateQueue.update_push_list(update_list, q);
       {c: CursorExp(new_body), q};

@@ -102,7 +102,6 @@ module UpdateQueue = {
       } else {
         Pops(u);
       };
-
     // Asserts that the queue membership bit is true when popping,
     // and sets this bit to false. If the popped update is in a deleted
     // subterm, throw it away and keep popping.

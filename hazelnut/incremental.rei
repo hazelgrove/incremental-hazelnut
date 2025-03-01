@@ -27,7 +27,7 @@ module Iexp: {
   }
 
   and middle =
-    | Var(string, Mark.t, binder)
+    | Var(string, ref(Mark.t), ref(binder))
     | NumLit(int)
     | Plus(lower, lower)
     | Lam(

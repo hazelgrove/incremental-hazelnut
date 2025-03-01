@@ -83,7 +83,7 @@ let rec mark_syn = (ctx: ctx): (bareExp => Iexp.upper) =>
   fun
   | Var(x) => {
       let (t, m) = lookup(ctx, x);
-      wrap_upper(Var(x, m, Deleted), Some(t));
+      wrap_upper(Var(x, ref(m), ref(Iexp.Deleted)), Some(t));
     }
   | NumLit(x) => wrap_upper(NumLit(x), Some(Num))
   | Plus(e1, e2) =>

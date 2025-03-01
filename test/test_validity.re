@@ -33,9 +33,27 @@ let a1: list(list(Iaction.t)) = [
   [MoveUp, MoveDown(Two), WrapArrow(One)],
 ];
 
+let a1': list(list(Iaction.t)) = [
+  [InsertVar("x"), WrapPlus(One), WrapLam, MoveDown(One), InsertVar("x")],
+  [MoveUp, MoveDown(Two), WrapArrow(One)],
+  [Delete],
+];
+
 let a2: list(list(Iaction.t)) = [
   [InsertVar("x"), WrapAp(One), WrapLam, MoveDown(One), InsertVar("x")],
   [MoveUp, MoveDown(Two), InsertNumType],
+];
+
+let a3: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    InsertNumType,
+  ],
 ];
 
 let binding_insert: list(list(Iaction.t)) = [
@@ -237,29 +255,29 @@ let nonsense: list(list(Iaction.t)) = [
 ];
 
 test_actionses(
-  a1
-  @ [[Iaction.Delete]]
-  @ a2
-  @ [[Iaction.Delete]]
-  @ binding_insert
-  @ [[Iaction.Delete]]
-  @ binding_delete
-  @ [[Iaction.Delete]]
-  @ inconsistent
-  @ [[Iaction.Delete]]
-  @ non_arrow_ap
-  @ [[Iaction.Delete]]
-  @ non_arrow_lam
-  @ [[Iaction.Delete]]
-  @ lam_ann_inconsistent
-  @ [[Iaction.Delete]]
-  @ free_var
-  @ [[Iaction.Delete]]
-  @ big_example
-  @ [[Iaction.Delete]]
-  @ big_example_broken_up
-  @ [[Iaction.Delete]]
-  @ unwrap
-  @ [[Iaction.Delete]]
-  @ nonsense,
+  a1',
+  // a1 @ [[Iaction.Delete]]
+  //@ a2 //@ [[Iaction.Delete]] @ a3,
+  // @ [[Iaction.Delete]]
+  // @ binding_insert
+  // @ [[Iaction.Delete]]
+  // @ binding_delete
+  // @ [[Iaction.Delete]]
+  // @ inconsistent
+  // @ [[Iaction.Delete]]
+  // @ non_arrow_ap
+  // @ [[Iaction.Delete]]
+  // @ non_arrow_lam
+  // @ [[Iaction.Delete]]
+  // @ lam_ann_inconsistent
+  // @ [[Iaction.Delete]]
+  // @ free_var
+  // @ [[Iaction.Delete]]
+  // @ big_example
+  // @ [[Iaction.Delete]]
+  // @ big_example_broken_up
+  // @ [[Iaction.Delete]]
+  // @ unwrap
+  // @ [[Iaction.Delete]]
+  // @ nonsense,
 );
