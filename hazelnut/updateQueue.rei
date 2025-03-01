@@ -18,9 +18,9 @@ module UpdateQueue: {
   let update_push: (Update.t, t) => unit;
   let update_push_list: (list(Update.t), t) => unit;
 
-  type pop_result =
-    | Empty
-    | Flushed
-    | Pops(Update.t);
-  let update_pop: t => pop_result;
+  // type pop_result =
+  //   | Empty
+  //   | Flushed
+  //   | Pops(Update.t);
+  let update_pop: t => option(Update.t);
 };

@@ -32,12 +32,12 @@ let update_step = (s: Istate.t): stepped => {
         failwith("no stepping in deleted terms!!");
       | Root(_) =>
         //UPDATE: TopStep
-        print_endline("TopStep")
+        print_endline("STEP: TopStep")
       | Lower(parent) =>
         switch (parent.upper.middle) {
         | Ap(e1, m, e2) when e1.child === e =>
           // UPDATE: StepAp
-          print_endline("StepAp");
+          print_endline("STEP: StepAp");
           let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
           e2.ana = t_in;
           parent.upper.syn = t_out;
@@ -50,7 +50,7 @@ let update_step = (s: Istate.t): stepped => {
           UpdateQueue.update_push_list(update_list, q);
         | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
           // UPDATE: StepSynFun
-          print_endline("StepSynFun");
+          print_endline("STEP: StepSynFun");
           parent.upper.syn =
             arrow_unless(t.contents, body.child.syn, parent.ana);
           body.marked = Unmarked;
@@ -58,7 +58,7 @@ let update_step = (s: Istate.t): stepped => {
           UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           // UPDATE: StepSynConsist
-          print_endline("StepSynConsist");
+          print_endline("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana);
         | _ => failwith("unrecognized update step")
         }
@@ -78,7 +78,7 @@ let update_step = (s: Istate.t): stepped => {
       switch (child.middle) {
       | Lam(_, t_ann, m_ana, m_ann, body, _) =>
         // UPDATE: StepAnaFun
-        print_endline("StepAnaFun");
+        print_endline("STEP: StepAnaFun");
         let (t_in, t_out, m_ana') = matched_arrow_typ_opt(ana);
         let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
         m_ana.contents = m_ana';
@@ -94,12 +94,12 @@ let update_step = (s: Istate.t): stepped => {
       | _ =>
         // This case must come after the above case. Relies on the term being subsumable.
         // UPDATE: StepAnaConsist
-        print_endline("StepAnaConsist");
+        print_endline("STEP: StepAnaConsist");
         mark_parent(type_consistent_opt(child.syn, ana));
       };
     | NewAnn(e) =>
       // UPDATE: StepAnnFun
-      print_endline("StepAnnFun");
+      print_endline("STEP: StepAnnFun");
       switch (e.middle) {
       | Lam(_, t, _, _, _, bound_vars) =>
         let update = var => var_syn(var, t.contents);
@@ -112,7 +112,7 @@ let update_step = (s: Istate.t): stepped => {
       };
     | NewAsc(e) =>
       // UPDATE: StepAsc
-      print_endline("StepAsc");
+      print_endline("STEP: StepAsc");
       switch (e.middle) {
       | Asc(low, asc) =>
         e.syn = Some(asc.contents);
@@ -125,9 +125,8 @@ let update_step = (s: Istate.t): stepped => {
   };
 
   switch (UpdateQueue.update_pop(s.q)) {
-  | Empty => Settled
-  | Flushed => Stepped
-  | Pops(update) =>
+  | None => Settled
+  | Some(update) =>
     apply_update(update, s.q);
     Stepped;
   };

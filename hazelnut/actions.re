@@ -303,7 +303,7 @@ let rec apply_action = (s: Istate.t, a: Iaction.t): Istate.t => {
   let c = s.c;
   let q = s.q;
 
-  print_endline(string_of_action(a));
+  print_endline("ACT: " ++ string_of_action(a));
 
   // print_endline(
   //   string_of_int(List.length(UpdateQueue.list_of_t(q))) ++ " updates.",

@@ -1,5 +1,6 @@
 open Incremental;
 // open Actions;
+open Monad_lib.Monad;
 open Queue;
 
 module Update = {
@@ -83,49 +84,50 @@ module UpdateQueue = {
     List.iter(e => update_push(e, q), es);
   };
 
-  type pop_result =
-    | Empty // the queue was already empty
-    | Flushed // the queue mutates, but does not return any pop value (only contained invalid updates, is now empty)
-    | Pops(Update.t); // the queue pops an update
+  // type pop_result =
+  //   | Empty // the queue was already empty
+  //   | Flushed // the queue mutates, but does not return any pop value (only contained invalid updates, is now empty)
+  //   | Pops(Update.t); // the queue pops an update
 
-  let rec update_pop = (q: t): pop_result => {
-    let recurse = () => {
-      switch (update_pop(q)) {
-      | Empty
-      | Flushed => Flushed
-      | Pops(u) => Pops(u)
-      };
-    };
+  let rec update_pop = (q: t): option(Update.t) => {
+    // let recurse = () => {
+    //   switch (update_pop(q)) {
+    //   | Empty
+    //   | Flushed => Flushed
+    //   | Pops(u) => Pops(u)
+    //   };
+    // };
     let recurse_if_deleted = (deleted, u) =>
       if (deleted) {
-        recurse();
+        update_pop(q);
       } else {
-        Pops(u);
+        Some(u);
       };
     // Asserts that the queue membership bit is true when popping,
     // and sets this bit to false. If the popped update is in a deleted
     // subterm, throw it away and keep popping.
-    switch (pop(q)) {
-    | None => Empty
-    | Some(u) =>
-      switch (u) {
-      | NewSyn(e) =>
-        assert(e.in_queue_upper.syn);
-        e.in_queue_upper.syn = false;
-        recurse_if_deleted(e.deleted_upper, u);
-      | NewAna(p) =>
-        assert(in_queue_parent(p));
-        set_in_queue_parent(false, p);
-        recurse_if_deleted(parent_deleted(p), u);
-      | NewAnn(e) =>
-        assert(e.in_queue_upper.ann);
-        e.in_queue_upper.ann = false;
-        recurse_if_deleted(e.deleted_upper, u);
-      | NewAsc(e) =>
-        assert(e.in_queue_upper.asc);
-        e.in_queue_upper.asc = false;
-        recurse_if_deleted(e.deleted_upper, u);
-      }
+    let* u = pop(q);
+    // switch (pop(q)) {
+    // | None => None
+    // | Some(u) =>
+    switch (u) {
+    | NewSyn(e) =>
+      assert(e.in_queue_upper.syn);
+      e.in_queue_upper.syn = false;
+      recurse_if_deleted(e.deleted_upper, u);
+    | NewAna(p) =>
+      assert(in_queue_parent(p));
+      set_in_queue_parent(false, p);
+      recurse_if_deleted(parent_deleted(p), u);
+    | NewAnn(e) =>
+      assert(e.in_queue_upper.ann);
+      e.in_queue_upper.ann = false;
+      recurse_if_deleted(e.deleted_upper, u);
+    | NewAsc(e) =>
+      assert(e.in_queue_upper.asc);
+      e.in_queue_upper.asc = false;
+      recurse_if_deleted(e.deleted_upper, u);
     };
+    // };
   };
 };
