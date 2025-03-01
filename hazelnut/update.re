@@ -7,9 +7,10 @@ type stepped =
   | Settled
   | Stepped;
 
-let update_step = (s: Istate.t): stepped => {
+let update_step = (state: Istate.t): stepped => {
   print_endline(
-    string_of_int(List.length(UpdateQueue.list_of_t(s.q))) ++ " updates.",
+    string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
+    ++ " updates.",
   );
 
   let apply_update = (update: Update.t, q): unit => {
@@ -18,18 +19,18 @@ let update_step = (s: Istate.t): stepped => {
       switch (e.parent) {
       | Deleted =>
         switch (update) {
-        | NewSyn(e) =>
-          print_endline("NewSyn culprit");
-          print_endline(e.deleted_upper ? "is deleted" : "isn't deleted");
-          switch (e.middle) {
-          | Lam(_) => print_endline("on lam")
-          | EHole => print_endline("on hole")
-          | Var(_) => print_endline("on var")
-          | _ => print_endline("other")
-          };
+        // | NewSyn(e) =>
+        //   print_endline("NewSyn culprit");
+        //   print_endline(e.deleted_upper ? "is deleted" : "isn't deleted");
+        //   switch (e.middle) {
+        //   | Lam(_) => print_endline("on lam")
+        //   | EHole => print_endline("on hole")
+        //   | Var(_) => print_endline("on var")
+        //   | _ => print_endline("other")
+        //   };
         | _ => ()
-        };
-        failwith("no stepping in deleted terms!!");
+        }
+      // failwith("no stepping in deleted terms!!");
       | Root(_) =>
         //UPDATE: TopStep
         print_endline("STEP: TopStep")
@@ -124,10 +125,10 @@ let update_step = (s: Istate.t): stepped => {
     };
   };
 
-  switch (UpdateQueue.update_pop(s.q)) {
+  switch (UpdateQueue.update_pop(state.ephemeral.q)) {
   | None => Settled
   | Some(update) =>
-    apply_update(update, s.q);
+    apply_update(update, state.ephemeral.q);
     Stepped;
   };
 };

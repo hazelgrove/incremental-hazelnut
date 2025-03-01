@@ -11,7 +11,6 @@ open Hazelnut_lib.Marking;
 
 [@deriving (sexp, fields)]
 type state = {
-  root: Iexp.parent,
   istate: Istate.t,
   // t: Htyp.t,
   warning: option(string),
@@ -30,9 +29,8 @@ module Model = {
   let set = (s: state): t => {state: s};
 
   let init = (): t => {
-    let (initial_root, initial_state) = initial_root_and_state();
+    let initial_state = initial_state();
     set({
-      root: initial_root,
       istate: initial_state,
       // t: Hole,
       warning: None,
@@ -80,20 +78,23 @@ let apply_action =
     let warn = (warning: string): Model.t =>
       Model.set({...state, warning: Some(warning)});
     assert(
-      switch (state.root) {
+      switch (state.istate.ephemeral.root) {
       | Root(_) => true
       | _ => false
       },
     );
 
     let marking_validate = () =>
-      switch (marked_correctly(child_of_parent(state.root))) {
+      switch (marked_correctly(child_of_parent(state.istate.ephemeral.root))) {
       | None => print_endline("marking correct")
       | Some(e') =>
         print_endline("ERROR: see:");
         print_endline(
           string_of_pexp(
-            pexp_of_iexp(child_of_parent(state.root), state.istate),
+            pexp_of_iexp(
+              child_of_parent(state.istate.ephemeral.root),
+              state.istate,
+            ),
           ),
         );
         print_endline("should see:");
@@ -147,7 +148,7 @@ let view =
     //   mark_syn(TypCtx.empty, e_no_cursor);
 
     // let e_folded = fold_zexp_mexp(e_cursor, e_marked);
-    let root_display_exp = pexp_of_root(state.root, state.istate);
+    let root_display_exp = pexp_of_root(state.istate);
 
     let root_string = string_of_pexp(root_display_exp);
 

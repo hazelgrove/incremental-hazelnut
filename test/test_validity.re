@@ -1,6 +1,6 @@
-// open Hazelnut_lib.Incremental;
+open Hazelnut_lib.Incremental;
 open Hazelnut_lib.Actions;
-// open Hazelnut_lib.Marking;
+open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Update;
 
@@ -8,22 +8,22 @@ let apply_actions = (actions: list(Iaction.t), s): Istate.t => {
   List.fold_left(apply_action, s, actions);
 };
 
-let rec test_actionses_rec = (actionses: list(list(Iaction.t)), root, s) => {
+let rec test_actionses_rec = (actionses: list(list(Iaction.t)), s) => {
   switch (actionses) {
   | [] => ()
   | [actions, ...actionses] =>
     all_update_steps(apply_actions(actions, s));
-    // switch (marked_correctly(child_of_parent(root))) {
-    // | Some(_) => failwith("failed test")
-    // | None => ()
-    // };
-    test_actionses_rec(actionses, root, s);
+    switch (marked_correctly(child_of_parent(s.ephemeral.root))) {
+    | Some(_) => failwith("failed test")
+    | None => ()
+    };
+    test_actionses_rec(actionses, s);
   };
 };
 
 let test_actionses = (actionses: list(list(Iaction.t))) => {
-  let (root, s) = initial_root_and_state();
-  test_actionses_rec(actionses, root, s);
+  let s = initial_state();
+  test_actionses_rec(actionses, s);
   print_endline("all tests done.");
 };
 
@@ -251,27 +251,30 @@ let nonsense: list(list(Iaction.t)) = [
 
 test_actionses(a1');
 
-// a1 @ [[Iaction.Delete]]
-//@ a2 //@ [[Iaction.Delete]] @ a3,
-// @ [[Iaction.Delete]]
-// @ binding_insert
-// @ [[Iaction.Delete]]
-// @ binding_delete
-// @ [[Iaction.Delete]]
-// @ inconsistent
-// @ [[Iaction.Delete]]
-// @ non_arrow_ap
-// @ [[Iaction.Delete]]
-// @ non_arrow_lam
-// @ [[Iaction.Delete]]
-// @ lam_ann_inconsistent
-// @ [[Iaction.Delete]]
-// @ free_var
-// @ [[Iaction.Delete]]
-// @ big_example
-// @ [[Iaction.Delete]]
-// @ big_example_broken_up
-// @ [[Iaction.Delete]]
-// @ unwrap
-// @ [[Iaction.Delete]]
-// @ nonsense;
+// test_actionses(
+//   a1
+//   @ [[Iaction.Delete]]
+//   @ a2  //@ [[Iaction.Delete]] @ a3,
+//   @ [[Iaction.Delete]]
+//   @ binding_insert
+//   @ [[Iaction.Delete]]
+//   @ binding_delete
+//   @ [[Iaction.Delete]]
+//   @ inconsistent
+//   @ [[Iaction.Delete]]
+//   @ non_arrow_ap
+//   @ [[Iaction.Delete]]
+//   @ non_arrow_lam
+//   @ [[Iaction.Delete]]
+//   @ lam_ann_inconsistent
+//   @ [[Iaction.Delete]]
+//   @ free_var
+//   @ [[Iaction.Delete]]
+//   @ big_example
+//   @ [[Iaction.Delete]]
+//   @ big_example_broken_up
+//   @ [[Iaction.Delete]]
+//   @ unwrap
+//   @ [[Iaction.Delete]]
+//   @ nonsense,
+// );

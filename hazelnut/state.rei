@@ -12,10 +12,17 @@ module Icursor: {
 
 module Istate: {
   [@deriving sexp]
-  type t = {
-    c: Icursor.t,
+  type ephemeral = {
+    root: Iexp.parent,
     q: UpdateQueue.t,
+  };
+  [@deriving sexp]
+  type persistent = {c: Icursor.t};
+  [@deriving sexp]
+  type t = {
+    ephemeral,
+    persistent,
   };
 };
 
-let initial_root_and_state: unit => (Iexp.parent, Istate.t);
+let initial_state: unit => Istate.t;

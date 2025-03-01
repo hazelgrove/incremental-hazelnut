@@ -122,7 +122,7 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
   let middle = pexp_of_iexp_middle(e.middle, s);
 
   let with_cursor: Pexp.t =
-    switch (s.c) {
+    switch (s.persistent.c) {
     | CursorExp(e') when e' === e => Cursor(middle)
     | _ => middle
     };
@@ -155,7 +155,7 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
     List.fold_left(
       implement_updates,
       with_cursor,
-      UpdateQueue.list_of_t(s.q),
+      UpdateQueue.list_of_t(s.ephemeral.q),
     );
   with_new_types;
 }
@@ -168,13 +168,13 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
     Plus(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
   | Lam(x, t, m1, m2, body, _bound_vars) =>
     let pb: Pexp.t =
-      switch (s.c) {
+      switch (s.persistent.c) {
       | CursorBind(e') when e'.middle === e =>
         Cursor(pexp_of_bind(x.contents))
       | _ => pexp_of_bind(x.contents)
       };
     let pt =
-      switch (s.c) {
+      switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
@@ -192,7 +192,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
     )
   | Asc(body, t) =>
     let pt =
-      switch (s.c) {
+      switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
@@ -212,14 +212,16 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
     | NewAsc(_) => None
     };
   };
-  switch (List.filter_map(filter_updates, UpdateQueue.list_of_t(s.q))) {
+  switch (
+    List.filter_map(filter_updates, UpdateQueue.list_of_t(s.ephemeral.q))
+  ) {
   | [t, ..._] => NewAna(d, pexp_of_htyp_opt(t))
   | [] => d
   };
 };
 
-let pexp_of_root = (parent: Iexp.parent, s: Istate.t): Pexp.t => {
-  switch (parent) {
+let pexp_of_root = (s: Istate.t): Pexp.t => {
+  switch (s.ephemeral.root) {
   | Root(e) =>
     let d = pexp_of_iexp(e.root_child, s);
     let filter_updates = (u: Update.t) => {
@@ -231,7 +233,7 @@ let pexp_of_root = (parent: Iexp.parent, s: Istate.t): Pexp.t => {
       | NewAsc(_) => false
       };
     };
-    List.exists(filter_updates, UpdateQueue.list_of_t(s.q))
+    List.exists(filter_updates, UpdateQueue.list_of_t(s.ephemeral.q))
       ? NewAna(d, pexp_of_htyp_opt(None)) : d;
   | _ => failwith("non-root root (pexp)")
   };
