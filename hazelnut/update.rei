@@ -1,4 +1,8 @@
 open State;
 
-let update_step: Istate.t => option(Istate.t);
-let all_update_steps: Istate.t => Istate.t;
+type stepped =
+  | Settled
+  | Stepped;
+
+let update_step: Istate.t => stepped;
+let all_update_steps: Istate.t => unit;

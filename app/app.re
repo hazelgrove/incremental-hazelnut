@@ -108,16 +108,12 @@ let apply_action =
       | Unimplemented => warn("Unimplemented")
       }
     | UpdateStepOut =>
-      let istate' = all_update_steps(state.istate);
+      all_update_steps(state.istate);
       marking_validate();
-      Model.set({...state, istate: istate'});
+      model;
     | UpdateStep =>
-      switch (update_step(state.istate)) {
-      | Some(istate') => Model.set({...state, istate: istate'})
-      | None =>
-        marking_validate();
-        model;
-      }
+      let _ = update_step(state.istate);
+      model;
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
     | UpdateInput(Let, let_input) => Model.set({...state, let_input})
     | UpdateInput(NumLit, lit_input) => Model.set({...state, lit_input})

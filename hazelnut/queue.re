@@ -1,8 +1,4 @@
-open Sexplib.Std;
-
-// http://courses.cms.caltech.edu/cs11/material/ocaml/lab4/lab4.html
-
-// this is a min-heap
+open Sexplib0;
 
 module type Comparable = {
   [@deriving sexp]
@@ -11,55 +7,96 @@ module type Comparable = {
 };
 
 module PQueue = (Elem: Comparable) => {
-  [@deriving sexp]
-  type t =
-    | Leaf
-    | Node(Elem.t, int, t, t);
+  type t = Dynarray.t(Elem.t);
+  //let x = Array.create(1)
 
-  let rank =
-    fun
-    | Leaf => 0
-    | Node(_, rank, _, _) => rank;
+  let sexp_of_t = _ => Sexp.Atom("unimplemented");
+  let t_of_sexp = _ => failwith("PQueue of sexp");
 
-  let merge_with_root = (root: Elem.t, q1: t, q2: t): t => {
-    let (r1, r2) = (rank(q1), rank(q2));
-    let (rank, left, right) =
-      if (r1 >= r2) {
-        (r1, q1, q2);
-      } else {
-        (r2, q2, q1);
+  let empty: t = Dynarray.create();
+
+  let swap = (q: t, i: int, j: int): unit => {
+    let tmp = Dynarray.get(q, i);
+    Dynarray.set(q, i, Dynarray.get(q, j));
+    Dynarray.set(q, j, tmp);
+  };
+
+  let has_parent = (i: int): bool => {
+    i != 0;
+  };
+
+  let parent_idx = (i: int): int => {
+    //(i + 1) / 2 - 1
+    (i - 1) / 2;
+  };
+
+  let _left_child_idx = (i: int): int => {
+    //(i + 1) * 2 - 1
+    i * 2 + 1;
+  };
+
+  let right_child_idx = (i: int): int => {
+    //(i + 1) * 2 + 1 - 1
+    (i + 1) * 2;
+  };
+
+  let has_idx = (q: t, i: int): bool => {
+    i < Dynarray.length(q);
+  };
+
+  let heap_elm = (q: t, i: int): Elem.t => {
+    Dynarray.get(q, i);
+  };
+
+  let rec float_to_top = (q: t, i: int): unit =>
+    if (has_parent(i)) {
+      let p = parent_idx(i);
+      if (Elem.leq(heap_elm(q, i), heap_elm(q, p))) {
+        swap(q, i, p);
+        float_to_top(q, p);
       };
-    Node(root, rank + 1, left, right);
-  };
-
-  let rec merge = (q1: t, q2: t): t =>
-    switch (q1, q2) {
-    | (Leaf, q2) => q2
-    | (q1, Leaf) => q1
-    | (Node(e1, _, q1l, q1r), Node(e2, _, q2l, q2r)) =>
-      if (Elem.leq(e1, e2)) {
-        merge_with_root(e1, q1l, merge(q2, q1r));
-      } else {
-        merge_with_root(e2, q2l, merge(q1, q2r));
-      }
     };
 
-  let empty = Leaf;
-
-  let push = (e: Elem.t, q: t): t => {
-    let eq = Node(e, 1, Leaf, Leaf);
-    merge(eq, q);
+  let rec sink_to_bottom = (q: t, i: int): unit => {
+    let rci = right_child_idx(i);
+    let lci = rci - 1;
+    if (has_idx(q, rci)) {
+      let min_ci =
+        if (Elem.leq(heap_elm(q, lci), heap_elm(q, rci))) {
+          lci;
+        } else {
+          rci;
+        };
+      if (Elem.leq(heap_elm(q, min_ci), heap_elm(q, i))) {
+        swap(q, i, min_ci);
+        sink_to_bottom(q, min_ci);
+      };
+    } else if (has_idx(q, lci)) {
+      if (Elem.leq(heap_elm(q, lci), heap_elm(q, i))) {
+        swap(q, i, lci);
+        sink_to_bottom(q, lci);
+      };
+    };
   };
 
-  let pop = (q: t): option((Elem.t, t)) =>
-    switch (q) {
-    | Leaf => None
-    | Node(e, _, q1, q2) => Some((e, merge(q1, q2)))
-    };
+  let push = (elm: Elem.t, q: t): unit => {
+    Dynarray.add_last(q, elm);
+    float_to_top(q, Dynarray.length(q) - 1);
+  };
 
-  // only used for display
-  let rec list_of_t =
-    fun
-    | Leaf => []
-    | Node(e, _, q1, q2) => [e] @ list_of_t(q1) @ list_of_t(q2);
+  let pop = (q: t): option(Elem.t) =>
+    if (Dynarray.is_empty(q)) {
+      None;
+    } else {
+      swap(q, 0, Dynarray.length(q) - 1);
+      let v = Dynarray.pop_last(q);
+      sink_to_bottom(q, 0);
+      Some(v);
+    };
+  /*let push: (Elem.t, t) => t;
+    let push_list: (list(Elem.t), t) => t;
+    let pop: t => option((Elem.t, t));
+    let list_of_t: t => list(Elem.t);*/
+
+  let list_of_t = (q: t): list(Elem.t) => Dynarray.to_list(q);
 };

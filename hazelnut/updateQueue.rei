@@ -15,12 +15,12 @@ module UpdateQueue: {
 
   let empty: t;
   let list_of_t: t => list(Update.t);
-  let update_push: (Update.t, t) => t;
-  let update_push_list: (list(Update.t), t) => t;
+  let update_push: (Update.t, t) => unit;
+  let update_push_list: (list(Update.t), t) => unit;
 
   type pop_result =
     | Empty
-    | Flushed(t)
-    | Pops(Update.t, t);
+    | Flushed
+    | Pops(Update.t);
   let update_pop: t => pop_result;
 };

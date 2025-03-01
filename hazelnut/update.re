@@ -3,20 +3,23 @@ open Incremental;
 open UpdateQueue;
 open State;
 
-let update_step = (s: Istate.t): option(Istate.t) => {
-  print_endline(
-    string_of_int(List.length(UpdateQueue.list_of_t(s.q))) ++ " updates.",
-  );
+type stepped =
+  | Settled
+  | Stepped;
 
-  let apply_update = (update: Update.t, q) => {
+let update_step = (s: Istate.t): stepped => {
+  // print_endline(
+  //   string_of_int(List.length(UpdateQueue.list_of_t(s.q))) ++ " updates.",
+  // );
+
+  let apply_update = (update: Update.t, q): unit => {
     switch (update) {
     | NewSyn(e) =>
       switch (e.parent) {
       | Deleted // => failwith("no stepping in deleted terms!!")
       | Root(_) =>
         //UPDATE: TopStep
-        print_endline("TopStep");
-        {...s, q};
+        print_endline("TopStep")
       | Lower(parent) =>
         switch (parent.upper.middle) {
         | Ap(e1, m, e2) when e1.child === e =>
@@ -31,7 +34,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
             Update.NewAna(Lower(e2)),
             Update.NewSyn(parent.upper),
           ];
-          {...s, q: UpdateQueue.update_push_list(update_list, q)};
+          UpdateQueue.update_push_list(update_list, q);
         | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
           // UPDATE: StepSynFun
           print_endline("StepSynFun");
@@ -39,12 +42,11 @@ let update_step = (s: Istate.t): option(Istate.t) => {
             arrow_unless(t.contents, body.child.syn, parent.ana);
           body.marked = Unmarked;
           let update_list = [Update.NewSyn(parent.upper)];
-          {...s, q: UpdateQueue.update_push_list(update_list, q)};
+          UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           // UPDATE: StepSynConsist
           print_endline("StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana);
-          {...s, q};
         | _ => failwith("unrecognized update step")
         }
       }
@@ -75,13 +77,12 @@ let update_step = (s: Istate.t): option(Istate.t) => {
           Update.NewAna(Lower(body)),
           Update.NewSyn(child),
         ];
-        {...s, q: UpdateQueue.update_push_list(update_list, q)};
+        UpdateQueue.update_push_list(update_list, q);
       | _ =>
         // This case must come after the above case. Relies on the term being subsumable.
         // UPDATE: StepAnaConsist
         print_endline("StepAnaConsist");
         mark_parent(type_consistent_opt(child.syn, ana));
-        {...s, q};
       };
     | NewAnn(e) =>
       // UPDATE: StepAnnFun
@@ -93,7 +94,7 @@ let update_step = (s: Istate.t): option(Istate.t) => {
         let update_list =
           [Update.NewAna(e.parent)]  // TODO: check if e.parent is deleted.
           @ List.map(var => Update.NewSyn(var), bound_vars.contents);
-        {...s, q: UpdateQueue.update_push_list(update_list, q)};
+        UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewAnn on non-lam")
       };
     | NewAsc(e) =>
@@ -104,21 +105,23 @@ let update_step = (s: Istate.t): option(Istate.t) => {
         e.syn = Some(asc.contents);
         low.ana = Some(asc.contents);
         let update_list = [Update.NewAna(Lower(low)), Update.NewSyn(e)];
-        {...s, q: UpdateQueue.update_push_list(update_list, q)};
+        UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewAsc on non-asc")
       };
     };
   };
 
   switch (UpdateQueue.update_pop(s.q)) {
-  | Empty => None
-  | Flushed(q) => Some({...s, q})
-  | Pops(update, q) => Some(apply_update(update, q))
+  | Empty => Settled
+  | Flushed => Stepped
+  | Pops(update) =>
+    apply_update(update, s.q);
+    Stepped;
   };
 };
 
-let rec all_update_steps = (s: Istate.t): Istate.t =>
+let rec all_update_steps = (s: Istate.t): unit =>
   switch (update_step(s)) {
-  | None => s
-  | Some(s') => all_update_steps(s')
+  | Settled => ()
+  | Stepped => all_update_steps(s)
   };

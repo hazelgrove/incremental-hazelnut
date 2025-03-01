@@ -11,7 +11,7 @@ module PQueue:
     type t;
 
     let empty: t;
-    let push: (Elem.t, t) => unit;
-    let pop: t => option(Elem.t);
+    let push: (Elem.t, t) => t;
+    let pop: t => option((Elem.t, t));
     let list_of_t: t => list(Elem.t);
   };

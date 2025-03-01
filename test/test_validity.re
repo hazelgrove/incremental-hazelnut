@@ -12,18 +12,18 @@ let rec test_actionses_rec = (actionses: list(list(Iaction.t)), root, s) => {
   switch (actionses) {
   | [] => ()
   | [actions, ...actionses] =>
-    let s' = all_update_steps(apply_actions(actions, s));
+    all_update_steps(apply_actions(actions, s));
     switch (marked_correctly(child_of_parent(root))) {
     | Some(_) => failwith("failed test")
     | None => ()
     };
-    test_actionses_rec(actionses, root, s');
+    test_actionses_rec(actionses, root, s);
   };
 };
 
 let test_actionses = (actionses: list(list(Iaction.t))) => {
-  let root = initial_root;
-  let s = initial_state;
+  let root = initial_root();
+  let s = initial_state();
   test_actionses_rec(actionses, root, s);
   print_endline("all tests done.");
 };
