@@ -117,6 +117,15 @@ let rec splay_largest =
       (l_v_rl_rv_rrl, rrv);
     };
 
+let join: ((tree('a), tree('a))) => tree('a) =
+  fun
+  | (Leaf, t)
+  | (t, Leaf) => t
+  | (Node(ll, lv, lr), r) => {
+      let (l, v) = splay_largest((ll, lv, lr));
+      build_node(l, v, r);
+    };
+
 let rec insert_tree = (entry: 'a, left: Order.t, right: Order.t) =>
   fun
   | Leaf => {
@@ -138,28 +147,35 @@ let rec insert_tree = (entry: 'a, left: Order.t, right: Order.t) =>
   | _ => failwith("impossible fallthrough: splay tree");
 
 let insert = (entry: 'a, left: Order.t, right: Order.t, t: tree('a)) => {
-  let t' = insert_tree(entry, left, right, t);
-  splay(left, t');
+  let (l, v, r) = insert_tree(entry, left, right, t);
+  splay(left, (l, v, r));
 };
-
-let join: ((tree('a), tree('a))) => tree('a) =
-  fun
-  | (Leaf, t)
-  | (t, Leaf) => t
-  | (Node(ll, lv, lr), r) => {
-      let (l, v) = splay_largest((ll, lv, lr));
-      Node(l, v, r);
-    };
 
 let delete = (left: Order.t) =>
   fun
   | Leaf => Leaf
   | Node(l, v, r) => {
       let (l, v, r) = splay(left, (l, v, r));
-      // only proceed if [left] appears in the tree (and therefore is now at the root)
+      // only delete if [left] appears in the tree (and therefore is now at the root)
       if (v.left == left) {
         join((l, r));
       } else {
         build_node(l, v, r);
+      };
+    };
+
+let rec find_tightest_container = (left: Order.t) =>
+  fun
+  | Leaf => None
+  | Node(_, v, _) when left == v.left =>
+    failwith("input should be var, tree should hold binders")
+  | Node(l, v, _) when left < v.left => find_tightest_container(left, l)
+  | Node(_, v, _) when left > v.max_right => None
+  | Node(l, v, r) => {
+      // v.left <= left <= v.max_right
+      switch (find_tightest_container(left, r)) {
+      | Some(v) => Some(v)
+      | None when left < v.right => v.entry
+      | None => find_tightest_container(left, l)
       };
     };
