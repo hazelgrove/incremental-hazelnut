@@ -28,6 +28,7 @@ let build_node = (a, x, b) => {
   Node(a, x, b);
 };
 
+// postcondition: returns (l, v, r), and if [left] was present in the original triple, then [v.left == left]
 let rec splay = (left: Order.t) =>
   fun
   // already root
@@ -100,6 +101,22 @@ let rec splay = (left: Order.t) =>
     }
   | _ => failwith("impossible fallthrough: splay tree");
 
+// returns (l, v), with the interpretation of (l, v, Leaf)
+let rec splay_largest =
+  fun
+  | (l, v, Leaf) => (l, v)
+  | (l, v, Node(rl, rv, Leaf)) => {
+      let l_v_rl = build_node(l, v, rl);
+      (l_v_rl, rv);
+    }
+  // zag-zag
+  | (l, v, Node(rl, rv, Node(rrl, rrv, rrr))) => {
+      let (rrl, rrv) = splay_largest((rrl, rrv, rrr));
+      let l_v_rl = build_node(l, v, rl);
+      let l_v_rl_rv_rrl = build_node(l_v_rl, rv, rrl);
+      (l_v_rl_rv_rrl, rrv);
+    };
+
 let rec insert_tree = (entry: 'a, left: Order.t, right: Order.t) =>
   fun
   | Leaf => {
@@ -110,14 +127,39 @@ let rec insert_tree = (entry: 'a, left: Order.t, right: Order.t) =>
   | Node(l, v, r) when left == v.left => (l, v, r)
   | Node(l, v, r) when left < v.left => {
       let (ll, lv, lr) = insert_tree(entry, left, right, l);
-      (Node(ll, lv, lr), v, r);
+      let ll_lv_lr = build_node(ll, lv, lr);
+      (ll_lv_lr, v, r);
     }
   | Node(l, v, r) when left > v.left => {
       let (rl, rv, rr) = insert_tree(entry, left, right, r);
-      (l, v, Node(rl, rv, rr));
+      let rl_rv_rr = build_node(rl, rv, rr);
+      (l, v, rl_rv_rr);
     }
   | _ => failwith("impossible fallthrough: splay tree");
 
 let insert = (entry: 'a, left: Order.t, right: Order.t, t: tree('a)) => {
-  splay(left, insert_tree(entry, left, right, t));
+  let t' = insert_tree(entry, left, right, t);
+  splay(left, t');
 };
+
+let join: ((tree('a), tree('a))) => tree('a) =
+  fun
+  | (Leaf, t)
+  | (t, Leaf) => t
+  | (Node(ll, lv, lr), r) => {
+      let (l, v) = splay_largest((ll, lv, lr));
+      Node(l, v, r);
+    };
+
+let delete = (left: Order.t) =>
+  fun
+  | Leaf => Leaf
+  | Node(l, v, r) => {
+      let (l, v, r) = splay(left, (l, v, r));
+      // only proceed if [left] appears in the tree (and therefore is now at the root)
+      if (v.left == left) {
+        join((l, r));
+      } else {
+        build_node(l, v, r);
+      };
+    };
