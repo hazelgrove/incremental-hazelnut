@@ -47,10 +47,10 @@ let rec splay = (left: Order.t) =>
   // zig-zig
   | (Node(Node(lll, llv, llr), lv, lr), v, r)
       when left < v.left && left < lv.left => {
-      let (lll', llv', llr') = splay(left, (lll, llv, llr));
+      let (lll, llv, llr) = splay(left, (lll, llv, llr));
       let lr_v_r = build_node(lr, v, r);
-      let llr_lv_lr_v_r = build_node(llr', lv, lr_v_r);
-      (lll', llv', llr_lv_lr_v_r);
+      let llr_lv_lr_v_r = build_node(llr, lv, lr_v_r);
+      (lll, llv, llr_lv_lr_v_r);
     }
   // not found
   | (Node(ll, lv, Leaf), v, r) when left < v.left && left > lv.left => {
@@ -60,10 +60,10 @@ let rec splay = (left: Order.t) =>
   // zig-zag
   | (Node(ll, lv, Node(lrl, lrv, lrr)), v, r)
       when left < v.left && left > lv.left => {
-      let (lrl', lrv', lrr') = splay(left, (lrl, lrv, lrr));
-      let ll_lr_lrl = build_node(ll, lv, lrl');
-      let lrr_v_r = build_node(lrr', v, r);
-      (ll_lr_lrl, lrv', lrr_v_r);
+      let (lrl, lrv, lrr) = splay(left, (lrl, lrv, lrr));
+      let ll_lr_lrl = build_node(ll, lv, lrl);
+      let lrr_v_r = build_node(lrr, v, r);
+      (ll_lr_lrl, lrv, lrr_v_r);
     }
   // not found
   | (l, v, Leaf) when left > v.left => (l, v, Leaf)
@@ -80,10 +80,10 @@ let rec splay = (left: Order.t) =>
   // zag-zag
   | (l, v, Node(rl, rv, Node(rrl, rrv, rrr)))
       when left > v.left && left > rv.left => {
-      let (rrl', rrv', rrr') = splay(left, (rrl, rrv, rrr));
+      let (rrl, rrv, rrr) = splay(left, (rrl, rrv, rrr));
       let l_v_rl = build_node(l, v, rl);
-      let l_v_rl_rv_rrl = build_node(l_v_rl, rv, rrl');
-      (l_v_rl_rv_rrl, rrv', rrr');
+      let l_v_rl_rv_rrl = build_node(l_v_rl, rv, rrl);
+      (l_v_rl_rv_rrl, rrv, rrr);
     }
   // not found
   | (l, v, Node(Leaf, rv, rr)) when left > v.left && left < rv.left => {
@@ -93,9 +93,31 @@ let rec splay = (left: Order.t) =>
   // zag-zig
   | (l, v, Node(Node(rll, rlv, rlr), rv, rr))
       when left > v.left && left < rv.left => {
-      let (rll', rlv', rlr') = splay(left, (rll, rlv, rlr));
-      let l_v_rll = build_node(l, v, rll');
-      let rlr_rv_rr = build_node(rlr', rv, rr);
-      (l_v_rll, rlv', rlr_rv_rr);
+      let (rll, rlv, rlr) = splay(left, (rll, rlv, rlr));
+      let l_v_rll = build_node(l, v, rll);
+      let rlr_rv_rr = build_node(rlr, rv, rr);
+      (l_v_rll, rlv, rlr_rv_rr);
     }
   | _ => failwith("impossible fallthrough: splay tree");
+
+let rec insert_tree = (entry: 'a, left: Order.t, right: Order.t) =>
+  fun
+  | Leaf => {
+      let info = {entry, left, right, max_right: right};
+      (Leaf, info, Leaf);
+    }
+  // already present
+  | Node(l, v, r) when left == v.left => (l, v, r)
+  | Node(l, v, r) when left < v.left => {
+      let (ll, lv, lr) = insert_tree(entry, left, right, l);
+      (Node(ll, lv, lr), v, r);
+    }
+  | Node(l, v, r) when left > v.left => {
+      let (rl, rv, rr) = insert_tree(entry, left, right, r);
+      (l, v, Node(rl, rv, rr));
+    }
+  | _ => failwith("impossible fallthrough: splay tree");
+
+let insert = (entry: 'a, left: Order.t, right: Order.t, t: tree('a)) => {
+  splay(left, insert_tree(entry, left, right, t));
+};
