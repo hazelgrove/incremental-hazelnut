@@ -1,11 +1,6 @@
 open Order;
 
-// implementation based on: doi:10.1017/S0956796814000227
-
-type color =
-  | BB // double black, see the 2014 paper
-  | B
-  | R;
+// https://www.cs.cornell.edu/courses/cs3110/2013sp/recitations/rec08-splay/rec08.html
 
 type info('a) = {
   entry: 'a,
@@ -14,128 +9,64 @@ type info('a) = {
   mutable max_right: Order.t,
 };
 
-type node('a) =
+type tree('a) =
   | Leaf
-  | N(tree('a), info('a), tree('a))
+  | Node(tree('a), info('a), tree('a));
 
-and tree('a) =
-  | C(color, node('a));
-
-let set_max_right =
+let rec splay = (left: Order.t) =>
   fun
-  | (Leaf, info, Leaf) => info.max_right = info.right
-  | (Leaf, info, N(_, infoR, _)) =>
-    info.max_right = max(info.right, infoR.max_right)
-  | (N(_, infoL, _), info, Leaf) =>
-    info.max_right = max(info.right, infoL.max_right)
-  | (N(_, infoL, _), info, N(_, infoR, _)) =>
-    info.max_right = max(info.right, max(infoL.max_right, infoR.max_right));
-
-let set_max_right_color =
-  fun
-  | (C(_, a), x, C(_, b)) => set_max_right((a, x, b));
-
-let build_node = (color, a, x, b) => {
-  set_max_right_color((a, x, b));
-  C(color, N(a, x, b));
-};
-
-let balance: ((color, tree('a), info('a), tree('a))) => tree('a) =
-  fun
-  | (B, C(R, N(C(R, N(a, x, b)), y, c)), z, d)
-  | (B, C(R, N(a, x, C(R, N(b, y, c)))), z, d)
-  | (B, a, x, C(R, N(C(R, N(b, y, c)), z, d)))
-  | (B, a, x, C(R, N(b, y, C(R, N(c, z, d))))) => {
-      let axb = build_node(B, a, x, b);
-      let czd = build_node(B, c, z, d);
-      build_node(R, axb, y, czd);
+  // already root
+  | (l, v, r) when left == v.left => (l, v, r)
+  // not found
+  | (Leaf, v, r) when left < v.left => (Leaf, v, r)
+  // zig
+  | (Node(ll, lv, lr), v, r) when left < v.left && left == lv.left => {
+      (ll, lv, Node(lr, v, r));
     }
-  | (BB, C(R, N(a, x, C(R, N(b, y, c)))), z, d)
-  | (BB, a, x, C(R, N(b, y, C(R, N(c, z, d))))) => {
-      let axb = build_node(B, a, x, b);
-      let czd = build_node(B, c, z, d);
-      build_node(B, axb, y, czd);
+  // not found
+  | (Node(Leaf, lv, lr), v, r) when left < v.left && left < lv.left => {
+      (Leaf, lv, Node(lr, v, r));
     }
-  | (color, a, x, b) => build_node(color, a, x, b);
-
-let rotate: ((color, tree('a), info('a), tree('a))) => tree('a) =
-  fun
-  | (R, C(BB, axb), y, C(B, N(c, z, d))) => {
-      let axbyc = build_node(R, C(B, axb), y, c);
-      balance((B, axbyc, z, d));
+  // zig-zig
+  | (Node(Node(lll, llv, llr), lv, lr), v, r)
+      when left < v.left && left < lv.left => {
+      let (lll', llv', llr') = splay(left, (lll, llv, llr));
+      (lll', llv', Node(llr', lv, Node(lr, v, r)));
     }
-  | (R, C(B, N(a, x, b)), y, C(BB, czd)) => {
-      let byczd = build_node(R, b, y, C(B, czd));
-      balance((B, a, x, byczd));
+  // not found
+  | (Node(ll, lv, Leaf), v, r) when left < v.left && left > lv.left => {
+      (ll, lv, Node(Leaf, v, r));
     }
-  | (B, C(BB, axb), y, C(B, N(c, z, d))) => {
-      let axbyc = build_node(R, C(B, axb), y, c);
-      balance((BB, axbyc, z, d));
+  // zig-zag
+  | (Node(ll, lv, Node(lrl, lrv, lrr)), v, r)
+      when left < v.left && left > lv.left => {
+      let (lrl', lrv', lrr') = splay(left, (lrl, lrv, lrr));
+      (Node(ll, lv, lrl'), lrv', Node(lrr', v, r));
     }
-  | (B, C(B, N(a, x, b)), y, C(BB, czd)) => {
-      let byczd = build_node(R, b, y, C(B, czd));
-      balance((BB, a, x, byczd));
+  // not found
+  | (l, v, Leaf) when left > v.left => (l, v, Leaf)
+  // zag
+  | (l, v, Node(rl, rv, rr)) when left > v.left && left == rv.left => {
+      (Node(l, v, rl), rv, rr);
     }
-  | (B, C(BB, awb), x, C(R, N(C(B, N(c, y, d)), z, e))) => {
-      let awbxc = build_node(R, C(B, awb), x, c);
-      let awbyc = balance((B, awbxc, y, d));
-      build_node(B, awbyc, z, e);
+  // not found
+  | (l, v, Node(rl, rv, Leaf)) when left > v.left && left > rv.left => {
+      (Node(l, v, rl), rv, Leaf);
     }
-  | (B, C(R, N(a, w, C(B, N(b, x, c)))), y, C(BB, dze)) => {
-      let cydze = build_node(R, c, y, C(B, dze));
-      let bxcydze = balance((B, b, x, cydze));
-      build_node(B, a, w, bxcydze);
+  // zag-zag
+  | (l, v, Node(rl, rv, Node(rrl, rrv, rrr)))
+      when left > v.left && left > rv.left => {
+      let (rrl', rrv', rrr') = splay(left, (rrl, rrv, rrr));
+      (Node(Node(l, v, rl), rv, rrl'), rrv', rrr');
     }
-  | (color, a, x, b) => build_node(color, a, x, b);
-
-let blacken =
-  fun
-  | C(R, a) => C(B, a)
-  | tree => tree;
-
-let insert = (entry: 'a, left: Order.t, right: Order.t, tree: tree('a)) => {
-  let rec ins =
-    fun
-    | C(_, Leaf) => {
-        let info = {entry, left, right, max_right: right};
-        C(R, N(C(B, Leaf), info, C(B, Leaf)));
-      }
-    | C(color, N(childL, info, childR)) =>
-      if (Order.compare(left, info.left) < 0) {
-        balance((color, ins(childL), info, childR));
-      } else if (Order.compare(left, info.left) > 0) {
-        balance((color, childL, info, ins(childR)));
-      } else {
-        C(color, N(childL, info, childR));
-      };
-  blacken(ins(tree));
-};
-
-let redden =
-  fun
-  | C(B, N(C(B, a), x, C(B, b))) => C(R, N(C(B, a), x, C(B, b)))
-  | tree => tree;
-
-let delete = (entry: 'a, left: Order.t, _right: Order.t, tree: tree('a)) => {
-  let rec del =
-    fun
-    | C(BB, Leaf) => failwith("impossible (tree.re)")
-    | C(R, Leaf) => failwith("impossible (tree.re)")
-    | C(B, Leaf) => C(B, Leaf)
-    | C(R, N(C(B, Leaf), info, C(B, Leaf))) when info.entry === entry =>
-      C(B, Leaf)
-    | C(R, N(C(R, N(a, x, b)), info, C(B, Leaf)))
-        when info.entry === entry =>
-      C(B, N(a, x, b))
-    | C(B, N(C(B, Leaf), info, C(B, Leaf))) when info.entry === entry =>
-      C(BB, Leaf)
-    | C(color, N(childL, info, childR)) =>
-      if (Order.compare(left, info.left) < 0) {
-        rotate((color, del(childL), info, childR));
-      } else if (Order.compare(left, info.left) > 0) {
-        rotate((color, childL, info, del(childR)));
-      } else {
-        failwith("todo");
-      };
-  del(redden(tree));
-};
+  // not found
+  | (l, v, Node(Leaf, rv, rr)) when left > v.left && left < rv.left => {
+      (Node(l, v, Leaf), rv, rr);
+    }
+  // zag-zig
+  | (l, v, Node(Node(rll, rlv, rlr), rv, rr))
+      when left > v.left && left < rv.left => {
+      let (rll', rlv', rlr') = splay(left, (rll, rlv, rlr));
+      (Node(l, v, rll'), rlv', Node(rlr', rv, rr));
+    }
+  | _ => failwith("impossible fallthrough: splay tree");
