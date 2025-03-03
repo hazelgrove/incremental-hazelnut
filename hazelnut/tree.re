@@ -215,6 +215,116 @@ module Tree = {
           };
         };
 
+  // guarantees either:
+  // 1. the new root is the greatest element that is less than left
+  // or 2. all elements are greater than left
+  let rec splay_largest_lt = (left: Order.t) => {
+    fun
+    | (Leaf, v, r) when lt(left, v.left) => (Leaf, v, r)
+    | (Node(Leaf, lv, lr), v, r) when lt(left, v.left) && lt(left, lv.left) => {
+        let lr_v_r = node(lr, v, r);
+        (Leaf, lv, lr_v_r);
+      }
+    // zig-zig
+    | (Node(Node(lll, llv, llr), lv, lr), v, r)
+        when lt(left, v.left) && lt(left, lv.left) => {
+        let (lll, llv, llr) = splay(left, (lll, llv, llr));
+        let lr_v_r = node(lr, v, r);
+        let llr_lv_lr_v_r = node(llr, lv, lr_v_r);
+        (lll, llv, llr_lv_lr_v_r);
+      }
+    | (Node(ll, lv, Leaf), v, r) when lt(left, v.left) && gt(left, lv.left) => {
+        let leaf_v_r = node(Leaf, v, r);
+        (ll, lv, leaf_v_r);
+      }
+    | (Node(ll, lv, Node(lrl, lrv, lrr)), v, r)
+        when lt(left, v.left) && gt(left, lv.left) => {
+        let (lrl, lrv, lrr) = splay(left, (lrl, lrv, lrr));
+        let ll_lr_lrl = node(ll, lv, lrl);
+        let lrr_v_r = node(lrr, v, r);
+        (ll_lr_lrl, lrv, lrr_v_r);
+      }
+    | (l, v, Leaf) when gt(left, v.left) => (l, v, Leaf)
+    | (l, v, Node(rl, rv, Leaf)) when gt(left, v.left) && gt(left, rv.left) => {
+        let l_v_rl = node(l, v, rl);
+        (l_v_rl, rv, Leaf);
+      }
+    // zag-zag
+    | (l, v, Node(rl, rv, Node(rrl, rrv, rrr)))
+        when gt(left, v.left) && gt(left, rv.left) => {
+        let (rrl, rrv, rrr) = splay(left, (rrl, rrv, rrr));
+        let l_v_rl = node(l, v, rl);
+        let l_v_rl_rv_rrl = node(l_v_rl, rv, rrl);
+        (l_v_rl_rv_rrl, rrv, rrr);
+      }
+    | (l, v, Node(Leaf, rv, rr)) when gt(left, v.left) && lt(left, rv.left) => {
+        (l, v, Node(Leaf, rv, rr));
+      }
+    | (l, v, Node(Node(rll, rlv, rlr), rv, rr))
+        when gt(left, v.left) && lt(left, rv.left) => {
+        let (rll, rlv, rlr) = splay(left, (rll, rlv, rlr));
+        let l_v_rll = node(l, v, rll);
+        let rlr_rv_rr = node(rlr, rv, rr);
+        (l_v_rll, rlv, rlr_rv_rr);
+      }
+    | _ => failwith("impossible fallthrough: splay_largest_lt");
+  };
+
+  // guarantees either:
+  // 1. the new root is the least element that is greater than left
+  // or 2. all elements are less than left
+  let rec splay_smallest_gt = (left: Order.t) => {
+    fun
+    | (Leaf, v, r) when lt(left, v.left) => (Leaf, v, r)
+    | (Node(Leaf, lv, lr), v, r) when lt(left, v.left) && lt(left, lv.left) => {
+        let lr_v_r = node(lr, v, r);
+        (Leaf, lv, lr_v_r);
+      }
+    // zig-zig
+    | (Node(Node(lll, llv, llr), lv, lr), v, r)
+        when lt(left, v.left) && lt(left, lv.left) => {
+        let (lll, llv, llr) = splay(left, (lll, llv, llr));
+        let lr_v_r = node(lr, v, r);
+        let llr_lv_lr_v_r = node(llr, lv, lr_v_r);
+        (lll, llv, llr_lv_lr_v_r);
+      }
+    | (Node(ll, lv, Leaf), v, r) when lt(left, v.left) && gt(left, lv.left) => {
+        (Node(ll, lv, Leaf), v, r);
+      }
+    | (Node(ll, lv, Node(lrl, lrv, lrr)), v, r)
+        when lt(left, v.left) && gt(left, lv.left) => {
+        let (lrl, lrv, lrr) = splay(left, (lrl, lrv, lrr));
+        let ll_lr_lrl = node(ll, lv, lrl);
+        let lrr_v_r = node(lrr, v, r);
+        (ll_lr_lrl, lrv, lrr_v_r);
+      }
+    | (l, v, Leaf) when gt(left, v.left) => (l, v, Leaf)
+    | (l, v, Node(rl, rv, Leaf)) when gt(left, v.left) && gt(left, rv.left) => {
+        let l_v_rl = node(l, v, rl);
+        (l_v_rl, rv, Leaf);
+      }
+    // zag-zag
+    | (l, v, Node(rl, rv, Node(rrl, rrv, rrr)))
+        when gt(left, v.left) && gt(left, rv.left) => {
+        let (rrl, rrv, rrr) = splay(left, (rrl, rrv, rrr));
+        let l_v_rl = node(l, v, rl);
+        let l_v_rl_rv_rrl = node(l_v_rl, rv, rrl);
+        (l_v_rl_rv_rrl, rrv, rrr);
+      }
+    | (l, v, Node(Leaf, rv, rr)) when gt(left, v.left) && lt(left, rv.left) => {
+        let l_v_leaf = node(l, v, Leaf);
+        (l_v_leaf, rv, rr);
+      }
+    | (l, v, Node(Node(rll, rlv, rlr), rv, rr))
+        when gt(left, v.left) && lt(left, rv.left) => {
+        let (rll, rlv, rlr) = splay(left, (rll, rlv, rlr));
+        let l_v_rll = node(l, v, rll);
+        let rlr_rv_rr = node(rlr, rv, rr);
+        (l_v_rll, rlv, rlr_rv_rr);
+      }
+    | _ => failwith("impossible fallthrough: splay_smalest_gt");
+  };
+
   // the input Order.t elements can be assumed not to appear anywhere in the tree
   let excise_interval: ((Order.t, Order.t), t('a)) => (t('a), t('a)) =
     _ => failwith("excise interval: todo");
