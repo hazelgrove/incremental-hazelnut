@@ -98,4 +98,4 @@ with doc:
         
 write_to(out_path + "index.html", str(doc))
 
-subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
+# subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
