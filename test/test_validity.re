@@ -250,34 +250,37 @@ let nonsense: list(list(Iaction.t)) = [
   [WrapArrow(Two), MoveDown(Two), MoveDown(One)],
 ];
 
-test_actionses(
-  a1
-  @ [[Iaction.Delete]]
-  @ a1'
-  @ [[Iaction.Delete]]
-  @ a2
-  @ [[Iaction.Delete]]
-  @ a3
-  @ [[Iaction.Delete]]
-  @ binding_insert
-  @ [[Iaction.Delete]]
-  @ binding_delete
-  @ [[Iaction.Delete]]
-  @ inconsistent
-  @ [[Iaction.Delete]]
-  @ non_arrow_ap
-  @ [[Iaction.Delete]]
-  @ non_arrow_lam
-  @ [[Iaction.Delete]]
-  @ lam_ann_inconsistent
-  @ [[Iaction.Delete]]
-  @ free_var
-  @ [[Iaction.Delete]]
-  @ big_example
-  @ [[Iaction.Delete]]
-  @ big_example_broken_up
-  @ [[Iaction.Delete]]
-  @ unwrap
-  @ [[Iaction.Delete]]
-  @ nonsense,
-);
+let test_actionses_1 = () =>
+  test_actionses(
+    a1
+    @ [[Iaction.Delete]]
+    @ a1'
+    @ [[Iaction.Delete]]
+    @ a2
+    @ [[Iaction.Delete]]
+    @ a3
+    @ [[Iaction.Delete]]
+    @ binding_insert
+    @ [[Iaction.Delete]]
+    @ binding_delete
+    @ [[Iaction.Delete]]
+    @ inconsistent
+    @ [[Iaction.Delete]]
+    @ non_arrow_ap
+    @ [[Iaction.Delete]]
+    @ non_arrow_lam
+    @ [[Iaction.Delete]]
+    @ lam_ann_inconsistent
+    @ [[Iaction.Delete]]
+    @ free_var
+    @ [[Iaction.Delete]]
+    @ big_example
+    @ [[Iaction.Delete]]
+    @ big_example_broken_up
+    @ [[Iaction.Delete]]
+    @ unwrap
+    @ [[Iaction.Delete]]
+    @ nonsense,
+  );
+
+let validity_tests = [("test validity 1", `Quick, test_actionses_1)];

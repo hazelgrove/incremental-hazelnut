@@ -7,11 +7,11 @@ let order_testable =
     (formatter, to_print) =>
       Sexplib0.Sexp.pp_hum(formatter, Order.sexp_of_t(to_print)),
     // Equality test of Order.t
-    (a, b) => a == b,
+    (a, b) => Order.eq(a, b),
   );
 
 // The ancestry splay tree is ordered by left endpoint of the interval.
-let rec assert_order_invariant =
+let rec assert_order_invariant: Tree.t('a) => unit =
   fun
   | Leaf => ()
   | Node(left, data, right) => {
@@ -57,37 +57,46 @@ let rec assert_order_invariant =
 
 // The ancestry splay tree's nodes contain the maximum right interval endpoint
 // among all children.
-let rec assert_max_right =
+let rec assert_max_right: Tree.t('a) => option(Order.t) =
   fun
   | Leaf => None
-  | Node(left, data, right) => {
-      let max_left = assert_max_right(left);
-      let max_right = assert_max_right(right);
+  | Node(l, info, r) => {
+      let max_left = assert_max_right(l);
+      let max_right = assert_max_right(r);
 
-      let expected_B = ref(data.right);
+      let expected_B =
+        switch (max_left, max_right) {
+        | (None, None) => info.right
+        | (None, Some(r)) => Order.max(info.right, r)
+        | (Some(l), None) => Order.max(info.right, l)
+        | (Some(l), Some(r)) => Order.max(info.right, Order.max(l, r))
+        };
 
-      switch (max_left) {
-      | None => ()
-      | Some(left_B) =>
-        if (left_B > expected_B^) {
-          expected_B := left_B;
-        }
-      };
-
-      switch (max_right) {
-      | None => ()
-      | Some(right_B) =>
-        if (right_B > expected_B^) {
-          expected_B := right_B;
-        }
-      };
+      print_endline(string_of_bool(Order.is_valid(expected_B)));
+      print_endline(string_of_bool(Order.is_valid(info.max_right)));
 
       Alcotest.check(
         order_testable,
         "Max right is not maximum right endpoint of self and children!",
-        expected_B^,
-        data.max_right,
+        expected_B,
+        info.max_right,
       );
 
-      Some(expected_B^);
+      Some(info.max_right);
     };
+
+type tree = Tree.t(int);
+let test_splay_1 = () => {
+  let a = Order.create();
+  let l = List.init(15, _ => Order.add_next(a));
+  let l = [a, ...List.rev(l)];
+  let t: tree = Tree.empty;
+  let t: tree = Tree.insert(0, List.nth(l, 0), List.nth(l, 1), t);
+  let t: tree = Tree.insert(1, List.nth(l, 4), List.nth(l, 5), t);
+  let t: tree = Tree.insert(2, List.nth(l, 2), List.nth(l, 3), t);
+  let _ = assert_max_right(t);
+  let _ = assert_order_invariant(t);
+  ();
+};
+
+let splay_tests = [("test splay 1", `Quick, test_splay_1)];

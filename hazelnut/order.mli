@@ -9,6 +9,10 @@ module Order : sig
   val create : unit -> t
   val is_valid : t -> bool
   val compare : t -> t -> int
+  val lt : t -> t -> bool
+  val eq : t -> t -> bool
+  val gt : t -> t -> bool
+  val max : t -> t -> t
   val add_next : t -> t
   val splice : ?inclusive:bool -> t -> t -> unit
   val set_invalidator : t -> (t -> unit) -> unit

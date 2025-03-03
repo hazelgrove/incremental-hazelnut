@@ -59,7 +59,7 @@ module Order = struct
   (**/**)
 
   
-  let sexp_of_t = fun _ -> Sexp.Atom("unimplemented")
+  let sexp_of_t = fun ts -> Sexp.Atom(string_of_int ts.label)
   let t_of_sexp = fun _ -> null
 
   (** Create a new total order and return its initial element. *)
@@ -115,6 +115,12 @@ module Order = struct
       if ts == null || ts' == null then invalid_arg "TotalOrder.compare";
       let p = compare (pos ts.parent.parent_label) (pos ts'.parent.parent_label) in
       if p != 0 then p else compare (pos ts.label) (pos ts'.label)
+
+  let lt ts ts' = (compare ts ts') < 0 
+  let eq ts ts' = (compare ts ts') == 0
+  let gt ts ts' = (compare ts ts') > 0
+
+  let max ts ts' = if (lt ts ts') then ts' else ts
 
   (** Add a new total-order element after the given element. *)
   let add_next ts =
