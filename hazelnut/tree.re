@@ -164,6 +164,9 @@ let delete = (left: Order.t) =>
       };
     };
 
+// finds the entry of the node value v in the tree such that:
+// 1. v.left < left < v.right
+// 2. v is the tightest with this property - it is the smallest interval (each interval in the tree should be either disjoint)
 let rec find_tightest_container = (left: Order.t) =>
   fun
   | Leaf => None

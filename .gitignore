@@ -5,3 +5,5 @@ flake.nix
 .envrc
 .vs
 .vscode/
+out/
+log/

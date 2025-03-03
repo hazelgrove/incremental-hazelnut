@@ -9,6 +9,7 @@ fmt:
 build:
 	dune build bin/main.bc.js
 	dune build bin/index.html
+	dune build eval/eval.re.ml
 
 url:
 	@echo "file://$(HTML_FILE)"

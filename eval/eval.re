@@ -32,20 +32,6 @@ let () = shell("touch " ++ file_path);
 
 let c = Stdio.Out_channel.create(file_path);
 
-type estate = {
-  root: Iexp.parent,
-  istate: Istate.t,
-};
-
-let init_estate = () => {
-  let (root, istate) = initial_root_and_state();
-  {root, istate};
-};
-
-let apply_eaction = (es: estate, action: Iaction.t) => {
-  {root: es.root, istate: apply_action(es.istate, action)};
-};
-
 let timed = (f: unit => 'a) => {
   let before = Stdlib.Int64.to_int(Ocaml_intrinsics.Perfmon.rdtsc());
   let result = f();
@@ -53,17 +39,21 @@ let timed = (f: unit => 'a) => {
   (after - before, result);
 };
 
-let incr_tyck = (es: estate): (int, estate) => {
-  timed(() => {root: es.root, istate: all_update_steps(es.istate)});
+let incr_tyck = (es: Istate.t): (int, Istate.t) => {
+  timed(() => {
+    all_update_steps(es);
+    es;
+  });
 };
 
-let baseline_tyck = (es: estate): (int, estate) => {
+let baseline_tyck = (es: Istate.t): (int, Istate.t) => {
   let (t, _) =
     timed(() => {
-      let _ = marked_correctly(child_of_parent(es.root));
+      let _ = marked_correctly(child_of_parent(es.ephemeral.root));
       ();
     });
-  (t, {root: es.root, istate: all_update_steps(es.istate)});
+  all_update_steps(es);
+  (t, es);
 };
 
 let wrap: list(Iaction.t) = [
@@ -90,12 +80,12 @@ let actions: list(Iaction.t) =
   @ wrap;
 
 let handle = (name, f) => {
-  let acc = ref(init_estate());
+  let acc = ref(initial_state());
   let timed =
     List.map(
       actions,
       act => {
-        let (t, e) = f(apply_eaction(acc^, act));
+        let (t, e) = f(apply_action(acc^, act));
         acc := e;
         t;
       },
