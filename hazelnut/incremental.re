@@ -47,7 +47,7 @@ module Iexp = {
         ref(Mark.t),
         ref(Mark.t),
         lower,
-        bound_vars,
+        var_set,
       )
     | Ap(lower, ref(Mark.t), lower)
     | Asc(lower, ref(Htyp.t))
@@ -64,6 +64,7 @@ module Iexp = {
 
   and root = {
     mutable root_child: upper,
+    free_vars: var_set,
     in_queue_root: InQueue.root,
   }
 
@@ -73,14 +74,14 @@ module Iexp = {
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location
-  and bound_vars = ref(Tree.t(upper)); // pointers from a binder to the variable occurrences it binds
+  and var_set = ref(Tree.t(upper)); // pointers from a binder to the variable occurrences it binds
 
-  let add_bound_var = (var: upper, bound_vars: bound_vars) => {
+  let add_bound_var = (var: upper, bound_vars: var_set) => {
     let (left, right) = var.interval;
     bound_vars.contents = Tree.insert(var, left, right, bound_vars.contents);
   };
 
-  let remove_bound_var = (var: upper, bound_vars: bound_vars) => {
+  let remove_bound_var = (var: upper, bound_vars: var_set) => {
     bound_vars.contents =
       Tree.delete(fst(var.interval), bound_vars.contents);
   };

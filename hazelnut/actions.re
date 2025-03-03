@@ -96,8 +96,8 @@ let rec look_up_binder =
 
 let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   switch (parent) {
-  | Deleted
-  | Root(_) => ()
+  | Deleted => ()
+  | Root(root) => Iexp.remove_bound_var(var, root.free_vars)
   | Lower(lower) =>
     switch (lower.upper.middle) {
     | Lam(_, _, _, _, _, bound_vars) =>
@@ -109,8 +109,8 @@ let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
 
 let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   switch (parent) {
-  | Deleted
-  | Root(_) => ()
+  | Deleted => ()
+  | Root(root) => Iexp.add_bound_var(var, root.free_vars)
   | Lower(lower) =>
     switch (lower.upper.middle) {
     | Lam(_, _, _, _, _, bound_vars) => Iexp.add_bound_var(var, bound_vars)
