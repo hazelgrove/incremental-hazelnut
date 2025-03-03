@@ -93,33 +93,33 @@ module Tree = {
         (ll_lr_lrl, lrv, lrr_v_r);
       }
     // not found
-    | (l, v, Leaf) when left > v.left => (l, v, Leaf)
+    | (l, v, Leaf) when gt(left, v.left) => (l, v, Leaf)
     // zag
-    | (l, v, Node(rl, rv, rr)) when left > v.left && eq(left, rv.left) => {
+    | (l, v, Node(rl, rv, rr)) when gt(left, v.left) && eq(left, rv.left) => {
         let l_v_rl = node(l, v, rl);
         (l_v_rl, rv, rr);
       }
     // not found
-    | (l, v, Node(rl, rv, Leaf)) when left > v.left && gt(left, rv.left) => {
+    | (l, v, Node(rl, rv, Leaf)) when gt(left, v.left) && gt(left, rv.left) => {
         let l_v_rl = node(l, v, rl);
         (l_v_rl, rv, Leaf);
       }
     // zag-zag
     | (l, v, Node(rl, rv, Node(rrl, rrv, rrr)))
-        when left > v.left && gt(left, rv.left) => {
+        when gt(left, v.left) && gt(left, rv.left) => {
         let (rrl, rrv, rrr) = splay(left, (rrl, rrv, rrr));
         let l_v_rl = node(l, v, rl);
         let l_v_rl_rv_rrl = node(l_v_rl, rv, rrl);
         (l_v_rl_rv_rrl, rrv, rrr);
       }
     // not found
-    | (l, v, Node(Leaf, rv, rr)) when left > v.left && lt(left, rv.left) => {
+    | (l, v, Node(Leaf, rv, rr)) when gt(left, v.left) && lt(left, rv.left) => {
         let l_v_leaf = node(l, v, Leaf);
         (l_v_leaf, rv, rr);
       }
     // zag-zig
     | (l, v, Node(Node(rll, rlv, rlr), rv, rr))
-        when left > v.left && lt(left, rv.left) => {
+        when gt(left, v.left) && lt(left, rv.left) => {
         let (rll, rlv, rlr) = splay(left, (rll, rlv, rlr));
         let l_v_rll = node(l, v, rll);
         let rlr_rv_rr = node(rlr, rv, rr);
@@ -160,13 +160,13 @@ module Tree = {
         (Leaf, info, Leaf);
       }
     // already present
-    | Node(l, v, r) when left == v.left => (l, v, r)
+    | Node(l, v, r) when eq(left, v.left) => (l, v, r)
     | Node(l, v, r) when lt(left, v.left) => {
         let (ll, lv, lr) = insert_t(entry, left, right, l);
         let ll_lv_lr = node(ll, lv, lr);
         (ll_lv_lr, v, r);
       }
-    | Node(l, v, r) when left > v.left => {
+    | Node(l, v, r) when gt(left, v.left) => {
         let (rl, rv, rr) = insert_t(entry, left, right, r);
         let rl_rv_rr = node(rl, rv, rr);
         (l, v, rl_rv_rr);
@@ -187,7 +187,7 @@ module Tree = {
     | Node(l, v, r) => {
         let (l, v, r) = splay(left, (l, v, r));
         // only delete if [left] appears in the t (and therefore is now at the root)
-        if (v.left == left) {
+        if (eq(v.left, left)) {
           join((l, r));
         } else {
           node(l, v, r);
@@ -201,16 +201,16 @@ module Tree = {
     (left: Order.t) =>
       fun
       | Leaf => None
-      | Node(_, v, _) when left == v.left =>
+      | Node(_, v, _) when eq(left, v.left) =>
         failwith("input should be var, t should hold binders")
       | Node(l, v, _) when lt(left, v.left) =>
         find_tightest_container(left, l)
-      | Node(_, v, _) when left > v.max_right => None
+      | Node(_, v, _) when gt(left, v.max_right) => None
       | Node(l, v, r) => {
           // v.left <= left <= v.max_right
           switch (find_tightest_container(left, r)) {
           | Some(v) => Some(v)
-          | None when left < v.right => Some(v.entry)
+          | None when lt(left, v.right) => Some(v.entry)
           | None => find_tightest_container(left, l)
           };
         };
