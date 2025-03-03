@@ -10,44 +10,44 @@ let order_testable =
     (a, b) => Order.eq(a, b),
   );
 
-// The ancestry splay tree is ordered by left endpoint of the interval.
+// The ancestry splay tree is ordered by l endpoint of the interval.
 let rec assert_order_invariant: Tree.t('a) => unit =
   fun
   | Leaf => ()
-  | Node(left, data, right) => {
+  | Node(l, info, right) => {
       // Left comparison
-      switch (left) {
+      switch (l) {
       | Leaf => ()
 
-      | Node(_, left_data, _) =>
-        if (left_data.left > data.left) {
+      | Node(_, l_info, _) =>
+        if (Order.lt(info.left, l_info.left)) {
           // Warning: sexp_of_t of Order is currently unimplemented.
           Alcotest.failf(
             format_of_string(
               "BST Order Invariant Violated: %s is to the left of %s, but is greater.",
             ),
-            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(left_data.left)),
-            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(data.left)),
+            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(l_info.left)),
+            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(info.left)),
           );
         }
       };
 
       // Left subtree
-      assert_order_invariant(left);
+      assert_order_invariant(l);
 
       // Right comparison
       switch (right) {
       | Leaf => ()
 
-      | Node(_, right_data, _) =>
-        if (right_data.left < data.left) {
+      | Node(_, right_info, _) =>
+        if (Order.gt(info.left, right_info.left)) {
           // Warning: sexp_of_t of Order is currently unimplemented.
           Alcotest.failf(
             format_of_string(
               "BST Order Invariant Violated: %s is to the right of %s, but is lesser.",
             ),
-            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(right_data.left)),
-            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(data.left)),
+            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(right_info.left)),
+            Sexplib0.Sexp.to_string_hum(Order.sexp_of_t(info.left)),
           );
         }
       };
@@ -61,11 +61,11 @@ let rec assert_max_right: Tree.t('a) => option(Order.t) =
   fun
   | Leaf => None
   | Node(l, info, r) => {
-      let max_left = assert_max_right(l);
+      let max_l = assert_max_right(l);
       let max_right = assert_max_right(r);
 
       let expected_B =
-        switch (max_left, max_right) {
+        switch (max_l, max_right) {
         | (None, None) => info.right
         | (None, Some(r)) => Order.max(info.right, r)
         | (Some(l), None) => Order.max(info.right, l)
