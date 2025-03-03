@@ -49,7 +49,7 @@ let incr_tyck = (es: Istate.t): (int, Istate.t) => {
 let baseline_tyck = (es: Istate.t): (int, Istate.t) => {
   let (t, _) =
     timed(() => {
-      let _ = marked_correctly(child_of_parent(es.ephemeral.root));
+      let _ = remark(child_of_parent(es.ephemeral.root));
       ();
     });
   all_update_steps(es);
@@ -57,27 +57,28 @@ let baseline_tyck = (es: Istate.t): (int, Istate.t) => {
 };
 
 let wrap: list(Iaction.t) = [
+  WrapPlus(Two),
   WrapLam,
   MoveDown(One),
   InsertVar("x"),
   MoveUp,
   MoveDown(Two),
+  WrapArrow(One),
+  MoveDown(One),
   InsertNumType,
+  MoveUp,
   MoveUp,
 ];
 
-let actions: list(Iaction.t) =
-  [Iaction.InsertVar("x")]
-  @ wrap
-  @ wrap
-  @ wrap
-  @ wrap
-  @ wrap
-  @ wrap
-  @ wrap
-  @ wrap
-  @ wrap
-  @ wrap;
+let wraps1 =
+  wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap;
+
+let wraps2 =
+  wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1;
+let wraps3 =
+  wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2;
+
+let actions: list(Iaction.t) = [Iaction.InsertVar("x")] @ wraps3;
 
 let handle = (name, f) => {
   let acc = ref(initial_state());

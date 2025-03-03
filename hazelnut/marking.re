@@ -1,6 +1,7 @@
 open Hazelnut;
 open Incremental;
 open Order;
+// open Hashtbl;
 
 type bareExp =
   | Var(string)
@@ -49,40 +50,40 @@ let wrap_lower =
   deleted_lower: false,
 };
 
-type ctx = string => option(Htyp.t);
+module Ctx = {
+  type t = Hashtbl.t(string, Htyp.t);
 
-let lookup = (ctx: ctx, x: string): (Htyp.t, Mark.t) => {
-  switch (ctx(x)) {
-  | None => (Hole, Marked)
-  | Some(t) => (t, Unmarked)
-  };
-};
-
-let empty_ctx: ctx = _ => None;
-
-let extend_ctx = (ctx: ctx, x: string, t: Htyp.t): ctx => {
-  y =>
-    if (y == x) {
-      Some(t);
-    } else {
-      ctx(y);
+  let lookup = (ctx: t, x: string): (Htyp.t, Mark.t) => {
+    switch (Hashtbl.find_opt(ctx, x)) {
+    | None => (Hole, Marked)
+    | Some(t) => (t, Unmarked)
     };
-};
+  };
 
-let extend_ctx_bind = (ctx: ctx, x: Bind.t, t: Htyp.t): ctx => {
-  switch (x) {
-  | Hole => ctx
-  | Var(x) => extend_ctx(ctx, x, t)
+  let empty: t = Hashtbl.create(100);
+
+  let extend_bind = (ctx: t, x: Bind.t, t: Htyp.t) => {
+    switch (x) {
+    | Hole => ()
+    | Var(x) => Hashtbl.add(ctx, x, t)
+    };
+  };
+
+  let remove_bind = (ctx: t, x: Bind.t) => {
+    switch (x) {
+    | Hole => ()
+    | Var(x) => Hashtbl.remove(ctx, x)
+    };
   };
 };
 
 // this is not gonna set the binding or interval fields. it suffices to check
 // our incremental computation against the visible data, i.e. marks.
 // it also will not set parent or skip up pointers. we just need to walk down.
-let rec mark_syn = (ctx: ctx): (bareExp => Iexp.upper) =>
+let rec mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
   fun
   | Var(x) => {
-      let (t, m) = lookup(ctx, x);
+      let (t, m) = Ctx.lookup(ctx, x);
       wrap_upper(Var(x, ref(m), ref(Iexp.Deleted)), Some(t));
     }
   | NumLit(x) => wrap_upper(NumLit(x), Some(Num))
@@ -92,7 +93,9 @@ let rec mark_syn = (ctx: ctx): (bareExp => Iexp.upper) =>
       Some(Num),
     )
   | Lam(x, t, e) => {
-      let body = mark_syn(extend_ctx_bind(ctx, x, t), e);
+      Ctx.extend_bind(ctx, x, t);
+      let body = mark_syn(ctx, e);
+      Ctx.remove_bind(ctx, x);
       let syn = Option.get(body.syn);
       wrap_upper(
         Lam(
@@ -119,12 +122,14 @@ let rec mark_syn = (ctx: ctx): (bareExp => Iexp.upper) =>
   | Asc(e, t) => wrap_upper(Asc(mark_ana(ctx, t, e), ref(t)), Some(t))
   | EHole => wrap_upper(EHole, Some(Hole))
 
-and mark_ana = (ctx: ctx, ana: Htyp.t): (bareExp => Iexp.lower) =>
+and mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
   fun
   | Lam(x, t, e) => {
       let (t1, t2, m1) = matched_arrow_typ(ana);
       let m2 = type_consistent(t, t1);
-      let body = mark_ana(extend_ctx_bind(ctx, x, t), t2, e);
+      Ctx.extend_bind(ctx, x, t);
+      let body = mark_ana(ctx, t2, e);
+      Ctx.remove_bind(ctx, x);
       let middle: Iexp.middle =
         Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref([]));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
@@ -136,7 +141,7 @@ and mark_ana = (ctx: ctx, ana: Htyp.t): (bareExp => Iexp.lower) =>
       wrap_lower(e, m, Some(ana));
     };
 
-let remark = (e: Iexp.upper) => mark_syn(empty_ctx, erase_upper(e));
+let remark = (e: Iexp.upper) => mark_syn(Ctx.empty, erase_upper(e));
 
 let rec equiv_upper = (e1: Iexp.upper, e2: Iexp.upper): bool =>
   e1.syn == e2.syn && equiv_middle(e1.middle, e2.middle)
@@ -146,29 +151,29 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
     b
       ? b
       : {
-        print_endline("inequiv!");
+        //print_endine("inequiv!");
         b;
       };
   };
   switch (e1, e2) {
   | (Var(x1, m1, _), Var(x2, m2, _)) =>
-    print_endline("comparing var");
-    return((x1, m1) == (x2, m2));
+    //print_endine("comparing var");
+    return((x1, m1) == (x2, m2))
   | (NumLit(x1), NumLit(x2)) =>
-    print_endline("comparing numlit");
-    return(x1 == x2);
+    //print_endine("comparing numlit");
+    return(x1 == x2)
   | (Plus(e1, e2), Plus(e3, e4)) =>
-    print_endline("comparing plus");
-    return(equiv_lower(e1, e3) && equiv_lower(e2, e4));
+    //print_endine("comparing plus");
+    return(equiv_lower(e1, e3) && equiv_lower(e2, e4))
   | (Lam(x1, t1, m1, m2, e1, _), Lam(x2, t2, m3, m4, e2, _)) =>
-    print_endline("comparing lam");
-    return((x1, t1, m1, m2) == (x2, t2, m3, m4) && equiv_lower(e1, e2));
+    //print_endine("comparing lam");
+    return((x1, t1, m1, m2) == (x2, t2, m3, m4) && equiv_lower(e1, e2))
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
-    print_endline("comparing ap");
-    return(equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4));
+    //print_endine("comparing ap");
+    return(equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4))
   | (Asc(e1, t1), Asc(e2, t2)) =>
-    print_endline("comparing asc");
-    equiv_lower(e1, e2) && t1 == t2;
+    //print_endine("comparing asc");
+    equiv_lower(e1, e2) && t1 == t2
   | (EHole, EHole) => true
   | _ => false
   };
