@@ -215,5 +215,7 @@ module Tree = {
           };
         };
 
-  let excise_interval = _ => failwith("excise interval: todo");
+  // the input Order.t elements can be assumed not to appear anywhere in the tree
+  let excise_interval: ((Order.t, Order.t), t('a)) => (t('a), t('a)) =
+    _ => failwith("excise interval: todo");
 };

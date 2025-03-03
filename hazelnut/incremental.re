@@ -85,6 +85,13 @@ module Iexp = {
     bound_vars.contents =
       Tree.delete(fst(var.interval), bound_vars.contents);
   };
+
+  let excise_bound_vars = (interval: (Order.t, Order.t), bound_vars: var_set) => {
+    let (remaining, excised) =
+      Tree.excise_interval(interval, bound_vars.contents);
+    bound_vars.contents = remaining;
+    excised;
+  };
 };
 
 let child_of_parent = (p: Iexp.parent): Iexp.upper => {

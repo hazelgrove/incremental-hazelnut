@@ -68,6 +68,7 @@ module Iexp: {
 
   let add_bound_var: (upper, var_set) => unit;
   let remove_bound_var: (upper, var_set) => unit;
+  let excise_bound_vars: ((Order.t, Order.t), var_set) => Tree.t(upper);
 };
 
 let child_of_parent: Iexp.parent => Iexp.upper;

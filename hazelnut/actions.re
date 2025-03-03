@@ -94,29 +94,22 @@ let rec look_up_binder =
   };
 };
 
-let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
-  switch (parent) {
-  | Deleted => ()
-  | Root(root) => Iexp.remove_bound_var(var, root.free_vars)
+let var_set_of_binder: Iexp.parent => Iexp.var_set =
+  fun
+  | Deleted => failwith("var set of deleted root")
+  | Root(root) => root.free_vars
   | Lower(lower) =>
     switch (lower.upper.middle) {
-    | Lam(_, _, _, _, _, bound_vars) =>
-      Iexp.remove_bound_var(var, bound_vars)
-    | _ => ()
-    }
-  };
+    | Lam(_, _, _, _, _, bound_vars) => bound_vars
+    | _ => failwith("non-lam binder")
+    };
+
+let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+  Iexp.remove_bound_var(var, var_set_of_binder(parent));
 };
 
 let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
-  switch (parent) {
-  | Deleted => ()
-  | Root(root) => Iexp.add_bound_var(var, root.free_vars)
-  | Lower(lower) =>
-    switch (lower.upper.middle) {
-    | Lam(_, _, _, _, _, bound_vars) => Iexp.add_bound_var(var, bound_vars)
-    | _ => ()
-    }
-  };
+  Iexp.add_bound_var(var, var_set_of_binder(parent));
 };
 
 // precondition: e.middle is a Var
@@ -139,7 +132,7 @@ let update_var =
 
 // Finds all (syntactically) free variables with given name, updates them,
 // and returns them as a list.
-let rec capture_name_rec =
+let rec _capture_name_body =
         (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder)
         : list(Iexp.upper) => {
   switch (e.middle) {
@@ -153,41 +146,49 @@ let rec capture_name_rec =
   | NumLit(_) => []
   | Plus(lower_a, lower_b) =>
     List.append(
-      capture_name_rec(lower_a.child, name, syn, binder),
-      capture_name_rec(lower_b.child, name, syn, binder),
+      _capture_name_body(lower_a.child, name, syn, binder),
+      _capture_name_body(lower_b.child, name, syn, binder),
     )
   | Lam(bind, _, _, _, body_lower, _) =>
     if (bind.contents == Var(name)) {
       [];
     } else {
-      capture_name_rec(body_lower.child, name, syn, binder);
+      _capture_name_body(body_lower.child, name, syn, binder);
     }
   | Ap(actor, _, param) =>
     List.append(
-      capture_name_rec(actor.child, name, syn, binder),
-      capture_name_rec(param.child, name, syn, binder),
+      _capture_name_body(actor.child, name, syn, binder),
+      _capture_name_body(param.child, name, syn, binder),
     )
-  | Asc(lower, _) => capture_name_rec(lower.child, name, syn, binder)
+  | Asc(lower, _) => _capture_name_body(lower.child, name, syn, binder)
   | EHole => []
   };
 };
 
-let capture_name =
-    (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
-  let t_of_list: list(Iexp.upper) => Tree.t(Iexp.upper) =
-    List.fold_left(
-      (t, upper: Iexp.upper) =>
-        Tree.insert(upper, fst(upper.interval), snd(upper.interval), t),
-      Tree.empty,
-    );
-
-  let l = capture_name_rec(e, name, syn, binder);
-  (t_of_list(l), l);
+let capture_name = (e: Iexp.upper, name: string) => {
+  let (ancestor_binder, _, _) = look_up_binder(e.parent, name);
+  let excised_vars =
+    Iexp.excise_bound_vars(e.interval, var_set_of_binder(ancestor_binder));
+  excised_vars;
 };
 
-// let capture_name_rec_with_updates =
+// let capture_name =
 //     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
-//   let newly_bound = capture_name_rec(e, name, syn, binder);
+//   // let t_of_list: list(Iexp.upper) => Tree.t(Iexp.upper) =
+//   //   List.fold_left(
+//   //     (t, upper: Iexp.upper) =>
+//   //       Tree.insert(upper, fst(upper.interval), snd(upper.interval), t),
+//   //     Tree.empty,
+//   //   );
+
+//   // let l = _capture_name_body(e, name, syn, binder);
+//   let t = capture_name_parent(e, name, syn, binder);
+//   (t_of_list(l), l);
+// };
+
+// let _capture_name_body_with_updates =
+//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
+//   let newly_bound = _capture_name_body(e, name, syn, binder);
 //   let captured_updates = List.map(e => Update.NewSyn(e), newly_bound);
 //   (newly_bound, captured_updates);
 // };
@@ -355,9 +356,11 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Hole =>
         bind.contents = Var(x);
-        let (newly_bound_tree, newly_bound_list) =
-          capture_name(body.child, x, t.contents, Iexp.Lower(body));
-        bound_vars.contents = newly_bound_tree;
+        bound_vars.contents = capture_name(body.child, x);
+        let update = var =>
+          update_var(var, t.contents, Unmarked, Iexp.Lower(body));
+        Tree.iter(update, bound_vars.contents);
+        let newly_bound_list = Tree.list_of_t(bound_vars.contents);
         let update_list =
           [Update.NewAna(e.parent)]
           @ List.map(e => Update.NewSyn(e), newly_bound_list)
