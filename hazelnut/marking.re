@@ -1,6 +1,7 @@
 open Hazelnut;
 open Incremental;
 open Order;
+open Tree;
 // open Hashtbl;
 
 type bareExp =
@@ -104,7 +105,7 @@ let rec mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
           ref(Mark.Unmarked),
           ref(Mark.Unmarked),
           wrap_lower(body, Unmarked, None),
-          ref([]),
+          ref(Tree.empty),
         ),
         Some(Arrow(t, syn)),
       );
@@ -131,7 +132,7 @@ and mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let body = mark_ana(ctx, t2, e);
       Ctx.remove_bind(ctx, x);
       let middle: Iexp.middle =
-        Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref([]));
+        Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref(Tree.empty));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | b => {

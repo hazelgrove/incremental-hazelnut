@@ -1,5 +1,6 @@
 open Hazelnut;
 open Order;
+open Tree;
 
 module InQueue: {
   type upper = {
@@ -62,7 +63,7 @@ module Iexp: {
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location
-  and bound_vars = ref(list(upper)); // pointers from a binder to the variable occurrences it binds
+  and bound_vars = ref(Tree.t(upper)); // pointers from a binder to the variable occurrences it binds
 
   let add_bound_var: (upper, bound_vars) => unit;
   let remove_bound_var: (upper, bound_vars) => unit;

@@ -3,6 +3,7 @@ open Order;
 // https://www.cs.cornell.edu/courses/cs3110/2013sp/recitations/rec08-splay/rec08.html
 
 module Tree = {
+  [@deriving sexp]
   type info('a) = {
     entry: 'a,
     left: Order.t,
@@ -10,11 +11,26 @@ module Tree = {
     mutable max_right: Order.t,
   };
 
+  [@deriving sexp]
   type t('a) =
     | Leaf
     | Node(t('a), info('a), t('a));
 
   let empty = Leaf;
+
+  let rec iter = f =>
+    fun
+    | Leaf => ()
+    | Node(l, v, r) => {
+        f(v.entry);
+        iter(f, l);
+        iter(f, r);
+      };
+
+  let rec list_of_t: t('a) => list('a) =
+    fun
+    | Leaf => []
+    | Node(l, v, r) => list_of_t(l) @ [v.entry] @ list_of_t(r);
 
   let set_max_right =
     fun
@@ -198,4 +214,6 @@ module Tree = {
           | None => find_tightest_container(left, l)
           };
         };
+
+  let excise_interval = _ => failwith("excise interval: todo");
 };

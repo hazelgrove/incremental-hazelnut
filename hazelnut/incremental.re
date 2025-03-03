@@ -1,6 +1,7 @@
 open Sexplib.Std;
 open Hazelnut;
 open Order;
+open Tree;
 // open Queue;
 // open Monad_lib.Monad;
 
@@ -72,15 +73,16 @@ module Iexp = {
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location
-  and bound_vars = ref(list(upper)); // pointers from a binder to the variable occurrences it binds
+  and bound_vars = ref(Tree.t(upper)); // pointers from a binder to the variable occurrences it binds
 
   let add_bound_var = (var: upper, bound_vars: bound_vars) => {
-    bound_vars.contents = [var, ...bound_vars.contents];
+    let (left, right) = var.interval;
+    bound_vars.contents = Tree.insert(var, left, right, bound_vars.contents);
   };
 
   let remove_bound_var = (var: upper, bound_vars: bound_vars) => {
     bound_vars.contents =
-      List.filter(var' => var !== var', bound_vars.contents);
+      Tree.delete(fst(var.interval), bound_vars.contents);
   };
 };
 

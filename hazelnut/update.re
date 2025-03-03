@@ -1,6 +1,7 @@
 open Hazelnut;
 open Incremental;
 open UpdateQueue;
+open Tree;
 open State;
 
 type stepped =
@@ -105,10 +106,11 @@ let update_step = (state: Istate.t): stepped => {
       switch (e.middle) {
       | Lam(_, t, _, _, _, bound_vars) =>
         let update = var => var_syn(var, t.contents);
-        let _ = List.map(update, bound_vars.contents);
+        Tree.iter(update, bound_vars.contents);
+        let bound_vars_list = Tree.list_of_t(bound_vars.contents);
         let update_list =
           [Update.NewAna(e.parent)]  // TODO: check if e.parent is deleted.
-          @ List.map(var => Update.NewSyn(var), bound_vars.contents);
+          @ List.map(var => Update.NewSyn(var), bound_vars_list);
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewAnn on non-lam")
       }

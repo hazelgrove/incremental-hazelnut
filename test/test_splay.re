@@ -94,6 +94,8 @@ let test_splay_1 = () => {
   let t: tree = Tree.insert(0, List.nth(l, 0), List.nth(l, 1), t);
   let t: tree = Tree.insert(1, List.nth(l, 4), List.nth(l, 5), t);
   let t: tree = Tree.insert(2, List.nth(l, 2), List.nth(l, 3), t);
+  let t: tree = Tree.insert(3, List.nth(l, 8), List.nth(l, 9), t);
+  let t: tree = Tree.insert(4, List.nth(l, 7), List.nth(l, 10), t);
   let _ = assert_max_right(t);
   let _ = assert_order_invariant(t);
   ();

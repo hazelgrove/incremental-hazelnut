@@ -1,6 +1,7 @@
 open Sexplib.Std;
 open Hazelnut;
 open Order;
+open Tree;
 open Incremental;
 open State;
 open UpdateQueue;
@@ -138,7 +139,7 @@ let update_var =
 
 // Finds all (syntactically) free variables with given name, updates them,
 // and returns them as a list.
-let rec capture_name =
+let rec capture_name_rec =
         (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder)
         : list(Iexp.upper) => {
   switch (e.middle) {
@@ -152,28 +153,41 @@ let rec capture_name =
   | NumLit(_) => []
   | Plus(lower_a, lower_b) =>
     List.append(
-      capture_name(lower_a.child, name, syn, binder),
-      capture_name(lower_b.child, name, syn, binder),
+      capture_name_rec(lower_a.child, name, syn, binder),
+      capture_name_rec(lower_b.child, name, syn, binder),
     )
   | Lam(bind, _, _, _, body_lower, _) =>
     if (bind.contents == Var(name)) {
       [];
     } else {
-      capture_name(body_lower.child, name, syn, binder);
+      capture_name_rec(body_lower.child, name, syn, binder);
     }
   | Ap(actor, _, param) =>
     List.append(
-      capture_name(actor.child, name, syn, binder),
-      capture_name(param.child, name, syn, binder),
+      capture_name_rec(actor.child, name, syn, binder),
+      capture_name_rec(param.child, name, syn, binder),
     )
-  | Asc(lower, _) => capture_name(lower.child, name, syn, binder)
+  | Asc(lower, _) => capture_name_rec(lower.child, name, syn, binder)
   | EHole => []
   };
 };
 
-// let capture_name_with_updates =
+let capture_name =
+    (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
+  let t_of_list: list(Iexp.upper) => Tree.t(Iexp.upper) =
+    List.fold_left(
+      (t, upper: Iexp.upper) =>
+        Tree.insert(upper, fst(upper.interval), snd(upper.interval), t),
+      Tree.empty,
+    );
+
+  let l = capture_name_rec(e, name, syn, binder);
+  (t_of_list(l), l);
+};
+
+// let capture_name_rec_with_updates =
 //     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
-//   let newly_bound = capture_name(e, name, syn, binder);
+//   let newly_bound = capture_name_rec(e, name, syn, binder);
 //   let captured_updates = List.map(e => Update.NewSyn(e), newly_bound);
 //   (newly_bound, captured_updates);
 // };
@@ -322,11 +336,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         let (new_binder, t, m) = look_up_binder(e.parent, x);
 
         let update = var => update_var(var, t, m, new_binder);
-        List.iter(update, bound_vars.contents);
+        Tree.iter(update, bound_vars.contents);
 
+        let bound_var_list = Tree.list_of_t(bound_vars.contents);
         let update_list =
           [Update.NewAna(e.parent)]
-          @ List.map(e => Update.NewSyn(e), bound_vars.contents)
+          @ List.map(e => Update.NewSyn(e), bound_var_list)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
         UpdateQueue.update_push_list(update_list, q);
         no_movement;
@@ -340,12 +355,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Hole =>
         bind.contents = Var(x);
-        let newly_bound =
+        let (newly_bound_tree, newly_bound_list) =
           capture_name(body.child, x, t.contents, Iexp.Lower(body));
-        bound_vars.contents = newly_bound;
+        bound_vars.contents = newly_bound_tree;
         let update_list =
           [Update.NewAna(e.parent)]
-          @ List.map(e => Update.NewSyn(e), newly_bound)
+          @ List.map(e => Update.NewSyn(e), newly_bound_list)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
         UpdateQueue.update_push_list(update_list, q);
         no_movement;
@@ -575,7 +590,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         ref(Mark.Unmarked),
         ref(Mark.Unmarked),
         new_lower,
-        ref([]),
+        ref(Tree.empty),
       );
     let new_upper: Iexp.upper = {
       parent: body.parent,
@@ -644,15 +659,18 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Var(x) =>
         let (new_binder, t, m) = look_up_binder(parent, x);
         let update = var => update_var(var, t, m, new_binder);
-        List.iter(update, bound_vars.contents);
+        Tree.iter(update, bound_vars.contents);
       };
 
       // because updating vars could have deleted the body
       let new_body = child_of_parent(parent);
 
+      // todo: maybe this could be a stream so that we don't have to wast time
+      // appending sublists
+      let bound_vars_list = Tree.list_of_t(bound_vars.contents);
       let update_list =
         [Update.NewAna(parent)]
-        @ List.map(e => Update.NewSyn(e), bound_vars.contents)
+        @ List.map(e => Update.NewSyn(e), bound_vars_list)
         @ [Update.NewSyn(new_body)];
       UpdateQueue.update_push_list(update_list, q);
       return({c: CursorExp(new_body)});
