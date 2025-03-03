@@ -4,10 +4,9 @@ open Hazelnut_lib.Tree;
 let order_testable =
   Alcotest.testable(
     // Pretty-printer of Order.t
-    (formatter, to_print) =>
-      Sexplib0.Sexp.pp_hum(formatter, Order.sexp_of_t(to_print)),
+    (formatter, to_print) => Sexplib0.Sexp.pp_hum(formatter, Order.sexp_of_t(to_print)),
     // Equality test of Order.t
-    (a, b) => a == b,
+    (a, b) => Order.compare(a, b) == 0
   );
 
 // The ancestry splay tree is ordered by left endpoint of the interval.
@@ -20,7 +19,8 @@ let rec assert_order_invariant =
       | Leaf => ()
 
       | Node(_, left_data, _) =>
-        if (left_data.left > data.left) {
+        if (Order.compare(left_data.left, data.left) > 0) {
+
           // Warning: sexp_of_t of Order is currently unimplemented.
           Alcotest.failf(
             format_of_string(
@@ -40,7 +40,8 @@ let rec assert_order_invariant =
       | Leaf => ()
 
       | Node(_, right_data, _) =>
-        if (right_data.left < data.left) {
+        if (Order.compare(right_data.left, data.left) < 0) {
+
           // Warning: sexp_of_t of Order is currently unimplemented.
           Alcotest.failf(
             format_of_string(
