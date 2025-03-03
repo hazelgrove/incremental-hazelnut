@@ -55,7 +55,7 @@ for l in readlines_file(f"log/{path}"):
 
 times = []
 for m in data.values():
-    times.append((m["incr"], m["baseline"]))
+    times.append((m["baseline"], m["incr"]))
 
 fig1, ax1 = plt.subplots(layout='constrained')
 
