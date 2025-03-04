@@ -94,22 +94,42 @@ let rec look_up_binder =
   };
 };
 
-let var_set_of_binder: Iexp.parent => Iexp.var_set =
+let var_set_of_binder = (x: string): (Iexp.parent => Iexp.var_set) =>
   fun
   | Deleted => failwith("var set of deleted root")
-  | Root(root) => root.free_vars
+  | Root(root) => {
+      switch (Hashtbl.find_opt(root.free_vars, x)) {
+      | None =>
+        let new_set = ref(Tree.empty);
+        Hashtbl.add(root.free_vars, x, new_set);
+        new_set;
+      | Some(var_set) => var_set
+      };
+    }
   | Lower(lower) =>
     switch (lower.upper.middle) {
     | Lam(_, _, _, _, _, bound_vars) => bound_vars
     | _ => failwith("non-lam binder")
     };
 
+let name_of_var_upper = (e: Iexp.upper): string =>
+  switch (e.middle) {
+  | Var(x, _, _) => x
+  | _ => failwith("name_of_var_upper called on non-var")
+  };
+
 let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
-  Iexp.remove_bound_var(var, var_set_of_binder(parent));
+  Iexp.remove_bound_var(
+    var,
+    var_set_of_binder(name_of_var_upper(var), parent),
+  );
 };
 
 let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
-  Iexp.add_bound_var(var, var_set_of_binder(parent));
+  Iexp.add_bound_var(
+    var,
+    var_set_of_binder(name_of_var_upper(var), parent),
+  );
 };
 
 // precondition: e.middle is a Var
@@ -168,16 +188,16 @@ let rec _capture_name_body =
 let capture_name = (e: Iexp.upper, name: string) => {
   let (ancestor_binder, _, _) = look_up_binder(e.parent, name);
 
-  switch (ancestor_binder) {
-  | Root(_) => print_endline("Shadowing root")
-  | Lower(_) => print_endline("Shadowing lower")
-  | Deleted => print_endline("Shadowing Deleted")
-  };
+  // switch (ancestor_binder) {
+  // | Root(_) => print_endline("Shadowing root")
+  // | Lower(_) => print_endline("Shadowing lower")
+  // | Deleted => print_endline("Shadowing Deleted")
+  // };
 
-  let found_vars = var_set_of_binder(ancestor_binder);
-  print_endline(
-    string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
-  );
+  let found_vars = var_set_of_binder(name, ancestor_binder);
+  // print_endline(
+  //   string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
+  // );
   let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
   excised_vars;
 };
@@ -212,8 +232,8 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   switch (e) {
   | EHole
   | NumLit(_) => ()
-  | Var(_, _, binder) =>
-    let var_set = var_set_of_binder(binder.contents);
+  | Var(x, _, binder) =>
+    let var_set = var_set_of_binder(x, binder.contents);
     Iexp.remove_bound_var(upper, var_set);
   | Asc(e, _) => delete_lower(e)
   | Lam(_, _, _, _, e, _) => delete_lower(e)
@@ -364,9 +384,9 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Hole =>
         bind.contents = Var(x);
         bound_vars.contents = capture_name(e, x);
-        print_endline(
-          string_of_int(List.length(Tree.list_of_t(bound_vars.contents))),
-        );
+        // print_endline(
+        //   string_of_int(List.length(Tree.list_of_t(bound_vars.contents))),
+        // );
         let update = var =>
           update_var(var, t.contents, Unmarked, Iexp.Lower(body));
         Tree.iter(update, bound_vars.contents);

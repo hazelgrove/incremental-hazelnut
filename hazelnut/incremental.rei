@@ -54,7 +54,7 @@ module Iexp: {
 
   and root = {
     mutable root_child: upper,
-    free_vars: var_set,
+    free_vars: Hashtbl.t(string, var_set),
     in_queue_root: InQueue.root,
   }
 

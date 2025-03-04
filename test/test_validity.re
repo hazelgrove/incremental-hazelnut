@@ -261,6 +261,10 @@ let excise: list(list(Iaction.t)) = [
   ],
 ];
 
+let excise2: list(list(Iaction.t)) = [
+  [InsertVar("y"), WrapPlus(One), WrapLam, MoveDown(One), InsertVar("x")],
+];
+
 let test_actionses_all =
   test_actionses(
     a1
@@ -311,5 +315,6 @@ let validity_tests = [
   ("unwrap", `Quick, test_actionses(unwrap)),
   ("nonsense", `Quick, test_actionses(nonsense)),
   ("excise", `Quick, test_actionses(excise)),
-  // ("all", `Quick, test_actionses_all),
+  ("excise2", `Quick, test_actionses(excise2)),
+  ("all", `Quick, test_actionses_all),
 ];

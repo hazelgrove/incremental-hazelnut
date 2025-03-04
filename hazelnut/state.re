@@ -1,6 +1,6 @@
 open Hazelnut;
 open Incremental;
-open Tree;
+// open Tree;
 open UpdateQueue;
 
 module Icursor = {
@@ -31,7 +31,7 @@ let initial_state = (): Istate.t => {
   let initial_exp = exp_hole_upper(initial_interval);
   let r: Iexp.root = {
     root_child: initial_exp,
-    free_vars: ref(Tree.empty),
+    free_vars: Hashtbl.create(100),
     in_queue_root: InQueue.default_root(),
   };
   let initial_root = Iexp.Root(r);

@@ -64,7 +64,7 @@ module Iexp = {
 
   and root = {
     mutable root_child: upper,
-    free_vars: var_set,
+    free_vars: Hashtbl.t(string, var_set),
     in_queue_root: InQueue.root,
   }
 
@@ -78,35 +78,35 @@ module Iexp = {
 
   let add_bound_var = (var: upper, bound_vars: var_set) => {
     let (left, right) = var.interval;
-    Order.lt(left, right) ? () : failwith("bad interval");
-    print_endline(
-      "Adding bound var with left endpoint: "
-      ++ string_of_sexp(Order.sexp_of_t(left))
-      ++ " and right endpoint "
-      ++ string_of_sexp(Order.sexp_of_t(right)),
-    );
+    // Order.lt(left, right) ? () : failwith("bad interval");
+    // print_endline(
+    //   "Adding bound var with left endpoint: "
+    //   ++ string_of_sexp(Order.sexp_of_t(left))
+    //   ++ " and right endpoint "
+    //   ++ string_of_sexp(Order.sexp_of_t(right)),
+    // );
     bound_vars.contents = Tree.insert(var, left, right, bound_vars.contents);
   };
 
   let remove_bound_var = (var: upper, bound_vars: var_set) => {
-    print_endline(
-      "Removing bound var with left endpoint: "
-      ++ string_of_sexp(Order.sexp_of_t(fst(var.interval)))
-      ++ " and right endpoint "
-      ++ string_of_sexp(Order.sexp_of_t(snd(var.interval))),
-    );
+    // print_endline(
+    //   "Removing bound var with left endpoint: "
+    //   ++ string_of_sexp(Order.sexp_of_t(fst(var.interval)))
+    //   ++ " and right endpoint "
+    //   ++ string_of_sexp(Order.sexp_of_t(snd(var.interval))),
+    // );
     bound_vars.contents =
       Tree.delete(fst(var.interval), bound_vars.contents);
   };
 
   let excise_bound_vars = (interval: (Order.t, Order.t), bound_vars: var_set) => {
-    Order.lt(fst(interval), snd(interval)) ? () : failwith("bad interval");
-    print_endline(
-      "Excising range: "
-      ++ string_of_sexp(Order.sexp_of_t(fst(interval)))
-      ++ " and right endpoint "
-      ++ string_of_sexp(Order.sexp_of_t(snd(interval))),
-    );
+    // Order.lt(fst(interval), snd(interval)) ? () : failwith("bad interval");
+    // print_endline(
+    //   "Excising range: "
+    //   ++ string_of_sexp(Order.sexp_of_t(fst(interval)))
+    //   ++ " and right endpoint "
+    //   ++ string_of_sexp(Order.sexp_of_t(snd(interval))),
+    // );
     let (remaining, excised) =
       Tree.excise_interval(interval, bound_vars.contents);
     bound_vars.contents = remaining;
