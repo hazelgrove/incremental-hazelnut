@@ -28,6 +28,45 @@ let test_actionses = (actionses: list(list(Iaction.t)), ()) => {
   print_endline("all tests done.");
 };
 
+let random_motion = (): Iaction.t => {
+  let r = Random.int(6);
+  switch (r) {
+  | 0
+  | 1
+  | 2 => MoveUp
+  | 3 => MoveDown(One)
+  | 4 => MoveDown(Two)
+  | 5 => MoveDown(Three)
+  | _ => failwith("bad random number")
+  };
+};
+
+let random_motions = () => {
+  List.init(Random.int(10), _ => random_motion());
+};
+
+let random_edit = (): list(Iaction.t) => {
+  let r = Random.int(11);
+  switch (r) {
+  | 0 => [Delete]
+  | 1 // => [WrapArrow(One)]
+  | 2 // => [InsertNumType]
+  | 3 // => [InsertNumLit(0)]
+  | 4 => [InsertVar("x")]
+  | 5 => [InsertVar("y")]
+  | 6 // => [WrapPlus(One)]
+  | 7 //=> [WrapAp(One)]
+  | 8 //=> [WrapAsc]
+  | 9 => [WrapLam, MoveUp, MoveDown(One), InsertVar("x"), MoveUp]
+  | 10 => [WrapLam, MoveUp, MoveDown(One), InsertVar("y"), MoveUp]
+  | _ => failwith("bad random number")
+  };
+};
+
+let random_action_segment = () => random_motions() @ random_edit();
+
+let random_action_segments = n => List.init(n, _ => random_action_segment());
+
 let a1: list(list(Iaction.t)) = [
   [InsertVar("x"), WrapPlus(One), WrapLam, MoveDown(One), InsertVar("x")],
   [MoveUp, MoveDown(Two), WrapArrow(One)],
@@ -291,7 +330,7 @@ let test_actionses_all =
     @ [[Iaction.Delete]]
     @ big_example
     @ [[Iaction.Delete]]
-    @ big_example_broken_up  // first one to currently bug
+    @ big_example_broken_up
     @ [[Iaction.Delete]]
     @ unwrap
     @ [[Iaction.Delete]]
@@ -317,4 +356,15 @@ let validity_tests = [
   ("excise", `Quick, test_actionses(excise)),
   ("excise2", `Quick, test_actionses(excise2)),
   ("all", `Quick, test_actionses_all),
+  ("giant random1", `Quick, test_actionses(random_action_segments(1033))),
+  // ("giant random2", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random3", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random4", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random5", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random6", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random7", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random8", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random9", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random10", `Quick, test_actionses(random_action_segments(500))),
+  // ("giant random11", `Quick, test_actionses(random_action_segments(500))),
 ];
