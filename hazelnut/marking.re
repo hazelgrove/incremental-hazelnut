@@ -13,6 +13,16 @@ type bareExp =
   | Asc(bareExp, Htyp.t)
   | EHole;
 
+type markedExp =
+  | Var(string, Mark.t)
+  | NumLit(int)
+  | Plus(markedExp, markedExp)
+  | Lam(Bind.t, Htyp.t, Mark.t, Mark.t, markedExp)
+  | Ap(markedExp, Mark.t, markedExp)
+  | Asc(markedExp, Htyp.t)
+  | EHole
+  | Subsume(markedExp, Mark.t);
+
 let rec erase_lower = (e: Iexp.lower): bareExp => {
   erase_upper(e.child);
 }
@@ -81,7 +91,57 @@ module Ctx = {
 // this is not gonna set the binding or interval fields. it suffices to check
 // our incremental computation against the visible data, i.e. marks.
 // it also will not set parent or skip up pointers. we just need to walk down.
-let rec mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
+let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
+  fun
+  | Var(x) => {
+      let (t, m) = Ctx.lookup(ctx, x);
+      (Var(x, m), t);
+    }
+  | NumLit(x) => (NumLit(x), Num)
+  | Plus(e1, e2) => (
+      Plus(
+        performance_mark_ana(ctx, Num, e1),
+        performance_mark_ana(ctx, Num, e2),
+      ),
+      Num,
+    )
+  | Lam(x, t, e) => {
+      Ctx.extend_bind(ctx, x, t);
+      let (body, syn) = performance_mark_syn(ctx, e);
+      Ctx.remove_bind(ctx, x);
+      (Lam(x, t, Mark.Unmarked, Mark.Unmarked, body), Arrow(t, syn));
+    }
+  | Ap(b1, b2) => {
+      let (e1, syn) = performance_mark_syn(ctx, b1);
+      let (t1, t2, m) = matched_arrow_typ(syn);
+      let e2 = performance_mark_ana(ctx, t1, b2);
+      (Ap(e1, m, e2), t2);
+    }
+  | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
+  | EHole => (EHole, Hole)
+
+and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
+  fun
+  | Lam(x, t, e) => {
+      let (t1, t2, m1) = matched_arrow_typ(ana);
+      let m2 = type_consistent(t, t1);
+      Ctx.extend_bind(ctx, x, t);
+      let body = performance_mark_ana(ctx, t2, e);
+      Ctx.remove_bind(ctx, x);
+      Lam(x, t, m1, m2, body);
+    }
+  | b => {
+      let (e, syn) = performance_mark_syn(ctx, b);
+      let m = type_consistent(syn, ana);
+      Subsume(e, m);
+    };
+
+let performance_mark = (e: bareExp) => {
+  let _ = performance_mark_syn(Ctx.empty, e);
+  ();
+};
+
+let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
   fun
   | Var(x) => {
       let (t, m) = Ctx.lookup(ctx, x);
@@ -90,12 +150,15 @@ let rec mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
   | NumLit(x) => wrap_upper(NumLit(x), Some(Num))
   | Plus(e1, e2) =>
     wrap_upper(
-      Plus(mark_ana(ctx, Num, e1), mark_ana(ctx, Num, e2)),
+      Plus(
+        validity_mark_ana(ctx, Num, e1),
+        validity_mark_ana(ctx, Num, e2),
+      ),
       Some(Num),
     )
   | Lam(x, t, e) => {
       Ctx.extend_bind(ctx, x, t);
-      let body = mark_syn(ctx, e);
+      let body = validity_mark_syn(ctx, e);
       Ctx.remove_bind(ctx, x);
       let syn = Option.get(body.syn);
       wrap_upper(
@@ -111,38 +174,40 @@ let rec mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       );
     }
   | Ap(b1, b2) => {
-      let e1 = mark_syn(ctx, b1);
+      let e1 = validity_mark_syn(ctx, b1);
       let syn = Option.get(e1.syn);
       let (t1, t2, m) = matched_arrow_typ(syn);
-      let e2 = mark_ana(ctx, t1, b2);
+      let e2 = validity_mark_ana(ctx, t1, b2);
       wrap_upper(
         Ap(wrap_lower(e1, Unmarked, None), ref(m), e2),
         Some(t2),
       );
     }
-  | Asc(e, t) => wrap_upper(Asc(mark_ana(ctx, t, e), ref(t)), Some(t))
+  | Asc(e, t) =>
+    wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t)), Some(t))
   | EHole => wrap_upper(EHole, Some(Hole))
 
-and mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
+and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
   fun
   | Lam(x, t, e) => {
       let (t1, t2, m1) = matched_arrow_typ(ana);
       let m2 = type_consistent(t, t1);
       Ctx.extend_bind(ctx, x, t);
-      let body = mark_ana(ctx, t2, e);
+      let body = validity_mark_ana(ctx, t2, e);
       Ctx.remove_bind(ctx, x);
       let middle: Iexp.middle =
         Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref(Tree.empty));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | b => {
-      let e = mark_syn(ctx, b);
+      let e = validity_mark_syn(ctx, b);
       let syn = Option.get(e.syn);
       let m = type_consistent(syn, ana);
       wrap_lower(e, m, Some(ana));
     };
 
-let remark = (e: Iexp.upper) => mark_syn(Ctx.empty, erase_upper(e));
+let remark = (e: Iexp.upper) =>
+  validity_mark_syn(Ctx.empty, erase_upper(e));
 
 let rec equiv_upper = (e1: Iexp.upper, e2: Iexp.upper): bool =>
   e1.syn == e2.syn && equiv_middle(e1.middle, e2.middle)

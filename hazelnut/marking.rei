@@ -1,4 +1,9 @@
+// open Hazelnut;
 open Incremental;
 
-let remark: Iexp.upper => Iexp.upper;
+type bareExp;
+type markedExp;
+let erase_upper: Iexp.upper => bareExp;
+let performance_mark: bareExp => unit;
+
 let marked_correctly: Iexp.upper => option(Iexp.upper);
