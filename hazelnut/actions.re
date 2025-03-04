@@ -223,6 +223,33 @@ let capture_name = (e: Iexp.upper, name: string) => {
 //   (newly_bound, captured_updates);
 // };
 
+let remove_from_binder_set =
+    (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
+  switch (Hashtbl.find_opt(binder_set, x)) {
+  | None => failwith("removing binder that doesn't exist")
+  | Some(var_set) =>
+    let new_set = Tree.delete(fst(e.interval), var_set);
+    if (Tree.is_empty(new_set)) {
+      Hashtbl.remove(binder_set, x);
+    } else {
+      Hashtbl.replace(binder_set, x, new_set);
+    };
+  };
+};
+
+let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
+  switch (Hashtbl.find_opt(binder_set, x)) {
+  | None =>
+    let new_set =
+      Tree.insert(e, fst(e.interval), snd(e.interval), Tree.empty);
+    Hashtbl.add(binder_set, x, new_set);
+  | Some(x_binder_set) =>
+    let new_x_binder_set =
+      Tree.insert(e, fst(e.interval), snd(e.interval), x_binder_set);
+    Hashtbl.replace(binder_set, x, new_x_binder_set);
+  };
+};
+
 let rec delete_lower = (e: Iexp.lower) => {
   e.deleted_lower = true;
   delete_upper(e.child);
@@ -319,48 +346,55 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
 
 // these belong in Pexp, copied for convenience
 
-let string_of_child: Child.t => string =
-  fun
-  | One => "One"
-  | Two => "Two"
-  | Three => "Three";
+// let string_of_child: Child.t => string =
+//   fun
+//   | One => "One"
+//   | Two => "Two"
+//   | Three => "Three";
 
-let string_of_action: Iaction.t => string =
-  fun
-  | MoveUp => "MoveUp"
-  | MoveDown(c) => "MoveDown(" ++ string_of_child(c) ++ ")"
-  | Delete => "Delete"
-  | WrapArrow(c) => "WrapArrow(" ++ string_of_child(c) ++ ")"
-  | InsertNumType => "InsertNumType"
-  | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
-  | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
-  | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
-  | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
-  | WrapLam => "WrapLam"
-  | WrapAsc => "WrapAsc"
-  | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
+// let string_of_action: Iaction.t => string =
+//   fun
+//   | MoveUp => "MoveUp"
+//   | MoveDown(c) => "MoveDown(" ++ string_of_child(c) ++ ")"
+//   | Delete => "Delete"
+//   | WrapArrow(c) => "WrapArrow(" ++ string_of_child(c) ++ ")"
+//   | InsertNumType => "InsertNumType"
+//   | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
+//   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
+//   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
+//   | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
+//   | WrapLam => "WrapLam"
+//   | WrapAsc => "WrapAsc"
+//   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
 
 let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   let q = state.ephemeral.q;
+  let binder_set = state.ephemeral.binder_set;
   let c = state.persistent.c;
   let no_movement: Istate.t = state;
 
-  print_endline("ACT: " ++ string_of_action(a));
+  // print_endline("ACT: " ++ string_of_action(a));
 
-  let return: Istate.persistent => Istate.t =
-    persistent => {ephemeral: state.ephemeral, persistent};
+  let return_cursor = (c: Icursor.t): Istate.t => {
+    ephemeral: state.ephemeral,
+    persistent: {
+      c: c,
+    },
+  };
 
   // print_endline(
   //   string_of_int(List.length(UpdateQueue.list_of_t(q))) ++ " updates.",
   // );
   switch (c, a) {
-  | (CursorBind(e), MoveUp) => return({c: CursorExp(e)})
+  | (CursorBind(e), MoveUp) => return_cursor(CursorExp(e))
   | (CursorBind(e), Delete) =>
     switch (e.middle) {
     | Lam(bind, _t, _m1, _m2, body, bound_vars) =>
       switch (bind.contents) {
       | Var(x) =>
         bind.contents = Hole;
+        remove_from_binder_set(x, e, binder_set);
+
         let (new_binder, t, m) = look_up_binder(e.parent, x);
 
         let update = var => update_var(var, t, m, new_binder);
@@ -383,6 +417,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Hole =>
         bind.contents = Var(x);
+        add_to_binder_set(x, e, binder_set);
+
         bound_vars.contents = capture_name(e, x);
         // print_endline(
         //   string_of_int(List.length(Tree.list_of_t(bound_vars.contents))),
@@ -402,7 +438,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | _ => failwith("CursorBind on non lambda")
     }
   | (CursorBind(_), _) => no_movement
-  | (CursorTyp(e, Cursor(_)), MoveUp) => return({c: CursorExp(e)})
+  | (CursorTyp(e, Cursor(_)), MoveUp) => return_cursor(CursorExp(e))
   | (CursorTyp(e, z), a) =>
     switch (e.middle) {
     | Lam(_, t, _m1, _m2, _body, _bound) =>
@@ -410,19 +446,19 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAnn(e), q);
-      return({c: CursorTyp(e, z')});
+      return_cursor(CursorTyp(e, z'));
     | Asc(_, t) =>
       let z' = apply_action_typ(z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAsc(e), q);
-      return({c: CursorTyp(e, z')});
+      return_cursor(CursorTyp(e, z'));
     | _ => failwith("CursorTyp on node with no type")
     }
   | (CursorExp(e), MoveUp) =>
     switch (upper_of_parent(e.parent)) {
     | None => no_movement
-    | Some(e') => return({c: CursorExp(e')})
+    | Some(e') => return_cursor(CursorExp(e'))
     }
   | (CursorExp(e), MoveDown(child)) =>
     switch (e.middle) {
@@ -432,20 +468,20 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | Plus(e1, e2)
     | Ap(e1, _, e2) =>
       switch (child) {
-      | One => return({c: CursorExp(e1.child)})
-      | Two => return({c: CursorExp(e2.child)})
+      | One => return_cursor(CursorExp(e1.child))
+      | Two => return_cursor(CursorExp(e2.child))
       | Three => no_movement
       }
     | Lam(_, t, _, _, e1, _) =>
       switch (child) {
-      | One => return({c: CursorBind(e)})
-      | Two => return({c: CursorTyp(e, Cursor(t.contents))})
-      | Three => return({c: CursorExp(e1.child)})
+      | One => return_cursor(CursorBind(e))
+      | Two => return_cursor(CursorTyp(e, Cursor(t.contents)))
+      | Three => return_cursor(CursorExp(e1.child))
       }
     | Asc(e1, t) =>
       switch (child) {
-      | One => return({c: CursorExp(e1.child)})
-      | Two => return({c: CursorTyp(e, Cursor(t.contents))})
+      | One => return_cursor(CursorExp(e1.child))
+      | Two => return_cursor(CursorTyp(e, Cursor(t.contents)))
       | Three => no_movement
       }
     }
@@ -462,7 +498,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     replace(e, e');
     let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
     UpdateQueue.update_push_list(update_list, q);
-    return({c: CursorExp(e')});
+    return_cursor(CursorExp(e'));
   | (CursorExp(_), InsertNumType)
   | (CursorExp(_), WrapArrow(_)) => no_movement
   | (CursorExp(e), InsertNumLit(x)) =>
@@ -480,7 +516,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       replace(e, e');
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(e')});
+      return_cursor(CursorExp(e'));
     | _ => no_movement
     }
   | (CursorExp(e), InsertVar(x)) =>
@@ -515,7 +551,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       // );
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(e')});
+      return_cursor(CursorExp(e'));
     | _ => no_movement
     }
   | (CursorExp(e), WrapPlus(child)) =>
@@ -556,7 +592,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewSyn(new_upper),
       ];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(new_upper)});
+      return_cursor(CursorExp(new_upper));
     };
     let interval = interval_around(e);
     switch (child) {
@@ -605,7 +641,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewAna(Lower(new_lower_left)),
       ];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(new_upper)});
+      return_cursor(CursorExp(new_upper));
     };
     // this must come before the calls to interval_before or _after. It mutates s.som.
     let interval = interval_around(e);
@@ -653,7 +689,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       NewSyn(body),
     ];
     UpdateQueue.update_push_list(update_list, q);
-    return({c: CursorExp(new_upper)});
+    return_cursor(CursorExp(new_upper));
 
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
@@ -682,7 +718,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       Update.NewAna(Lower(new_lower)),
     ];
     UpdateQueue.update_push_list(update_list, q);
-    return({c: CursorExp(new_upper)});
+    return_cursor(CursorExp(new_upper));
 
   | (CursorExp(e), Unwrap(child)) =>
     switch (e.middle) {
@@ -717,7 +753,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         @ List.map(e => Update.NewSyn(e), bound_vars_list)
         @ [Update.NewSyn(new_body)];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(new_body)});
+      return_cursor(CursorExp(new_body));
 
     | Ap(fun_lower, _, arg_lower) =>
       let (body_lower, deleted_lower) =
@@ -735,7 +771,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(body)});
+      return_cursor(CursorExp(body));
 
     | Plus(left_arg, right_arg) =>
       let (body_lower, deleted_lower) =
@@ -753,7 +789,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(body)});
+      return_cursor(CursorExp(body));
 
     | Asc(body_lower, _ty) =>
       let body = body_lower.child;
@@ -764,7 +800,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
 
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
       UpdateQueue.update_push_list(update_list, q);
-      return({c: CursorExp(body)});
+      return_cursor(CursorExp(body));
     }
   };
 };

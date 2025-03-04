@@ -15,6 +15,7 @@ module Tree: {
     | Node(t('a), info('a), t('a));
 
   let empty: t('a);
+  let is_empty: t('a) => bool;
   let iter: ('a => unit, t('a)) => unit;
   let list_of_t: t('a) => list('a);
   let join: ((t('a), t('a))) => t('a);

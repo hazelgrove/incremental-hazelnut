@@ -18,6 +18,11 @@ module Tree = {
 
   let empty = Leaf;
 
+  let is_empty =
+    fun
+    | Leaf => true
+    | _ => false;
+
   let rec iter = f =>
     fun
     | Leaf => ()

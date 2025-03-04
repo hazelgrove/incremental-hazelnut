@@ -1,7 +1,8 @@
 open Hazelnut;
 open Incremental;
-// open Tree;
+open Tree;
 open UpdateQueue;
+open Sexplib0;
 
 module Icursor = {
   [@deriving sexp]
@@ -11,11 +12,18 @@ module Icursor = {
     | CursorBind(Iexp.upper);
 };
 
+module BinderSet = {
+  type t = Hashtbl.t(string, Tree.t(Iexp.upper));
+  let sexp_of_t = _ => Sexp.Atom("unimplemented");
+  let t_of_sexp = _ => failwith("BinderSet of sexp");
+};
+
 module Istate = {
   [@deriving sexp]
   type ephemeral = {
     root: Iexp.parent,
     q: UpdateQueue.t,
+    binder_set: BinderSet.t,
   };
   [@deriving sexp]
   type persistent = {c: Icursor.t};
@@ -42,6 +50,7 @@ let initial_state = (): Istate.t => {
   let initial_ephemeral: Istate.ephemeral = {
     root: initial_root,
     q: initial_queue,
+    binder_set: Hashtbl.create(100),
   };
 
   let initial_cursor: Icursor.t = CursorExp(initial_exp);

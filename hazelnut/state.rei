@@ -1,6 +1,7 @@
 open Hazelnut;
 open Incremental;
 open UpdateQueue;
+open Tree;
 
 module Icursor: {
   [@deriving sexp]
@@ -10,11 +11,16 @@ module Icursor: {
     | CursorBind(Iexp.upper);
 };
 
+module BinderSet: {
+  type t = Hashtbl.t(string, Tree.t(Iexp.upper));
+};
+
 module Istate: {
   [@deriving sexp]
   type ephemeral = {
     root: Iexp.parent,
     q: UpdateQueue.t,
+    binder_set: BinderSet.t,
   };
   [@deriving sexp]
   type persistent = {c: Icursor.t};
