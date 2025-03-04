@@ -70,9 +70,26 @@ let string_of_list = (f, l) => {
   "[" ++ String.concat(", ", List.map(f, l)) ++ "]";
 };
 
+let write_string_to_file = (filename, s) => {
+  let current_path = Sys.getcwd();
+  let current_path =
+    String.sub(
+      current_path,
+      0,
+      String.length(current_path) - String.length("/_build/default/test"),
+    )
+    ++ "/test";
+  // print_endline(current_path);
+  let oc = open_out(current_path ++ "/" ++ filename);
+  output_string(oc, s);
+  close_out(oc);
+};
+
 let random_action_segments = n => {
   let l = List.init(n, _ => random_action_segment());
-  // print_endline(string_of_list(string_of_list(string_of_action), l));
+  let s =
+    string_of_list(string_of_list(Hazelnut_lib.Pexp.string_of_action), l);
+  write_string_to_file("random_action_" ++ string_of_int(n) ++ ".txt", s);
   l;
 };
 
@@ -368,7 +385,8 @@ let validity_tests = [
   ("random 10", `Quick, test_actionses(random_action_segments(10))),
   ("random 100", `Quick, test_actionses(random_action_segments(100))),
   ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
-  ("random 2K", `Quick, test_actionses(random_action_segments(2000))),
+  // ("random 2K", `Quick, test_actionses(random_action_segments(2000))),
+  ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
   // ("random 3K", `Quick, test_actionses(random_action_segments(3000))),
   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
   // ("random-4", `Quick, test_actionses(random_action_segments(1024))),
