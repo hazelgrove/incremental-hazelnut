@@ -208,11 +208,13 @@ let rec delete_lower = (e: Iexp.lower) => {
   delete_upper(e.child);
 }
 
-and delete_middle = (e: Iexp.middle) => {
+and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   switch (e) {
   | EHole
-  | Var(_)
   | NumLit(_) => ()
+  | Var(_, _, binder) =>
+    let var_set = var_set_of_binder(binder.contents);
+    Iexp.remove_bound_var(upper, var_set);
   | Asc(e, _) => delete_lower(e)
   | Lam(_, _, _, _, e, _) => delete_lower(e)
   | Plus(e1, e2) =>
@@ -226,7 +228,7 @@ and delete_middle = (e: Iexp.middle) => {
 
 and delete_upper = (e: Iexp.upper) => {
   e.deleted_upper = true;
-  delete_middle(e.middle);
+  delete_middle(e.middle, e);
 };
 
 let interval_around = (e: Iexp.upper) => {

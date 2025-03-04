@@ -89,6 +89,12 @@ module Iexp = {
   };
 
   let remove_bound_var = (var: upper, bound_vars: var_set) => {
+    print_endline(
+      "Removing bound var with left endpoint: "
+      ++ string_of_sexp(Order.sexp_of_t(fst(var.interval)))
+      ++ " and right endpoint "
+      ++ string_of_sexp(Order.sexp_of_t(snd(var.interval))),
+    );
     bound_vars.contents =
       Tree.delete(fst(var.interval), bound_vars.contents);
   };

@@ -250,7 +250,16 @@ let nonsense: list(list(Iaction.t)) = [
   [WrapArrow(Two), MoveDown(Two), MoveDown(One)],
 ];
 
-let excise = big_example @ [[Iaction.Delete]] @ big_example_broken_up;
+let excise: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    Iaction.Delete,
+    InsertVar("x"),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+  ],
+];
 
 let test_actionses_all =
   test_actionses(
