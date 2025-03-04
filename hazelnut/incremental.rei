@@ -47,7 +47,7 @@ module Iexp: {
     mutable parent,
     mutable syn: option(Htyp.t),
     middle,
-    mutable interval: (Order.t, Order.t),
+    interval: (Order.t, Order.t),
     in_queue_upper: InQueue.upper,
     mutable deleted_upper: bool,
   }

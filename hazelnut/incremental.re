@@ -57,7 +57,7 @@ module Iexp = {
     mutable parent,
     mutable syn: option(Htyp.t),
     middle,
-    mutable interval: (Order.t, Order.t),
+    interval: (Order.t, Order.t),
     in_queue_upper: InQueue.upper,
     mutable deleted_upper: bool,
   }
@@ -78,6 +78,12 @@ module Iexp = {
 
   let add_bound_var = (var: upper, bound_vars: var_set) => {
     let (left, right) = var.interval;
+    print_endline(
+      "Adding bound var with left endpoint: "
+      ++ string_of_sexp(Order.sexp_of_t(left))
+      ++ " and right endpoint "
+      ++ string_of_sexp(Order.sexp_of_t(right)),
+    );
     bound_vars.contents = Tree.insert(var, left, right, bound_vars.contents);
   };
 
@@ -87,6 +93,12 @@ module Iexp = {
   };
 
   let excise_bound_vars = (interval: (Order.t, Order.t), bound_vars: var_set) => {
+    print_endline(
+      "Excising range: "
+      ++ string_of_sexp(Order.sexp_of_t(fst(interval)))
+      ++ " and right endpoint "
+      ++ string_of_sexp(Order.sexp_of_t(snd(interval))),
+    );
     let (remaining, excised) =
       Tree.excise_interval(interval, bound_vars.contents);
     bound_vars.contents = remaining;

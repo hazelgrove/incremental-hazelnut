@@ -282,7 +282,10 @@ module Tree = {
           (l, v, rll_rlv_rlr_rv_rr);
         };
       }
-    | _ => failwith("impossible fallthrough: splay_largest_lt");
+    | (_, v, _) => {
+        eq(left, v.left) ? print_endline("equal???") : ();
+        failwith("impossible fallthrough: splay_largest_lt");
+      };
   };
 
   // // guarantees either:
