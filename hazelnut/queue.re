@@ -13,7 +13,7 @@ module PQueue = (Elem: Comparable) => {
   let sexp_of_t = _ => Sexp.Atom("unimplemented");
   let t_of_sexp = _ => failwith("PQueue of sexp");
 
-  let empty: t = Dynarray.create();
+  let empty: unit => t = Dynarray.create;
 
   let swap = (q: t, i: int, j: int): unit => {
     let tmp = Dynarray.get(q, i);

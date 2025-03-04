@@ -22,7 +22,7 @@ let rec test_actionses_rec = (actionses: list(list(Iaction.t)), s) => {
   };
 };
 
-let test_actionses = (actionses: list(list(Iaction.t))) => {
+let test_actionses = (actionses: list(list(Iaction.t)), ()) => {
   let s = initial_state();
   test_actionses_rec(actionses, s);
   print_endline("all tests done.");
@@ -250,7 +250,9 @@ let nonsense: list(list(Iaction.t)) = [
   [WrapArrow(Two), MoveDown(Two), MoveDown(One)],
 ];
 
-let test_actionses_1 = () =>
+let excise = big_example @ [[Iaction.Delete]] @ big_example_broken_up;
+
+let test_actionses_all =
   test_actionses(
     a1
     @ [[Iaction.Delete]]
@@ -276,11 +278,29 @@ let test_actionses_1 = () =>
     @ [[Iaction.Delete]]
     @ big_example
     @ [[Iaction.Delete]]
-    @ big_example_broken_up // first one to currently bug
-    // @ [[Iaction.Delete]]
-    // @ unwrap
-    // @ [[Iaction.Delete]]
-    // @ nonsense,
+    @ big_example_broken_up  // first one to currently bug
+    @ [[Iaction.Delete]]
+    @ unwrap
+    @ [[Iaction.Delete]]
+    @ nonsense,
   );
 
-let validity_tests = [("test validity 1", `Quick, test_actionses_1)];
+let validity_tests = [
+  ("a1", `Quick, test_actionses(a1)),
+  ("a1'", `Quick, test_actionses(a1')),
+  ("a2", `Quick, test_actionses(a2)),
+  ("a3", `Quick, test_actionses(a3)),
+  ("binding_insert", `Quick, test_actionses(binding_insert)),
+  ("binding_delete", `Quick, test_actionses(binding_delete)),
+  ("inconsistent", `Quick, test_actionses(inconsistent)),
+  ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+  ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+  ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+  ("free_var", `Quick, test_actionses(free_var)),
+  ("big_example", `Quick, test_actionses(big_example)),
+  ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+  ("unwrap", `Quick, test_actionses(unwrap)),
+  ("nonsense", `Quick, test_actionses(nonsense)),
+  ("excise", `Quick, test_actionses(excise)),
+  // ("all", `Quick, test_actionses_all),
+];

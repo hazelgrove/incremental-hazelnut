@@ -59,25 +59,8 @@ module Order = struct
   (**/**)
 
   
-  let sexp_of_t = fun ts -> Sexp.Atom(string_of_int ts.label)
-  let t_of_sexp = fun _ -> null
-
-  (** Create a new total order and return its initial element. *)
-  let create_hidden_first () =
-      let rec ts = {
-          label=0;
-          parent={
-              parent_label=0;
-              parent_next=null_parent;
-              parent_prev=null_parent;
-              front=ts;
-              back=ts;
-          };
-          prev=null;
-          next=null;
-          invalidator=nop;
-      } in
-      ts
+  let sexp_of_t ts = Sexp.Atom(String.concat "," [(string_of_int ts.parent.parent_label) ; (string_of_int ts.label)])
+  let t_of_sexp _ = null
 
   (** Return if a total-order element is the initial element (i.e., that was returned by [create]). *)
   let is_initial ts = ts.label == 0 && ts.parent.parent_label == 0
@@ -230,9 +213,22 @@ module Order = struct
       end;
       ts'
 
+  (** Create a new total order and return its initial element. *)
   let create () = begin 
-    let ts0 = create_hidden_first() in 
-    add_next(ts0)
+    let rec ts = {
+        label=0;
+        parent={
+            parent_label=0;
+            parent_next=null_parent;
+            parent_prev=null_parent;
+            front=ts;
+            back=ts;
+        };
+        prev=null;
+        next=null;
+        invalidator=nop;
+    } in
+    add_next(ts)
   end
 
   let add_prev ts = begin 

@@ -454,6 +454,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
       };
+      delete_upper(e);
       replace(e, e');
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
@@ -472,6 +473,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
       };
+      delete_upper(e);
       replace(e, e');
       // switch (parent) {
       // | Root(_) => print_endline("root parent")

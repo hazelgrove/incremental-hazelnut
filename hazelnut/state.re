@@ -37,9 +37,11 @@ let initial_state = (): Istate.t => {
   let initial_root = Iexp.Root(r);
   initial_exp.parent = initial_root;
 
+  let initial_queue = UpdateQueue.empty();
+
   let initial_ephemeral: Istate.ephemeral = {
     root: initial_root,
-    q: UpdateQueue.empty,
+    q: initial_queue,
   };
 
   let initial_cursor: Icursor.t = CursorExp(initial_exp);
