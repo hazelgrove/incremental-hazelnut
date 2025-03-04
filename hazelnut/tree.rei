@@ -18,6 +18,8 @@ module Tree: {
   let iter: ('a => unit, t('a)) => unit;
   let list_of_t: t('a) => list('a);
   let join: ((t('a), t('a))) => t('a);
+  let split: (Order.t, t('a)) => (t('a), t('a));
+
   let insert: ('a, Order.t, Order.t, t('a)) => t('a);
   let delete: (Order.t, t('a)) => t('a);
   let find_tightest_container: (Order.t, t('a)) => option('a);

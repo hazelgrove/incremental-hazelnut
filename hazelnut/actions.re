@@ -453,12 +453,6 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | _ => no_movement
     }
   | (CursorExp(e), InsertVar(x)) =>
-    print_endline(
-      switch (e.parent) {
-      | Deleted => "DELETED PARENT OF CURSOR??"
-      | _ => "oh okay"
-      },
-    );
     switch (e.middle) {
     | EHole =>
       let (parent, ty, mark) = look_up_binder(e.parent, x);
@@ -476,7 +470,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       UpdateQueue.update_push_list(update_list, q);
       return({c: CursorExp(e')});
     | _ => no_movement
-    };
+    }
   | (CursorExp(e), WrapPlus(child)) =>
     let make_plus_with_children = (parent, interval, e1, e2, q) => {
       let new_lower_left: Iexp.lower = {

@@ -72,9 +72,6 @@ let rec assert_max_right: Tree.t('a) => option(Order.t) =
         | (Some(l), Some(r)) => Order.max(info.right, Order.max(l, r))
         };
 
-      print_endline(string_of_bool(Order.is_valid(expected_B)));
-      print_endline(string_of_bool(Order.is_valid(info.max_right)));
-
       Alcotest.check(
         order_testable,
         "Max right is not maximum right endpoint of self and children!",
@@ -101,4 +98,37 @@ let test_splay_1 = () => {
   ();
 };
 
-let splay_tests = [("test splay 1", `Quick, test_splay_1)];
+let test_splay_2 = () => {
+  let a = Order.create();
+  let l = List.init(15, _ => Order.add_next(a));
+  let l = [a, ...List.rev(l)];
+  let t: tree = Tree.empty;
+  let t: tree = Tree.insert(0, List.nth(l, 0), List.nth(l, 1), t);
+  let t: tree = Tree.insert(1, List.nth(l, 5), List.nth(l, 8), t);
+  let t: tree = Tree.insert(2, List.nth(l, 3), List.nth(l, 4), t);
+  let t: tree = Tree.insert(3, List.nth(l, 10), List.nth(l, 11), t);
+  let t: tree = Tree.insert(4, List.nth(l, 6), List.nth(l, 7), t);
+  let _ = assert_max_right(t);
+  let _ = assert_order_invariant(t);
+  let interval = (List.nth(l, 2), List.nth(l, 9));
+  // let (t11, t12) = Tree.split(fst(interval), t);
+  // print_endline(string_of_int(List.length(Tree.list_of_t(t11))));
+  // print_endline(string_of_int(List.length(Tree.list_of_t(t12))));
+  // let (t21, t22) = Tree.split(snd(interval), t12);
+  // print_endline(string_of_int(List.length(Tree.list_of_t(t21))));
+  // print_endline(string_of_int(List.length(Tree.list_of_t(t22))));
+  let (t1, t2): (tree, tree) = Tree.excise_interval(interval, t);
+  let _ = assert_max_right(t1);
+  let _ = assert_order_invariant(t1);
+  let _ = assert_max_right(t2);
+  let _ = assert_order_invariant(t2);
+  // print_endline(string_of_int(List.length(Tree.list_of_t(t1))));
+  // print_endline(string_of_int(List.length(Tree.list_of_t(t2))));
+  assert(List.length(Tree.list_of_t(t1)) == 2);
+  assert(List.length(Tree.list_of_t(t2)) == 3);
+};
+
+let splay_tests = [
+  ("test splay 1", `Quick, test_splay_1),
+  ("test splay 2", `Quick, test_splay_2),
+];
