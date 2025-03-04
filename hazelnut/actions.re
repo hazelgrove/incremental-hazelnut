@@ -229,32 +229,27 @@ and delete_upper = (e: Iexp.upper) => {
   delete_middle(e.middle);
 };
 
-let add_two = b => {
-  let c = Order.add_next(b);
-  let d = Order.add_next(c);
-  (c, d);
-};
-
 let interval_around = (e: Iexp.upper) => {
-  let (a, b) = e.interval;
-  let (c, d) = add_two(b);
+  let (b, c) = e.interval;
+  let a = Order.add_prev(b);
+  let d = Order.add_next(c);
   // a < b < c < d
-  e.interval = (b, c);
   (a, d);
 };
 
 let interval_after = (e: Iexp.upper) => {
   let (_a, b) = e.interval;
-  let (c, d) = add_two(b);
+  let c = Order.add_next(b);
+  let d = Order.add_next(c);
   // a < b < c < d
   (c, d);
 };
 
 let interval_before = (e: Iexp.upper) => {
-  let (a, b) = e.interval;
-  let (c, d) = add_two(b);
+  let (c, _d) = e.interval;
+  let b = Order.add_prev(c);
+  let a = Order.add_prev(b);
   // a < b < c < d
-  e.interval = (c, d);
   (a, b);
 };
 

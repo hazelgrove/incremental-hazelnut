@@ -19,6 +19,7 @@ module Order = struct
   let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)
   let gap_size = max_label / label_bits (* gap between elements after rebalancing *)
   let end_label = max_label - gap_size
+  let initial_label = max_label lsr 1
 
   (** Top layer bidirectional linked-list of the total-order data structure that provides coarse-grained ordering. *)
   type parent = { (* 5 words *)
@@ -65,9 +66,9 @@ module Order = struct
   (** Create a new total order and return its initial element. *)
   let create () =
       let rec ts = {
-          label=0;
+          label=initial_label;
           parent={
-              parent_label=0;
+              parent_label=initial_label;
               parent_next=null_parent;
               parent_prev=null_parent;
               front=ts;
@@ -80,7 +81,7 @@ module Order = struct
       ts
 
   (** Return if a total-order element is the initial element (i.e., that was returned by [create]). *)
-  let is_initial ts = ts.label == 0 && ts.parent.parent_label == 0
+  let is_initial ts = ts.label == initial_label && ts.parent.parent_label == initial_label
 
   (** Return if a total-order element is valid (i.e., has not been removed). *)
   let is_valid ts = ts.label > 0 && ts.parent.parent_label >= 0
@@ -229,6 +230,114 @@ module Order = struct
           rebalance (if parent.parent_label == 0 then 0 else 1) parent parent.front parent.front
       end;
       ts'
+
+  (** Add a new total-order element before the given element. *)
+  let add_prev ts =
+    if not (is_valid ts || is_initial ts) then invalid_arg "TotalOrder.add_prev";
+
+    let parent = ts.parent in
+    let ts' = if ts.prev != null then begin
+        let prev = ts.prev in
+        let ts' = { label=(ts.label + prev.label) lsr 1; parent; prev; next=ts; invalidator=nop } in
+        prev.next <- ts';
+        ts.prev <- ts';
+        ts'
+    end else begin
+        let ts' = { label=(ts.label) lsr 1; parent; prev=null; next=ts; invalidator=nop } in
+        ts.prev <- ts';
+        ts'
+    end in
+
+    if ts.label == ts'.label then begin
+        (* redistribute all elements under a parent such that they are spaced by [gap_size],
+           adding new parents as necessary to accomodate the redistribution *)
+        let rec rebalance label parent prev next =
+            if label < end_label then begin
+                prev.label <- label;
+                prev.parent <- parent;
+                if prev.prev != null then
+                    rebalance (label + gap_size) parent prev.prev prev 
+                else
+                    parent.back <- prev
+            end else begin
+                (* add a new parent *)
+                parent.back <- next;
+                next.prev <- null;
+                prev.next <- null;
+                let parent' = if parent.parent_prev != null_parent then begin
+                    let parent_prev = parent.parent_prev in
+                    let parent' = {
+                        parent_label=(parent.parent_label + parent_prev.parent_label) lsr 1;
+                        parent_next=parent_prev.parent_next;
+                        parent_prev;
+                        front=prev;
+                        back=prev;
+                    } in
+                    parent_prev.parent_next <- parent';
+                    parent.parent_prev <- parent';
+                    parent'
+                end else begin
+                    let parent' = {
+                        parent_label=(parent.parent_label + max_label) lsr 1;
+                        parent_next=parent;
+                        parent_prev=null_parent;
+                        front=prev;
+                        back=prev;
+                    } in
+                    parent.parent_prev <- parent';
+                    parent'
+                end in
+
+                if parent.parent_label == parent'.parent_label then begin
+                    (* identify a region around the parent that satisfies the rebalancing threshold *)
+                    let rec expand lower upper count mask tau =
+                        let lo_label = lower.parent_label land (lnot mask) in
+                        let hi_label = lower.parent_label lor mask in
+                        let rec expand_lower lower count = if lower.parent_next != null_parent then
+                            let lower' = lower.parent_next in
+                            if lower'.parent_label >= lo_label then
+                                expand_lower lower' (count + 1)
+                            else
+                                ( lower, count )
+                        else begin
+                            if lower.parent_label != lo_label then
+                                lower.parent_label <- lo_label;
+                            ( lower, count )
+                        end in
+                        let rec expand_upper upper count = if upper.parent_prev != null_parent then
+                            let upper' = upper.parent_prev in
+                            if upper'.parent_label <= hi_label then
+                                expand_upper upper' (count + 1)
+                            else
+                                ( upper, count )
+                        else begin
+                            if upper.parent_label != hi_label then
+                                upper.parent_label <- hi_label;
+                            ( upper, count )
+                        end in
+                        let lower, count = expand_lower lower count in
+                        let upper, count = expand_upper upper count in
+                        if tau < float_of_int count /. float_of_int (mask + 1) then
+                            expand lower upper count ((mask lsl 1) lor 1) (tau /. threshold)
+                        else
+                            ( lower, upper, lo_label, (mask + 1) / count )
+                    in
+                    let lower, upper, label, delta = expand parent parent' 2 1 (1. /. threshold) in
+
+                    (* evenly redistribute the parents in the region *)
+                    let rec rebalance parent label =
+                        parent.parent_label <- label;
+                        if parent != upper && parent.parent_prev != null_parent then
+                            rebalance parent.parent_prev (label + delta)
+                    in
+                    rebalance lower label
+                end;
+                rebalance (if parent'.parent_label == 0 then 0 else 1) parent' prev prev
+            end
+        in
+        rebalance (if parent.parent_label == 0 then 0 else 1) parent parent.back parent.back
+    end;
+    ts'
 
   (** Splice two elements [ts] and [ts'] in a total-order such that, [ts] is immediately followed by [ts'], removing all elements between them;
       optionally, if [inclusive] is [true], [ts] and [ts'] will also be removed. *)

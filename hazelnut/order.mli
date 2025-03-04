@@ -14,6 +14,7 @@ module Order : sig
   val gt : t -> t -> bool
   val max : t -> t -> t
   val add_next : t -> t
+  val add_prev : t -> t
   val splice : ?inclusive:bool -> t -> t -> unit
   val set_invalidator : t -> (t -> unit) -> unit
   val reset_invalidator : t -> unit
