@@ -3,6 +3,7 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Update;
+
 // open Hazelnut_lib.Pexp;
 
 let apply_actions = (actions: list(Iaction.t), s): Istate.t => {
@@ -70,7 +71,7 @@ let string_of_list = (f, l) => {
   "[" ++ String.concat(", ", List.map(f, l)) ++ "]";
 };
 
-let write_string_to_file = (filename, s) => {
+let _write_string_to_file = (filename, s) => {
   let current_path = Sys.getcwd();
   let current_path =
     String.sub(
@@ -87,9 +88,9 @@ let write_string_to_file = (filename, s) => {
 
 let random_action_segments = n => {
   let l = List.init(n, _ => random_action_segment());
-  let s =
-    string_of_list(string_of_list(Hazelnut_lib.Pexp.string_of_action), l);
-  write_string_to_file("random_action_" ++ string_of_int(n) ++ ".txt", s);
+  // let s =
+  //   string_of_list(string_of_list(Hazelnut_lib.Pexp.string_of_action), l);
+  // write_string_to_file("random_action_" ++ string_of_int(n) ++ ".txt", s);
   l;
 };
 
@@ -362,6 +363,40 @@ let test_actionses_all =
     @ [[Iaction.Delete]]
     @ nonsense,
   );
+
+type test_action_end =
+  | Comma
+  | RBracket;
+
+let rec test_action = ic => {};
+
+let rec test_action_sequence = ic => {
+  switch (test_action(ic)) {
+  | Comma => test_action_sequence(ic)
+  | RBracket => ()
+  };
+};
+
+let test_action_list = ic => {
+  let _ = input_char(ic); // [
+  test_action_sequence(ic);
+};
+
+let rec test_action_list_sequence = ic => {
+  test_action_list(ic);
+  let next_char = input_char(ic);
+  switch (next_char) {
+  | ',' => test_action_list_sequence(ic)
+  | ']' => ()
+  | _ => failwith("bad character")
+  };
+};
+
+let test_action_log = () => {
+  let ic = open_in("test/random_action_10000.txt");
+  let _ = input_char(ic); // [
+  test_action_list(ic);
+};
 
 let validity_tests = [
   ("a1", `Quick, test_actionses(a1)),
