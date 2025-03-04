@@ -67,15 +67,15 @@ let wrap: list(Iaction.t) = [
   MoveUp,
 ];
 
-let wraps1 =
+let wraps =
   wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap;
 
-let wraps2 =
-  wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1 @ wraps1;
-let wraps3 =
-  wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2 @ wraps2;
+let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
+let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
+// let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
+// let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
 
-let actions: list(Iaction.t) = [Iaction.InsertVar("x")] @ wraps3;
+let actions: list(Iaction.t) = [Iaction.InsertVar("x")] @ wraps;
 
 let handle = (name, f) => {
   let acc = ref(initial_state());

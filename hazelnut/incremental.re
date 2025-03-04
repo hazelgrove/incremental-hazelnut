@@ -78,6 +78,7 @@ module Iexp = {
 
   let add_bound_var = (var: upper, bound_vars: var_set) => {
     let (left, right) = var.interval;
+    Order.lt(left, right) ? () : failwith("bad interval");
     print_endline(
       "Adding bound var with left endpoint: "
       ++ string_of_sexp(Order.sexp_of_t(left))
@@ -93,6 +94,7 @@ module Iexp = {
   };
 
   let excise_bound_vars = (interval: (Order.t, Order.t), bound_vars: var_set) => {
+    Order.lt(fst(interval), snd(interval)) ? () : failwith("bad interval");
     print_endline(
       "Excising range: "
       ++ string_of_sexp(Order.sexp_of_t(fst(interval)))
