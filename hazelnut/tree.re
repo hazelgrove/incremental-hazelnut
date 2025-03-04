@@ -196,24 +196,29 @@ module Tree = {
         };
       };
 
+  // precondition: left < right
   // finds the entry of the node value v in the t such that:
-  // 1. v.left < left < v.right
+  // 1. v.left < left < right < v.right
   // 2. v is the tightest with this property - it is the smallest interval (each pair of intervals in the t should be either disjoint or one strictly contains the other)
-  let rec find_tightest_container: (Order.t, t('a)) => option('a) =
-    (left: Order.t) =>
+  let rec find_tightest_container: ((Order.t, Order.t), t('a)) => option('a) =
+    ((left, right): (Order.t, Order.t)) =>
       fun
       | Leaf => None
-      | Node(_, v, _) when eq(left, v.left) =>
-        failwith("input should be var, t should hold binders")
-      | Node(l, v, _) when lt(left, v.left) =>
-        find_tightest_container(left, l)
-      | Node(_, v, _) when gt(left, v.max_right) => None
+      // if all the right endpoints are too low, return None
+      | Node(_, v, _) when !lt(right, v.max_right) => None
+      // if v's left endpoint is too high, recurse left
+      | Node(l, v, _) when !gt(left, v.left) =>
+        find_tightest_container((left, right), l)
+      // otherwise
+      // v.left < left < right < v.max_right
       | Node(l, v, r) => {
-          // v.left <= left <= v.max_right
-          switch (find_tightest_container(left, r)) {
+          // first check the right subtree, which contains the tightest intervals
+          switch (find_tightest_container((left, right), r)) {
           | Some(v) => Some(v)
-          | None when lt(left, v.right) => Some(v.entry)
-          | None => find_tightest_container(left, l)
+          // if that fails, check v
+          | None when lt(right, v.right) => Some(v.entry)
+          // if that fails, recurse left
+          | None => find_tightest_container((left, right), l)
           };
         };
 

@@ -23,6 +23,6 @@ module Tree: {
 
   let insert: ('a, Order.t, Order.t, t('a)) => t('a);
   let delete: (Order.t, t('a)) => t('a);
-  let find_tightest_container: (Order.t, t('a)) => option('a);
+  let find_tightest_container: ((Order.t, Order.t), t('a)) => option('a);
   let excise_interval: ((Order.t, Order.t), t('a)) => (t('a), t('a));
 };

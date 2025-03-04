@@ -221,22 +221,19 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
 };
 
 let pexp_of_root = (s: Istate.t): Pexp.t => {
-  switch (s.ephemeral.root) {
-  | Root(e) =>
-    let d = pexp_of_iexp(e.root_child, s);
-    let filter_updates = (u: Update.t) => {
-      switch (u) {
-      | NewAna(Root(e')) when e' === e => true
-      | NewAna(_) => false
-      | NewSyn(_) => false
-      | NewAnn(_) => false
-      | NewAsc(_) => false
-      };
+  let root = s.ephemeral.root;
+  let d = pexp_of_iexp(root.root_child, s);
+  let filter_updates = (u: Update.t) => {
+    switch (u) {
+    | NewAna(Root(e')) when e' === root => true
+    | NewAna(_) => false
+    | NewSyn(_) => false
+    | NewAnn(_) => false
+    | NewAsc(_) => false
     };
-    List.exists(filter_updates, UpdateQueue.list_of_t(s.ephemeral.q))
-      ? NewAna(d, pexp_of_htyp_opt(None)) : d;
-  | _ => failwith("non-root root (pexp)")
   };
+  List.exists(filter_updates, UpdateQueue.list_of_t(s.ephemeral.q))
+    ? NewAna(d, pexp_of_htyp_opt(None)) : d;
 };
 
 // Lower is tighter

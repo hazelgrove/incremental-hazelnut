@@ -21,7 +21,7 @@ module BinderSet = {
 module Istate = {
   [@deriving sexp]
   type ephemeral = {
-    root: Iexp.parent,
+    root: Iexp.root,
     q: UpdateQueue.t,
     binder_set: BinderSet.t,
   };
@@ -37,13 +37,12 @@ module Istate = {
 let initial_state = (): Istate.t => {
   print_endline("initializing root and state");
   let initial_exp = exp_hole_upper(initial_interval);
-  let r: Iexp.root = {
+  let initial_root: Iexp.root = {
     root_child: initial_exp,
     free_vars: Hashtbl.create(100),
     in_queue_root: InQueue.default_root(),
   };
-  let initial_root = Iexp.Root(r);
-  initial_exp.parent = initial_root;
+  initial_exp.parent = Root(initial_root);
 
   let initial_queue = UpdateQueue.empty();
 

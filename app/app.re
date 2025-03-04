@@ -2,7 +2,6 @@ open Core;
 open Incr_dom;
 open Monad_lib.Monad;
 open Hazelnut_lib.Hazelnut;
-open Hazelnut_lib.Incremental;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Actions;
 open Hazelnut_lib.Update;
@@ -77,22 +76,16 @@ let apply_action =
 
     let warn = (warning: string): Model.t =>
       Model.set({...state, warning: Some(warning)});
-    assert(
-      switch (state.istate.ephemeral.root) {
-      | Root(_) => true
-      | _ => false
-      },
-    );
 
     let marking_validate = () =>
-      switch (marked_correctly(child_of_parent(state.istate.ephemeral.root))) {
+      switch (marked_correctly(state.istate.ephemeral.root.root_child)) {
       | None => print_endline("marking correct")
       | Some(e') =>
         print_endline("ERROR: see:");
         print_endline(
           string_of_pexp(
             pexp_of_iexp(
-              child_of_parent(state.istate.ephemeral.root),
+              state.istate.ephemeral.root.root_child,
               state.istate,
             ),
           ),

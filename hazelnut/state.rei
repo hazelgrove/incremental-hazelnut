@@ -18,7 +18,7 @@ module BinderSet: {
 module Istate: {
   [@deriving sexp]
   type ephemeral = {
-    root: Iexp.parent,
+    root: Iexp.root,
     q: UpdateQueue.t,
     binder_set: BinderSet.t,
   };

@@ -61,39 +61,6 @@ let upper_of_parent = (p: Iexp.parent): option(Iexp.upper) => {
   };
 };
 
-// Finds the looks up [name] in the context of [e].
-// Returns the binding site (or root), the synthesized type, and whether [name] is free.
-let rec look_up_binder =
-        (parent: Iexp.parent, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
-  switch (parent) {
-  | Deleted
-  | Root(_) => (parent, Hole, Marked)
-  | Lower(lower) =>
-    // print_endline("found lower while unshadowing...");
-    switch (lower.upper.middle) {
-    | Lam(bind, lam_ty, _, _, _, _) =>
-      // print_endline("... it's a lam ...");
-      if (bind.contents == Var(name)) {
-        (
-          // print_endline("... a match!");
-          parent,
-          lam_ty.contents,
-          Unmarked,
-        );
-      } else {
-        // print_endline("... not a match.");
-        look_up_binder(
-          lower.upper.parent,
-          name,
-        );
-      }
-    | _ =>
-      // print_endline("... it's not a lam.");
-      look_up_binder(lower.upper.parent, name)
-    }
-  };
-};
-
 let var_set_of_binder = (x: string): (Iexp.parent => Iexp.var_set) =>
   fun
   | Deleted => failwith("var set of deleted root")
@@ -185,43 +152,62 @@ let rec _capture_name_body =
   };
 };
 
-let capture_name = (e: Iexp.upper, name: string) => {
-  let (ancestor_binder, _, _) = look_up_binder(e.parent, name);
-
-  // switch (ancestor_binder) {
-  // | Root(_) => print_endline("Shadowing root")
-  // | Lower(_) => print_endline("Shadowing lower")
-  // | Deleted => print_endline("Shadowing Deleted")
-  // };
-
-  let found_vars = var_set_of_binder(name, ancestor_binder);
-  // print_endline(
-  //   string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
-  // );
-  let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
-  excised_vars;
+// Finds the looks up [name] in the context of [e].
+// Returns the binding site (or root), the synthesized type, and whether [name] is free.
+let rec _look_up_binder_walk =
+        (parent: Iexp.parent, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
+  switch (parent) {
+  | Deleted
+  | Root(_) => (parent, Hole, Marked)
+  | Lower(lower) =>
+    // print_endline("found lower while unshadowing...");
+    switch (lower.upper.middle) {
+    | Lam(bind, lam_ty, _, _, _, _) =>
+      // print_endline("... it's a lam ...");
+      if (bind.contents == Var(name)) {
+        (
+          // print_endline("... a match!");
+          parent,
+          lam_ty.contents,
+          Unmarked,
+        );
+      } else {
+        // print_endline("... not a match.");
+        _look_up_binder_walk(
+          lower.upper.parent,
+          name,
+        );
+      }
+    | _ =>
+      // print_endline("... it's not a lam.");
+      _look_up_binder_walk(lower.upper.parent, name)
+    }
+  };
 };
 
-// let capture_name =
-//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
-//   // let t_of_list: list(Iexp.upper) => Tree.t(Iexp.upper) =
-//   //   List.fold_left(
-//   //     (t, upper: Iexp.upper) =>
-//   //       Tree.insert(upper, fst(upper.interval), snd(upper.interval), t),
-//   //     Tree.empty,
-//   //   );
-
-//   // let l = _capture_name_body(e, name, syn, binder);
-//   let t = capture_name_parent(e, name, syn, binder);
-//   (t_of_list(l), l);
-// };
-
-// let _capture_name_body_with_updates =
-//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
-//   let newly_bound = _capture_name_body(e, name, syn, binder);
-//   let captured_updates = List.map(e => Update.NewSyn(e), newly_bound);
-//   (newly_bound, captured_updates);
-// };
+// Finds the looks up [name] in the context of [e].
+// Returns the binding site (or root), the synthesized type, and whether [name] is free.
+let look_up_binder =
+    (x: string, e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root)
+    : (Iexp.parent, Htyp.t, Mark.t) => {
+  let free: (Iexp.parent, Htyp.t, Mark.t) = (Root(root), Hole, Marked);
+  switch (Hashtbl.find_opt(binder_set, x)) {
+  | None => free
+  | Some(x_binder_set) =>
+    switch (Tree.find_tightest_container(e.interval, x_binder_set)) {
+    | None => free
+    | Some(upper) =>
+      switch (upper.middle) {
+      | Lam(bind, t, _, _, body, _) when Bind.Var(x) == bind.contents => (
+          Lower(body),
+          t.contents,
+          Unmarked,
+        )
+      | _ => failwith("invalid binder lookup")
+      }
+    }
+  };
+};
 
 let remove_from_binder_set =
     (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
@@ -249,6 +235,45 @@ let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
     Hashtbl.replace(binder_set, x, new_x_binder_set);
   };
 };
+
+let capture_name =
+    (x: string, e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root) => {
+  let (ancestor_binder, _, _) = look_up_binder(x, e, binder_set, root);
+
+  // switch (ancestor_binder) {
+  // | Root(_) => print_endline("Shadowing root")
+  // | Lower(_) => print_endline("Shadowing lower")
+  // | Deleted => print_endline("Shadowing Deleted")
+  // };
+
+  let found_vars = var_set_of_binder(x, ancestor_binder);
+  // print_endline(
+  //   string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
+  // );
+  let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
+  excised_vars;
+};
+
+// let capture_name =
+//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
+//   // let t_of_list: list(Iexp.upper) => Tree.t(Iexp.upper) =
+//   //   List.fold_left(
+//   //     (t, upper: Iexp.upper) =>
+//   //       Tree.insert(upper, fst(upper.interval), snd(upper.interval), t),
+//   //     Tree.empty,
+//   //   );
+
+//   // let l = _capture_name_body(e, name, syn, binder);
+//   let t = capture_name_parent(e, name, syn, binder);
+//   (t_of_list(l), l);
+// };
+
+// let _capture_name_body_with_updates =
+//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
+//   let newly_bound = _capture_name_body(e, name, syn, binder);
+//   let captured_updates = List.map(e => Update.NewSyn(e), newly_bound);
+//   (newly_bound, captured_updates);
+// };
 
 let rec delete_lower = (e: Iexp.lower) => {
   e.deleted_lower = true;
@@ -368,6 +393,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
 //   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
 
 let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
+  let root = state.ephemeral.root;
   let q = state.ephemeral.q;
   let binder_set = state.ephemeral.binder_set;
   let c = state.persistent.c;
@@ -395,7 +421,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         bind.contents = Hole;
         remove_from_binder_set(x, e, binder_set);
 
-        let (new_binder, t, m) = look_up_binder(e.parent, x);
+        let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
 
         let update = var => update_var(var, t, m, new_binder);
         Tree.iter(update, bound_vars.contents);
@@ -419,7 +445,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         bind.contents = Var(x);
         add_to_binder_set(x, e, binder_set);
 
-        bound_vars.contents = capture_name(e, x);
+        bound_vars.contents = capture_name(x, e, binder_set, root);
         // print_endline(
         //   string_of_int(List.length(Tree.list_of_t(bound_vars.contents))),
         // );
@@ -522,7 +548,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorExp(e), InsertVar(x)) =>
     switch (e.middle) {
     | EHole =>
-      let (parent, ty, mark) = look_up_binder(e.parent, x);
+      let (parent, ty, mark) = look_up_binder(x, e, binder_set, root);
       let e': Iexp.upper = {
         parent: e.parent,
         syn: Some(ty),
@@ -737,7 +763,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Hole => ()
       | Var(x) =>
-        let (new_binder, t, m) = look_up_binder(parent, x);
+        remove_from_binder_set(x, e, binder_set);
+        let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
         let update = var => update_var(var, t, m, new_binder);
         Tree.iter(update, bound_vars.contents);
       };
