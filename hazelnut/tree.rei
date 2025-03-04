@@ -18,8 +18,6 @@ module Tree: {
   let is_empty: t('a) => bool;
   let iter: ('a => unit, t('a)) => unit;
   let list_of_t: t('a) => list('a);
-  let join: ((t('a), t('a))) => t('a);
-  // let split: (Order.t, t('a)) => (t('a), t('a));
 
   let insert: ('a, Order.t, Order.t, t('a)) => t('a);
   let delete: (Order.t, t('a)) => t('a);

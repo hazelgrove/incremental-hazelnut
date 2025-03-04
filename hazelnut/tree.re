@@ -223,28 +223,22 @@ module Tree = {
         };
 
   // guarantees either:
-  // 1. the new root is the greatest element that is less than or equal to left
+  // 1. the new root is the greatest element that is less than left
   // or 2. all elements are greater than left
-  let rec splay_largest_leq = (left: Order.t) => {
+  let rec splay_largest_lt = (left: Order.t) => {
     fun
-    // already root (case 1)
-    | (l, v, r) when eq(left, v.left) => (l, v, r)
     // not found, case 2
     | (Leaf, v, r) when lt(left, v.left) => (Leaf, v, r)
-    // zig, equal to root (case 1)
-    | (Node(ll, lv, lr), v, r) when lt(left, v.left) && eq(left, lv.left) => {
-        let lr_v_r = node(lr, v, r);
-        (ll, lv, lr_v_r);
-      }
     // not found, case 2
-    | (Node(Leaf, lv, lr), v, r) when lt(left, v.left) && lt(left, lv.left) => {
+    | (Node(Leaf, lv, lr), v, r)
+        when /*lt(left, v.left) &&*/ lt(left, lv.left) => {
         let lr_v_r = node(lr, v, r);
         (Leaf, lv, lr_v_r);
       }
     // zig-zig
     | (Node(Node(lll, llv, llr), lv, lr), v, r)
-        when lt(left, v.left) && lt(left, lv.left) => {
-        let (lll, llv, llr) = splay_largest_leq(left, (lll, llv, llr));
+        when /*lt(left, v.left) &&*/ lt(left, lv.left) => {
+        let (lll, llv, llr) = splay_largest_lt(left, (lll, llv, llr));
         let lr_v_r = node(lr, v, r);
         let llr_lv_lr_v_r = node(llr, lv, lr_v_r);
         (lll, llv, llr_lv_lr_v_r);
@@ -257,7 +251,7 @@ module Tree = {
     // zig-zag
     | (Node(ll, lv, Node(lrl, lrv, lrr)), v, r)
         when lt(left, v.left) && gt(left, lv.left) => {
-        let (lrl, lrv, lrr) = splay_largest_leq(left, (lrl, lrv, lrr));
+        let (lrl, lrv, lrr) = splay_largest_lt(left, (lrl, lrv, lrr));
         if (lt(lrv.left, left)) {
           // recursive case 1, return case 1
           let ll_lr_lrl = node(ll, lv, lrl);
@@ -271,20 +265,16 @@ module Tree = {
       }
     // not found, case 1
     | (l, v, Leaf) when gt(left, v.left) => (l, v, Leaf)
-    // zag, equal to root (case 1)
-    | (l, v, Node(rl, rv, rr)) when gt(left, v.left) && eq(left, rv.left) => {
-        let l_v_rl = node(l, v, rl);
-        (l_v_rl, rv, rr);
-      }
     // not found, case 1
-    | (l, v, Node(rl, rv, Leaf)) when gt(left, v.left) && gt(left, rv.left) => {
+    | (l, v, Node(rl, rv, Leaf))
+        when /*gt(left, v.left) &&*/ gt(left, rv.left) => {
         let l_v_rl = node(l, v, rl);
         (l_v_rl, rv, Leaf);
       }
     // zag-zag
     | (l, v, Node(rl, rv, Node(rrl, rrv, rrr)))
-        when gt(left, v.left) && gt(left, rv.left) => {
-        let (rrl, rrv, rrr) = splay_largest_leq(left, (rrl, rrv, rrr));
+        when /*gt(left, v.left) &&*/ gt(left, rv.left) => {
+        let (rrl, rrv, rrr) = splay_largest_lt(left, (rrl, rrv, rrr));
         if (lt(rrv.left, left)) {
           // recursive case 1, return case 1
           let l_v_rl = node(l, v, rl);
@@ -302,10 +292,9 @@ module Tree = {
         let leaf_rv_rr = node(Leaf, rv, rr);
         (l, v, leaf_rv_rr);
       }
-    // zag-zig
     | (l, v, Node(Node(rll, rlv, rlr), rv, rr))
         when gt(left, v.left) && lt(left, rv.left) => {
-        let (rll, rlv, rlr) = splay_largest_leq(left, (rll, rlv, rlr));
+        let (rll, rlv, rlr) = splay_largest_lt(left, (rll, rlv, rlr));
         if (lt(rlv.left, left)) {
           // recursive case 1, return case 1
           let l_v_rll = node(l, v, rll);
@@ -318,25 +307,17 @@ module Tree = {
           (l, v, rll_rlv_rlr_rv_rr);
         };
       }
-    | (_, _, _) => {
-        failwith("impossible fallthrough: splay_largest_leq");
-      };
+    | _ => failwith("impossible fallthrough: splay_largest_lt");
   };
 
-  // splits the tree into two along [boundary], with the right tree
-  // containing [boundary] if present in the input
-  let split_right = (boundary: Order.t): (t('a) => (t('a), t('a))) =>
+  let split = (boundary: Order.t): (t('a) => (t('a), t('a))) =>
     fun
     | Leaf => (Leaf, Leaf)
     | Node(l, v, r) => {
-        let (l, v, r) = splay_largest_leq(boundary, (l, v, r));
-        // either l < v == boundary < r
-        // or l < v < boundary < r
+        let (l, v, r) = splay_largest_lt(boundary, (l, v, r));
+        // either l < v < boundary < r
         // or boundary < l < v < r
-        if (eq(v.left, boundary)) {
-          let leaf_v_r = node(Leaf, v, r);
-          (l, leaf_v_r);
-        } else if (lt(v.left, boundary)) {
+        if (lt(v.left, boundary)) {
           let l_v_leaf = node(l, v, Leaf);
           (l_v_leaf, r);
         } else {
@@ -345,32 +326,11 @@ module Tree = {
         };
       };
 
-  // splits the tree into two along [boundary], with the left tree
-  // containing [boundary] if present in the input
-  let split_left = (boundary: Order.t): (t('a) => (t('a), t('a))) =>
-    fun
-    | Leaf => (Leaf, Leaf)
-    | Node(l, v, r) => {
-        let (l, v, r) = splay_largest_leq(boundary, (l, v, r));
-        // either l < v <= boundary < r
-        // or boundary < l < v < r
-        if (eq(v.left, boundary) || lt(v.left, boundary)) {
-          let l_v_leaf = node(l, v, Leaf);
-          (l_v_leaf, r);
-        } else {
-          let l_v_r = node(l, v, r);
-          (Leaf, l_v_r);
-        };
-      };
-
-  // removes the elements of the tree within the input interval (inclusive)
+  // the input Order.t elements can be assumed not to appear anywhere in the tree
   let excise_interval =
       ((left, right): (Order.t, Order.t), t: t('a)): (t('a), t('a)) => {
-    let (t_lt, t_geq) = split_right(left, t);
-    // t_lt < left <= t_geq
-    let (t_in, t_gt) = split_left(right, t_geq);
-    // t_in <= right < t_gt
-    // t_lt < left <= t_in <= right < t_gt
+    let (t_lt, t_geq) = split(left, t);
+    let (t_in, t_gt) = split(right, t_geq);
     (join((t_lt, t_gt)), t_in);
   };
 };

@@ -35,30 +35,8 @@ and erase_middle: Iexp.middle => bareExp =
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
   | EHole => EHole
-
 and erase_upper = (e: Iexp.upper): bareExp => {
   erase_middle(e.middle);
-};
-
-let dummy_interval = (Order.null, Order.null);
-
-let wrap_upper = (m: Iexp.middle, syn: option(Htyp.t)): Iexp.upper => {
-  parent: Deleted,
-  syn,
-  middle: m,
-  interval: dummy_interval,
-  in_queue_upper: InQueue.default_upper(),
-  deleted_upper: false,
-};
-
-let wrap_lower =
-    (e: Iexp.upper, marked: Mark.t, ana: option(Htyp.t)): Iexp.lower => {
-  upper: dummy_upper,
-  ana,
-  marked,
-  child: e,
-  in_queue_lower: InQueue.default_lower(),
-  deleted_lower: false,
 };
 
 module Ctx = {
@@ -88,9 +66,6 @@ module Ctx = {
   };
 };
 
-// this is not gonna set the binding or interval fields. it suffices to check
-// our incremental computation against the visible data, i.e. marks.
-// it also will not set parent or skip up pointers. we just need to walk down.
 let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
   fun
   | Var(x) => {
@@ -141,6 +116,30 @@ let performance_mark = (e: bareExp) => {
   ();
 };
 
+let dummy_interval = (Order.null, Order.null);
+
+let wrap_upper = (m: Iexp.middle, syn: option(Htyp.t)): Iexp.upper => {
+  parent: Deleted,
+  syn,
+  middle: m,
+  interval: dummy_interval,
+  in_queue_upper: InQueue.default_upper(),
+  deleted_upper: false,
+};
+
+let wrap_lower =
+    (e: Iexp.upper, marked: Mark.t, ana: option(Htyp.t)): Iexp.lower => {
+  upper: dummy_upper,
+  ana,
+  marked,
+  child: e,
+  in_queue_lower: InQueue.default_lower(),
+  deleted_lower: false,
+};
+
+// this is not gonna set the binding or interval fields. it suffices to check
+// our incremental computation against the visible data, i.e. marks.
+// it also will not set parent or skip up pointers. we just need to walk down.
 let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
   fun
   | Var(x) => {
@@ -213,14 +212,8 @@ let rec equiv_upper = (e1: Iexp.upper, e2: Iexp.upper): bool =>
   e1.syn == e2.syn && equiv_middle(e1.middle, e2.middle)
 
 and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
-  let return = b => {
-    b
-      ? b
-      : {
-        //print_endine("inequiv!");
-        b;
-      };
-  };
+  let return = b => b;
+  // { b ? b : { print_endline("inequiv!"); b }; };
   switch (e1, e2) {
   | (Var(x1, m1, _), Var(x2, m2, _)) =>
     //print_endine("comparing var");
@@ -250,5 +243,7 @@ and equiv_lower = (e1: Iexp.lower, e2: Iexp.lower): bool =>
   && e1.marked == e2.marked
   && equiv_upper(e1.child, e2.child);
 
-let marked_correctly = e =>
-  equiv_upper(e, remark(e)) ? None : Some(remark(e));
+let marked_correctly = e => {
+  let e' = remark(e);
+  equiv_upper(e, e') ? None : Some(e');
+};

@@ -1,4 +1,4 @@
-open Hazelnut_lib.Incremental;
+// open Hazelnut_lib.Incremental;
 open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
@@ -14,7 +14,7 @@ let rec test_actionses_rec = (actionses: list(list(Iaction.t)), s) => {
   | [actions, ...actionses] =>
     let s' = apply_actions(actions, s);
     all_update_steps(s');
-    switch (marked_correctly(child_of_parent(s'.ephemeral.root))) {
+    switch (marked_correctly(s'.ephemeral.root.root_child)) {
     | Some(_) => failwith("failed test")
     | None => ()
     };

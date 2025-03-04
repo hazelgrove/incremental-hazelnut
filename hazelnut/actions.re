@@ -117,74 +117,6 @@ let update_var =
   };
 };
 
-// Finds all (syntactically) free variables with given name, updates them,
-// and returns them as a list.
-let rec _capture_name_body =
-        (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder)
-        : list(Iexp.upper) => {
-  switch (e.middle) {
-  | Var(var_name, _, _) =>
-    if (name == var_name) {
-      update_var(e, syn, Unmarked, binder);
-      [e];
-    } else {
-      [];
-    }
-  | NumLit(_) => []
-  | Plus(lower_a, lower_b) =>
-    List.append(
-      _capture_name_body(lower_a.child, name, syn, binder),
-      _capture_name_body(lower_b.child, name, syn, binder),
-    )
-  | Lam(bind, _, _, _, body_lower, _) =>
-    if (bind.contents == Var(name)) {
-      [];
-    } else {
-      _capture_name_body(body_lower.child, name, syn, binder);
-    }
-  | Ap(actor, _, param) =>
-    List.append(
-      _capture_name_body(actor.child, name, syn, binder),
-      _capture_name_body(param.child, name, syn, binder),
-    )
-  | Asc(lower, _) => _capture_name_body(lower.child, name, syn, binder)
-  | EHole => []
-  };
-};
-
-// Finds the looks up [name] in the context of [e].
-// Returns the binding site (or root), the synthesized type, and whether [name] is free.
-let rec _look_up_binder_walk =
-        (parent: Iexp.parent, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
-  switch (parent) {
-  | Deleted
-  | Root(_) => (parent, Hole, Marked)
-  | Lower(lower) =>
-    // print_endline("found lower while unshadowing...");
-    switch (lower.upper.middle) {
-    | Lam(bind, lam_ty, _, _, _, _) =>
-      // print_endline("... it's a lam ...");
-      if (bind.contents == Var(name)) {
-        (
-          // print_endline("... a match!");
-          parent,
-          lam_ty.contents,
-          Unmarked,
-        );
-      } else {
-        // print_endline("... not a match.");
-        _look_up_binder_walk(
-          lower.upper.parent,
-          name,
-        );
-      }
-    | _ =>
-      // print_endline("... it's not a lam.");
-      _look_up_binder_walk(lower.upper.parent, name)
-    }
-  };
-};
-
 // Finds the looks up [name] in the context of [e].
 // Returns the binding site (or root), the synthesized type, and whether [name] is free.
 let look_up_binder =
@@ -205,6 +137,25 @@ let look_up_binder =
         )
       | _ => failwith("invalid binder lookup")
       }
+    }
+  };
+};
+
+// Dumb version of look_up_binder for comparison
+let rec _look_up_binder_walk =
+        (parent: Iexp.parent, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
+  switch (parent) {
+  | Deleted
+  | Root(_) => (parent, Hole, Marked)
+  | Lower(lower) =>
+    switch (lower.upper.middle) {
+    | Lam(bind, lam_ty, _, _, _, _) =>
+      if (bind.contents == Var(name)) {
+        (parent, lam_ty.contents, Unmarked);
+      } else {
+        _look_up_binder_walk(lower.upper.parent, name);
+      }
+    | _ => _look_up_binder_walk(lower.upper.parent, name)
     }
   };
 };
@@ -239,41 +190,44 @@ let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
 let capture_name =
     (x: string, e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root) => {
   let (ancestor_binder, _, _) = look_up_binder(x, e, binder_set, root);
-
-  // switch (ancestor_binder) {
-  // | Root(_) => print_endline("Shadowing root")
-  // | Lower(_) => print_endline("Shadowing lower")
-  // | Deleted => print_endline("Shadowing Deleted")
-  // };
-
   let found_vars = var_set_of_binder(x, ancestor_binder);
-  // print_endline(
-  //   string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
-  // );
   let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
   excised_vars;
 };
 
-// let capture_name =
-//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
-//   // let t_of_list: list(Iexp.upper) => Tree.t(Iexp.upper) =
-//   //   List.fold_left(
-//   //     (t, upper: Iexp.upper) =>
-//   //       Tree.insert(upper, fst(upper.interval), snd(upper.interval), t),
-//   //     Tree.empty,
-//   //   );
-
-//   // let l = _capture_name_body(e, name, syn, binder);
-//   let t = capture_name_parent(e, name, syn, binder);
-//   (t_of_list(l), l);
-// };
-
-// let _capture_name_body_with_updates =
-//     (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder) => {
-//   let newly_bound = _capture_name_body(e, name, syn, binder);
-//   let captured_updates = List.map(e => Update.NewSyn(e), newly_bound);
-//   (newly_bound, captured_updates);
-// };
+// Dumb version of capture_name for comparison
+let rec _capture_name_body =
+        (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder)
+        : list(Iexp.upper) => {
+  switch (e.middle) {
+  | EHole
+  | NumLit(_) => []
+  | Var(var_name, _, _) =>
+    if (name == var_name) {
+      update_var(e, syn, Unmarked, binder);
+      [e];
+    } else {
+      [];
+    }
+  | Lam(bind, _, _, _, body_lower, _) =>
+    if (bind.contents == Var(name)) {
+      [];
+    } else {
+      _capture_name_body(body_lower.child, name, syn, binder);
+    }
+  | Asc(lower, _) => _capture_name_body(lower.child, name, syn, binder)
+  | Plus(lower_a, lower_b) =>
+    List.append(
+      _capture_name_body(lower_a.child, name, syn, binder),
+      _capture_name_body(lower_b.child, name, syn, binder),
+    )
+  | Ap(actor, _, param) =>
+    List.append(
+      _capture_name_body(actor.child, name, syn, binder),
+      _capture_name_body(param.child, name, syn, binder),
+    )
+  };
+};
 
 let rec delete_lower = (e: Iexp.lower) => {
   e.deleted_lower = true;
@@ -371,26 +325,26 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
 
 // these belong in Pexp, copied for convenience
 
-// let string_of_child: Child.t => string =
-//   fun
-//   | One => "One"
-//   | Two => "Two"
-//   | Three => "Three";
+let _string_of_child: Child.t => string =
+  fun
+  | One => "One"
+  | Two => "Two"
+  | Three => "Three";
 
-// let string_of_action: Iaction.t => string =
-//   fun
-//   | MoveUp => "MoveUp"
-//   | MoveDown(c) => "MoveDown(" ++ string_of_child(c) ++ ")"
-//   | Delete => "Delete"
-//   | WrapArrow(c) => "WrapArrow(" ++ string_of_child(c) ++ ")"
-//   | InsertNumType => "InsertNumType"
-//   | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
-//   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
-//   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
-//   | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
-//   | WrapLam => "WrapLam"
-//   | WrapAsc => "WrapAsc"
-//   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
+let _string_of_action: Iaction.t => string =
+  fun
+  | MoveUp => "MoveUp"
+  | MoveDown(c) => "MoveDown(" ++ _string_of_child(c) ++ ")"
+  | Delete => "Delete"
+  | WrapArrow(c) => "WrapArrow(" ++ _string_of_child(c) ++ ")"
+  | InsertNumType => "InsertNumType"
+  | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
+  | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
+  | WrapPlus(c) => "WrapPlus(" ++ _string_of_child(c) ++ ")"
+  | WrapAp(c) => "WrapAp(" ++ _string_of_child(c) ++ ")"
+  | WrapLam => "WrapLam"
+  | WrapAsc => "WrapAsc"
+  | Unwrap(c) => "Unwrap(" ++ _string_of_child(c) ++ ")";
 
 let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   let root = state.ephemeral.root;
@@ -399,7 +353,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   let c = state.persistent.c;
   let no_movement: Istate.t = state;
 
-  // print_endline("ACT: " ++ string_of_action(a));
+  // print_endline("ACT: " ++ _string_of_action(a));
 
   let return_cursor = (c: Icursor.t): Istate.t => {
     ephemeral: state.ephemeral,
@@ -408,9 +362,6 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     },
   };
 
-  // print_endline(
-  //   string_of_int(List.length(UpdateQueue.list_of_t(q))) ++ " updates.",
-  // );
   switch (c, a) {
   | (CursorBind(e), MoveUp) => return_cursor(CursorExp(e))
   | (CursorBind(e), Delete) =>
@@ -446,9 +397,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         add_to_binder_set(x, e, binder_set);
 
         bound_vars.contents = capture_name(x, e, binder_set, root);
-        // print_endline(
-        //   string_of_int(List.length(Tree.list_of_t(bound_vars.contents))),
-        // );
+
         let update = var =>
           update_var(var, t.contents, Unmarked, Iexp.Lower(body));
         Tree.iter(update, bound_vars.contents);
@@ -559,22 +508,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       };
       delete_upper(e);
       replace(e, e');
-      // switch (parent) {
-      // | Root(_) => print_endline("root parent")
-      // | Lower(_) => print_endline("term parent")
-      // | _ => ()
-      // };
-      // print_endline(
-      //   string_of_int(
-      //     List.length(Tree.list_of_t(var_set_of_binder(parent).contents)),
-      //   ),
-      // );
       bind_to_binder(e', parent);
-      // print_endline(
-      //   string_of_int(
-      //     List.length(Tree.list_of_t(var_set_of_binder(parent).contents)),
-      //   ),
-      // );
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(e'));

@@ -47,7 +47,7 @@ let incr_tyck = (es: Istate.t): (int, Istate.t) => {
 };
 
 let baseline_tyck = (es: Istate.t): (int, Istate.t) => {
-  let bare_e = erase_upper(child_of_parent(es.ephemeral.root));
+  let bare_e = erase_upper(es.ephemeral.root.root_child);
   let (t, _) = timed(() => {performance_mark(bare_e)});
   all_update_steps(es);
   (t, es);

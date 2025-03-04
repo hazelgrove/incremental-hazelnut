@@ -1,5 +1,4 @@
 open Incremental;
-// open Actions;
 open Monad_lib.Monad;
 open Queue;
 
@@ -84,19 +83,7 @@ module UpdateQueue = {
     List.iter(e => update_push(e, q), es);
   };
 
-  // type pop_result =
-  //   | Empty // the queue was already empty
-  //   | Flushed // the queue mutates, but does not return any pop value (only contained invalid updates, is now empty)
-  //   | Pops(Update.t); // the queue pops an update
-
   let rec update_pop = (q: t): option(Update.t) => {
-    // let recurse = () => {
-    //   switch (update_pop(q)) {
-    //   | Empty
-    //   | Flushed => Flushed
-    //   | Pops(u) => Pops(u)
-    //   };
-    // };
     let recurse_if_deleted = (deleted, u) =>
       if (deleted) {
         update_pop(q);
@@ -107,9 +94,6 @@ module UpdateQueue = {
     // and sets this bit to false. If the popped update is in a deleted
     // subterm, throw it away and keep popping.
     let* u = pop(q);
-    // switch (pop(q)) {
-    // | None => None
-    // | Some(u) =>
     switch (u) {
     | NewSyn(e) =>
       assert(e.in_queue_upper.syn);
@@ -128,6 +112,5 @@ module UpdateQueue = {
       e.in_queue_upper.asc = false;
       recurse_if_deleted(e.deleted_upper, u);
     };
-    // };
   };
 };

@@ -2,8 +2,6 @@ open Sexplib.Std;
 open Hazelnut;
 open Order;
 open Tree;
-// open Queue;
-// open Monad_lib.Monad;
 
 module InQueue = {
   [@deriving sexp]
@@ -20,9 +18,7 @@ module InQueue = {
   type root = {mutable ana: bool};
 
   let default_lower = (): lower => {ana: false};
-
   let default_root = (): root => {ana: false};
-
   let default_upper = (): upper => {syn: false, asc: false, ann: false};
 };
 
