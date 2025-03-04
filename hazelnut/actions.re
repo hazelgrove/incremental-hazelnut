@@ -167,8 +167,18 @@ let rec _capture_name_body =
 
 let capture_name = (e: Iexp.upper, name: string) => {
   let (ancestor_binder, _, _) = look_up_binder(e.parent, name);
-  let excised_vars =
-    Iexp.excise_bound_vars(e.interval, var_set_of_binder(ancestor_binder));
+
+  switch (ancestor_binder) {
+  | Root(_) => print_endline("Shadowing root")
+  | Lower(_) => print_endline("Shadowing lower")
+  | Deleted => print_endline("Shadowing Deleted")
+  };
+
+  let found_vars = var_set_of_binder(ancestor_binder);
+  print_endline(
+    string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
+  );
+  let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
   excised_vars;
 };
 
@@ -356,7 +366,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Hole =>
         bind.contents = Var(x);
-        bound_vars.contents = capture_name(body.child, x);
+        bound_vars.contents = capture_name(e, x);
+        print_endline(
+          string_of_int(List.length(Tree.list_of_t(bound_vars.contents))),
+        );
         let update = var =>
           update_var(var, t.contents, Unmarked, Iexp.Lower(body));
         Tree.iter(update, bound_vars.contents);
@@ -465,7 +478,22 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         deleted_upper: false,
       };
       replace(e, e');
+      // switch (parent) {
+      // | Root(_) => print_endline("root parent")
+      // | Lower(_) => print_endline("term parent")
+      // | _ => ()
+      // };
+      // print_endline(
+      //   string_of_int(
+      //     List.length(Tree.list_of_t(var_set_of_binder(parent).contents)),
+      //   ),
+      // );
       bind_to_binder(e', parent);
+      // print_endline(
+      //   string_of_int(
+      //     List.length(Tree.list_of_t(var_set_of_binder(parent).contents)),
+      //   ),
+      // );
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
       return({c: CursorExp(e')});
