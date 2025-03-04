@@ -3,6 +3,7 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Update;
+// open Hazelnut_lib.Pexp;
 
 let apply_actions = (actions: list(Iaction.t), s): Istate.t => {
   List.fold_left(apply_action, s, actions);
@@ -42,7 +43,7 @@ let random_motion = (): Iaction.t => {
 };
 
 let random_motions = () => {
-  List.init(Random.int(10), _ => random_motion());
+  List.init(Random.int(13), _ => random_motion());
 };
 
 let random_edit = (): list(Iaction.t) => {
@@ -65,7 +66,15 @@ let random_edit = (): list(Iaction.t) => {
 
 let random_action_segment = () => random_motions() @ random_edit();
 
-let random_action_segments = n => List.init(n, _ => random_action_segment());
+let string_of_list = (f, l) => {
+  "[" ++ String.concat(", ", List.map(f, l)) ++ "]";
+};
+
+let random_action_segments = n => {
+  let l = List.init(n, _ => random_action_segment());
+  // print_endline(string_of_list(string_of_list(string_of_action), l));
+  l;
+};
 
 let a1: list(list(Iaction.t)) = [
   [InsertVar("x"), WrapPlus(One), WrapLam, MoveDown(One), InsertVar("x")],
@@ -356,15 +365,26 @@ let validity_tests = [
   ("excise", `Quick, test_actionses(excise)),
   ("excise2", `Quick, test_actionses(excise2)),
   ("all", `Quick, test_actionses_all),
-  ("giant random1", `Quick, test_actionses(random_action_segments(1033))),
-  // ("giant random2", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random3", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random4", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random5", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random6", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random7", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random8", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random9", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random10", `Quick, test_actionses(random_action_segments(500))),
-  // ("giant random11", `Quick, test_actionses(random_action_segments(500))),
+  ("random 10", `Quick, test_actionses(random_action_segments(10))),
+  ("random 100", `Quick, test_actionses(random_action_segments(100))),
+  ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
+  ("random 2K", `Quick, test_actionses(random_action_segments(2000))),
+  // ("random 3K", `Quick, test_actionses(random_action_segments(3000))),
+  // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+  // ("random-4", `Quick, test_actionses(random_action_segments(1024))),
+  // ("random-3", `Quick, test_actionses(random_action_segments(1025))),
+  // ("random-2", `Quick, test_actionses(random_action_segments(1026))),
+  // ("random-1", `Quick, test_actionses(random_action_segments(1027))),
+  // ("random0", `Quick, test_actionses(random_action_segments(1028))),
+  // ("random1", `Quick, test_actionses(random_action_segments(1029))),
+  // ("random2", `Quick, test_actionses(random_action_segments(1030))),
+  // ("random3", `Quick, test_actionses(random_action_segments(1031))),
+  // ("random4", `Quick, test_actionses(random_action_segments(1032))),
+  // ("random5", `Quick, test_actionses(random_action_segments(1033))),
+  // ("random6", `Quick, test_actionses(random_action_segments(1034))),
+  // ("random7", `Quick, test_actionses(random_action_segments(1035))),
+  // ("random8", `Quick, test_actionses(random_action_segments(1036))),
+  // ("random9", `Quick, test_actionses(random_action_segments(1037))),
+  // ("random10", `Quick, test_actionses(random_action_segments(1038))),
+  // ("random11", `Quick, test_actionses(random_action_segments(1039))),
 ];
