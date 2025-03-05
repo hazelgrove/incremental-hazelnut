@@ -1,6 +1,5 @@
 open Alcotest;
 
-
 let () =
   run(
     "All_tests",
