@@ -496,7 +496,7 @@ let rec test_action_list_sequence = (ic, acc) => {
   };
 };
 
-let rec remove_one_action = (prefix, middle, postfix) =>
+let rec remove_one_action = (rev_prefix, prefix_state, middle, postfix) =>
   // try({
   //   let actionses = prefix @ [middle] @ postfix;
   //   test_actionses(actionses, ());
@@ -506,24 +506,36 @@ let rec remove_one_action = (prefix, middle, postfix) =>
   // // if the given sequence fails, try removing the middle
   // | _ =>
   try({
-    let actionses = prefix @ postfix;
-    test_actionses(actionses, ());
+    let _ = test_actionses_rec(postfix, prefix_state);
     // no longer failing, must try removing a different one
     switch (postfix) {
     // unable to remove anything
     | [] => None
     | [middle', ...postfix'] =>
       // try removing something further down
-      remove_one_action(prefix @ [middle], middle', postfix')
+      let prefix_state' = apply_actions(middle, prefix_state);
+      remove_one_action(
+        [middle, ...rev_prefix],
+        prefix_state',
+        middle',
+        postfix',
+      );
     };
   }) {
   // still failing
-  | _ => Some(prefix @ postfix)
+  | _ => Some(List.rev(rev_prefix) @ postfix)
+  // };
   };
-// };
 
 let rec remove_actions_until_cant = actionses =>
-  switch (remove_one_action([], List.hd(actionses), List.tl(actionses))) {
+  switch (
+    remove_one_action(
+      [],
+      initial_state(),
+      List.hd(actionses),
+      List.tl(actionses),
+    )
+  ) {
   | Some(actionses') => remove_actions_until_cant(actionses')
   | None => actionses
   };
@@ -555,31 +567,36 @@ let test_action_log = () => {
 
 // test_action_log();
 
-let rec generate_minimal_counterexample = (fuel, acc, s) =>
+let rec generate_minimal_counterexample = (fuel, rev_acc, s) =>
   if (fuel == 0) {
     print_endline("no counterexample found.");
   } else {
-    let actions = Hazelnut_lib.Actions_random.random_action_segment();
+    // let _actions1 = Hazelnut_lib.Actions_random.random_action_segment();
+    // let _actions2 = Hazelnut_lib.Actions_random.random_action_segment();
+    // let _actions3 = Hazelnut_lib.Actions_random.random_action_segment();
+    let _actions4 = Hazelnut_lib.Actions_random.random_action_segment();
+    let actions = _actions4;
     try({
       let s' = apply_actions_and_test(actions, s);
       // if it succeeds, continue adding random actions
-      generate_minimal_counterexample(fuel - 1, acc @ [actions], s');
+      generate_minimal_counterexample(fuel - 1, [actions, ...rev_acc], s');
     }) {
     | _ =>
       // otherwise, minimize and return
       print_endline(
-        "counterexample found with prefix length "
-        ++ string_of_int(List.length(acc)),
+        "counterexample found with prefixlength "
+        ++ string_of_int(List.length(rev_acc)),
       );
-      let prefix = acc @ [actions];
-      let _minimized_actionses = prefix;
-      (); //remove_actions_until_cant(prefix);
-    // let s = string_of_action_list_list(minimized_actionses);
-    // _write_string_to_file("minimized_actions.txt", s);
+      let prefix = List.rev([actions, ...rev_acc]);
+      // let s = string_of_action_list_list(prefix);
+      // _write_string_to_file("prefix.txt", s);
+      let minimized_actionses = remove_actions_until_cant(prefix);
+      let s = string_of_action_list_list(minimized_actionses);
+      _write_string_to_file("minimized_actions.txt", s);
     };
   };
 
-generate_minimal_counterexample(100000, [], initial_state());
+generate_minimal_counterexample(1000000, [], initial_state());
 
 let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
 
