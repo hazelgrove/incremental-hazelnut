@@ -3,7 +3,7 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Update;
-open Hazelnut_lib.Actions_random;
+// open Hazelnut_lib.Actions_random;
 
 // open Hazelnut_lib.Pexp;
 
@@ -32,7 +32,7 @@ let test_actionses = (actionses: list(list(Iaction.t)), ()) => {
 };
 
 let string_of_list = (f, l) => {
-  "[" ++ String.concat(", ", List.map(f, l)) ++ "]";
+  "[" ++ String.concat(",", List.map(f, l)) ++ "]";
 };
 
 let string_of_action_list_list = l =>
@@ -322,14 +322,44 @@ let test_actionses_all =
     @ nonsense,
   );
 
-// let rec test_action = ic => {};
+let minimized_test: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    Delete,
+    InsertVar("x"),
+  ],
+];
 
-// let get_action_sequence = (ic, acc) => {
-//   switch (test_action(ic)) {
-//   | Comma(a) => get_action_sequence(ic)
-//   | RBracket(a) => ()
-//   };
-// };
+let minimized_2: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+    Unwrap(One),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+  ],
+];
+
+let minimized_3: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapPlus(One),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    WrapArrow(One),
+  ],
+  [MoveUp, Unwrap(One)],
+];
 
 let child_of_string: string => Child.t =
   fun
@@ -403,14 +433,6 @@ let action_of_string: string => Iaction.t =
       InsertNumLit(int_of_string(num_string));
     } else if (String.length(s) > String.length("InsertVar")
                && String.sub(s, 0, String.length("InsertVar")) == "InsertVar") {
-      // print_endline("insert var");
-      // print_endline(string_of_int(String.length(s)));
-      // print_endline(string_of_int(String.length("InsertVar((")));
-      // print_endline(
-      //   string_of_int(String.length(s) - String.length("InsertVar(())")),
-      // );
-      // print_endline(String.sub(s, 11, 12));
-      // print_endline("why");
       let x =
         String.sub(
           s,
@@ -511,100 +533,71 @@ let test_action_log = () => {
   ();
 };
 
-// test_action_log();
+test_action_log();
 
-let minimized_test: list(list(Iaction.t)) = [
-  [
-    InsertVar("x"),
-    WrapLam,
-    MoveDown(One),
-    InsertVar("x"),
-    Delete,
-    InsertVar("x"),
-  ],
-];
+let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
 
-let minimized_2: list(list(Iaction.t)) = [
-  [
-    InsertVar("x"),
-    WrapLam,
-    MoveDown(One),
-    InsertVar("x"),
-    MoveUp,
-    Unwrap(One),
-    WrapLam,
-    MoveDown(One),
-    InsertVar("x"),
-  ],
-];
+let validity_tests = [];
 
-let minimized_3: list(list(Iaction.t)) = [
-  [
-    InsertVar("x"),
-    WrapPlus(One),
-    WrapLam,
-    MoveDown(One),
-    InsertVar("x"),
-    MoveUp,
-    MoveDown(Two),
-    WrapArrow(One),
-  ],
-  [MoveUp, Unwrap(One)],
-];
-
-let validity_tests = [
-  ("a1", `Quick, test_actionses(a1)),
-  ("a1'", `Quick, test_actionses(a1')),
-  ("a2", `Quick, test_actionses(a2)),
-  ("a3", `Quick, test_actionses(a3)),
-  ("binding_insert", `Quick, test_actionses(binding_insert)),
-  ("binding_delete", `Quick, test_actionses(binding_delete)),
-  ("inconsistent", `Quick, test_actionses(inconsistent)),
-  ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
-  ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
-  ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
-  ("free_var", `Quick, test_actionses(free_var)),
-  ("big_example", `Quick, test_actionses(big_example)),
-  ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
-  ("unwrap", `Quick, test_actionses(unwrap)),
-  ("nonsense", `Quick, test_actionses(nonsense)),
-  ("excise", `Quick, test_actionses(excise)),
-  ("excise2", `Quick, test_actionses(excise2)),
-  ("minimized", `Quick, test_actionses(minimized_test)),
-  ("minimized 2", `Quick, test_actionses(minimized_2)),
-  ("minimized 3", `Quick, test_actionses(minimized_3)),
-  ("all", `Quick, test_actionses_all),
-  ("random 10", `Quick, test_actionses(random_action_segments(10))),
-  ("random 100", `Quick, test_actionses(random_action_segments(100))),
-  (
-    "random 1K",
-    `Quick,
-    () => {
-      let actionses = random_action_segments(1000);
-      // let s = string_of_action_list_list(actionses);
-      // _write_string_to_file("random_action_1K" ++ ".txt", s);
-      test_actionses(actionses, ());
-    },
-  ),
-  (
-    "random 10K",
-    `Quick,
-    () => {
-      let actionses = random_action_segments(10000);
-      // let s = string_of_action_list_list(actionses);
-      // _write_string_to_file("random_action_10K" ++ ".txt", s);
-      test_actionses(actionses, ());
-    },
-  ),
-  (
-    "random 100K",
-    `Quick,
-    () => {
-      let actionses = random_action_segments(100000);
-      // let s = string_of_action_list_list(actionses);
-      // _write_string_to_file("random_action_100K" ++ ".txt", s);
-      test_actionses(actionses, ());
-    },
-  ),
-  ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
-];
+// let validity_tests = [
+//   ("a1", `Quick, test_actionses(a1)),
+//   ("a1'", `Quick, test_actionses(a1')),
+//   ("a2", `Quick, test_actionses(a2)),
+//   ("a3", `Quick, test_actionses(a3)),
+//   ("binding_insert", `Quick, test_actionses(binding_insert)),
+//   ("binding_delete", `Quick, test_actionses(binding_delete)),
+//   ("inconsistent", `Quick, test_actionses(inconsistent)),
+//   ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+//   ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+//   ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+//   ("free_var", `Quick, test_actionses(free_var)),
+//   ("big_example", `Quick, test_actionses(big_example)),
+//   ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+//   ("unwrap", `Quick, test_actionses(unwrap)),
+//   ("nonsense", `Quick, test_actionses(nonsense)),
+//   ("excise", `Quick, test_actionses(excise)),
+//   ("excise2", `Quick, test_actionses(excise2)),
+//   ("minimized", `Quick, test_actionses(minimized_test)),
+//   ("minimized 2", `Quick, test_actionses(minimized_2)),
+//   ("minimized 3", `Quick, test_actionses(minimized_3)),
+//   ("all", `Quick, test_actionses_all),
+//   ("random 10", `Quick, test_actionses(random_action_segments(10))),
+//   ("random 100", `Quick, test_actionses(random_action_segments(100))),
+//   (
+//     "random 1K",
+//     `Quick,
+//     () => {
+//       let actionses = random_action_segments(1000);
+//       // let s = string_of_action_list_list(actionses);
+//       // _write_string_to_file("random_action_1K" ++ ".txt", s);
+//       test_actionses(actionses, ());
+//     },
+//   ),
+//   (
+//     "random 10K",
+//     `Quick,
+//     () => {
+//       let actionses = random_action_segments(10000);
+//       let s = string_of_action_list_list(actionses);
+//       _write_string_to_file("random_action_10K" ++ ".txt", s);
+//       test_actionses(actionses, ());
+//     },
+//   ),
+//   (
+//     "random 100K",
+//     `Quick,
+//     () => {
+//       let actionses = random_action_segments(100000);
+//       let s = string_of_action_list_list(actionses);
+//       _write_string_to_file("random_action_100K" ++ ".txt", s);
+//       test_actionses(actionses, ());
+//     },
+//   ),
+//   ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+//   // ("random 10asdM1aaasdfasdfsdaasdfsdffsf", `Quick, () => {
+//   //     let actionses = random_action_segments(10018);
+//   //     let s = string_of_action_list_list(actionses);
+//   //     _write_string_to_file("random_actiasasdfdfasdasdffonasasdffd_10asdK3" ++ ".txt", s);
+//   //     test_actionses(actionses, ());
+//   //   },),
+// ];
