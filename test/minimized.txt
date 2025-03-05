@@ -1,0 +1,1 @@
+[[WrapLam,MoveDown(One),InsertVar("y"),MoveUp],[MoveUp,MoveUp,MoveUp,MoveUp,WrapLam,MoveDown(One),InsertVar("x"),MoveUp],[MoveUp,MoveDown(Three),MoveUp,Unwrap(One)],[MoveDown(Three),WrapLam,MoveDown(One),InsertVar("x"),MoveUp],[WrapAp(Two)],[MoveDown(Two),MoveDown(Two),MoveDown(Three),WrapAp(Two)],[MoveUp,MoveUp,MoveDown(One),InsertVar("y")]]

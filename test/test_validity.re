@@ -15,7 +15,9 @@ let apply_actions_and_test = (actions, s) => {
   let s' = apply_actions(actions, s);
   all_update_steps(s');
   switch (marked_correctly(s'.ephemeral.root.root_child)) {
-  | Some(_) => failwith("failed test")
+  | Some(_) =>
+    print_endline("failed test");
+    failwith("failed test");
   | None => ()
   };
   s';
@@ -45,12 +47,12 @@ let string_of_action_list_list = l =>
 let _write_string_to_file = (filename, s) => {
   let current_path = Sys.getcwd();
   let current_path =
-    String.sub(
-      current_path,
-      0,
-      String.length(current_path) - String.length("/_build/default/test"),
-    )
-    ++ "/test";
+    // String.sub(
+    //   current_path,
+    //   0,
+    //   String.length(current_path) - String.length("/_build/default/test"),
+    // )
+    current_path ++ "/test";
   // print_endline(current_path);
   let oc = open_out(current_path ++ "/" ++ filename);
   output_string(oc, s);
@@ -496,46 +498,28 @@ let rec test_action_list_sequence = (ic, acc) => {
   };
 };
 
-let rec remove_one_action = (rev_prefix, prefix_state, middle, postfix) =>
-  // try({
-  //   let actionses = prefix @ [middle] @ postfix;
-  //   test_actionses(actionses, ());
-  //   // if the given sequence succeeds, nothing to do
-  //   None;
-  // }) {
-  // // if the given sequence fails, try removing the middle
-  // | _ =>
-  try({
-    let _ = test_actionses_rec(postfix, prefix_state);
-    // no longer failing, must try removing a different one
-    switch (postfix) {
-    // unable to remove anything
-    | [] => None
-    | [middle', ...postfix'] =>
-      // try removing something further down
-      let prefix_state' = apply_actions(middle, prefix_state);
-      remove_one_action(
-        [middle, ...rev_prefix],
-        prefix_state',
-        middle',
-        postfix',
-      );
-    };
-  }) {
+let rec remove_one_action = (rev_prefix, middle, postfix) => {
+  let actionses = List.rev(rev_prefix) @ postfix;
+  try(
+    {
+      test_actionses(actionses, ());
+      // no longer failing, must try removing a different one
+      switch (postfix) {
+      // unable to remove anything
+      | [] => None
+      | [middle', ...postfix'] =>
+        // try removing something further down
+        remove_one_action([middle, ...rev_prefix], middle', postfix')
+      };
+    }
+  ) {
   // still failing
-  | _ => Some(List.rev(rev_prefix) @ postfix)
-  // };
+  | _ => Some(actionses)
   };
+};
 
 let rec remove_actions_until_cant = actionses =>
-  switch (
-    remove_one_action(
-      [],
-      initial_state(),
-      List.hd(actionses),
-      List.tl(actionses),
-    )
-  ) {
+  switch (remove_one_action([], List.hd(actionses), List.tl(actionses))) {
   | Some(actionses') => remove_actions_until_cant(actionses')
   | None => actionses
   };
@@ -549,14 +533,15 @@ let test_action_log = () => {
       String.length(current_path) - String.length("/_build/default/test"),
     )
     ++ "/test";
-  let ic = open_in(current_path ++ "/random_action_size_test.txt");
+  let ic = open_in(current_path ++ "/old_prefix.txt");
   // let _ = failwith("opened");
 
   print_endline("parsing...");
   let _ = input_char(ic); // [
   let prefix = test_action_list_sequence(ic, []);
-  // let prefix: list(list(Iaction.t)) = [[MoveUp]];
-  let _ = failwith("parsed");
+  // let _ = failwith("parsed");
+  // print_endline("prefix length" ++ string_of_int(List.length(prefix)));
+  // test_actionses(prefix, ());
 
   print_endline("minimizing...");
   let minimized_actionses = remove_actions_until_cant(prefix);
@@ -565,34 +550,54 @@ let test_action_log = () => {
   ();
 };
 
+let rec probabilistic_minimizer = (actionses, prob) =>
+  if (prob < 0.0000001) {
+    actionses;
+  } else {
+    let filtered_actionses =
+      List.filter(_ => Random.float(1.0) < prob, actionses);
+    switch (test_actionses(filtered_actionses, ())) {
+    | () => probabilistic_minimizer(actionses, prob *. 0.9) // took away too much
+    | exception _ => probabilistic_minimizer(filtered_actionses, prob /. 0.9) // successful filter
+    };
+  };
+
 // test_action_log();
 
-let rec generate_minimal_counterexample = (fuel, rev_acc, s) =>
+let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
   if (fuel == 0) {
     print_endline("no counterexample found.");
   } else {
-    // let _actions1 = Hazelnut_lib.Actions_random.random_action_segment();
-    // let _actions2 = Hazelnut_lib.Actions_random.random_action_segment();
+    let _actions1 = Hazelnut_lib.Actions_random.random_action_segment();
+    let _actions2 = Hazelnut_lib.Actions_random.random_action_segment();
     // let _actions3 = Hazelnut_lib.Actions_random.random_action_segment();
-    let _actions4 = Hazelnut_lib.Actions_random.random_action_segment();
-    let actions = _actions4;
-    try({
-      let s' = apply_actions_and_test(actions, s);
-      // if it succeeds, continue adding random actions
-      generate_minimal_counterexample(fuel - 1, [actions, ...rev_acc], s');
-    }) {
-    | _ =>
-      // otherwise, minimize and return
+    // let _actions4 = Hazelnut_lib.Actions_random.random_action_segment();
+    let _actions5 = Hazelnut_lib.Actions_random.random_action_segment();
+    let actions = _actions5;
+    let prefix = List.rev([actions, ...rev_acc]);
+    // print_endline("trying");
+    switch (test_actionses(prefix, ())) {
+    //(apply_actions_and_test(actions, s)) {
+    | exception _ =>
+      // if it fails, we've found the counterexample
       print_endline(
-        "counterexample found with prefixlength "
-        ++ string_of_int(List.length(rev_acc)),
+        "counterexample found with prefix length "
+        ++ string_of_int(List.length(prefix)),
       );
-      let prefix = List.rev([actions, ...rev_acc]);
-      // let s = string_of_action_list_list(prefix);
-      // _write_string_to_file("prefix.txt", s);
-      let minimized_actionses = remove_actions_until_cant(prefix);
-      let s = string_of_action_list_list(minimized_actionses);
-      _write_string_to_file("minimized_actions.txt", s);
+      print_endline("this better fail...");
+      test_actionses(prefix, ());
+      failwith("...it works now... ??");
+    // let s = string_of_action_list_list(prefix);
+    // _write_string_to_file("prefix.txt", s);
+    // let prob_minimized = probabilistic_minimizer(prefix, 0.5);
+    // let s = string_of_action_list_list(prob_minimized);
+    // _write_string_to_file("prob_minimized.txt", s);
+    // let minimized = remove_actions_until_cant(prob_minimized);
+    // let s = string_of_action_list_list(minimized);
+    // _write_string_to_file("minimized.txt", s);
+    // if it succeeds, continue adding random actions
+    | _ =>
+      generate_minimal_counterexample(fuel - 1, [actions, ...rev_acc], s)
     };
   };
 
@@ -601,6 +606,31 @@ generate_minimal_counterexample(1000000, [], initial_state());
 let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
 
 let validity_tests = [];
+
+// let validity_tests = [
+//   (
+//     "thing",
+//     `Quick,
+//     test_actionses([
+//       [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
+//       [
+//         MoveUp,
+//         MoveUp,
+//         MoveUp,
+//         MoveUp,
+//         WrapLam,
+//         MoveDown(One),
+//         InsertVar("x"),
+//         MoveUp,
+//       ],
+//       [MoveUp, MoveDown(Three), MoveUp, Unwrap(One)],
+//       [MoveDown(Three), WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
+//       [WrapAp(Two)],
+//       [MoveDown(Two), MoveDown(Two), MoveDown(Three), WrapAp(Two)],
+//       [MoveUp, MoveUp, MoveDown(One), InsertVar("y")],
+//     ]),
+//   ),
+// ];
 
 // let validity_tests = [
 //   ("a1", `Quick, test_actionses(a1)),
