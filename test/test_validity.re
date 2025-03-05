@@ -3,7 +3,7 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Update;
-open Hazelnut_lib.Random_actions;
+open Hazelnut_lib.Actions_random;
 
 // open Hazelnut_lib.Pexp;
 

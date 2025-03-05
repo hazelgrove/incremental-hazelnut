@@ -7,6 +7,7 @@ open Hazelnut_lib.Pexp;
 open Hazelnut_lib.Incremental;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Actions;
+open Hazelnut_lib.Actions_random;
 open Hazelnut_lib.Update;
 open Hazelnut_lib.Marking;
 open Ocaml_intrinsics;
@@ -76,6 +77,8 @@ let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
 // let wraps = wraps @ wraps @ wraps @ wraps;
 
 let actions: list(Iaction.t) = [Iaction.InsertVar("x")] @ wraps;
+
+let actions = List.concat(random_action_segments(10000));
 
 let handle = (name, f) => {
   let acc = ref(initial_state());
