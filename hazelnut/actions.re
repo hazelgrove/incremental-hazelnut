@@ -390,15 +390,16 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Var(x) =>
         bind.contents = Hole;
         remove_from_binder_set(x, e, binder_set);
+        let bound_var_set = bound_vars.contents;
 
         let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
 
-        add_bound_var_set(x, bound_vars.contents, new_binder);
+        add_bound_var_set(x, bound_var_set, new_binder);
 
         let update = var => update_var(var, t, m, new_binder);
-        Tree.iter(update, bound_vars.contents);
+        Tree.iter(update, bound_var_set);
 
-        let bound_var_list = Tree.list_of_t(bound_vars.contents);
+        let bound_var_list = Tree.list_of_t(bound_var_set);
         let update_list =
           [Update.NewAna(e.parent)]
           @ List.map(e => Update.NewSyn(e), bound_var_list)
@@ -709,6 +710,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | Lam(bind, _, _, _, body_lower, bound_vars) =>
       let body = body_lower.child;
       let parent = e.parent;
+      let bound_var_set = bound_vars.contents;
 
       e.deleted_upper = true;
       body_lower.deleted_lower = true;
@@ -720,10 +722,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Var(x) =>
         remove_from_binder_set(x, e, binder_set);
         let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
-        add_bound_var_set(x, bound_vars.contents, new_binder);
+        add_bound_var_set(x, bound_var_set, new_binder);
 
         let update = var => update_var(var, t, m, new_binder);
-        Tree.iter(update, bound_vars.contents);
+        Tree.iter(update, bound_var_set);
       };
 
       // because updating vars could have deleted the body
@@ -731,7 +733,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
 
       // todo: maybe this could be a stream so that we don't have to wast time
       // appending sublists
-      let bound_vars_list = Tree.list_of_t(bound_vars.contents);
+      let bound_vars_list = Tree.list_of_t(bound_var_set);
       let update_list =
         [Update.NewAna(parent)]
         @ List.map(e => Update.NewSyn(e), bound_vars_list)

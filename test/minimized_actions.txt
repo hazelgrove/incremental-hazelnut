@@ -1,1 +1,1 @@
-[[InsertVar("x")], [MoveDown(Two), MoveUp, MoveUp, MoveUp, WrapLam, MoveDown(One), InsertVar("x"), MoveUp], [MoveUp, Unwrap(Two)], [MoveUp, WrapLam, MoveDown(One), InsertVar("x"), MoveUp]]
+[[MoveDown(One), MoveDown(Two), MoveUp, MoveDown(One), MoveDown(Three), MoveDown(One), InsertVar("x")], [MoveUp, MoveDown(One), MoveDown(One), WrapPlus(Two)], [MoveUp, MoveDown(Two), MoveDown(One), MoveDown(One), MoveUp, WrapLam, MoveDown(One), InsertVar("x"), MoveUp], [MoveDown(Two), WrapArrow(Two)], [MoveDown(One), MoveDown(Three), MoveUp, MoveUp, MoveUp, Unwrap(Two)]]

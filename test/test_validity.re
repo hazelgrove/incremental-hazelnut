@@ -3,7 +3,7 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Update;
-// open Hazelnut_lib.Actions_random;
+open Hazelnut_lib.Actions_random;
 
 // open Hazelnut_lib.Pexp;
 
@@ -501,7 +501,7 @@ let test_action_log = () => {
       String.length(current_path) - String.length("/_build/default/test"),
     )
     ++ "/test";
-  let ic = open_in(current_path ++ "/random_action_1K.txt");
+  let ic = open_in(current_path ++ "/random_action_10K.txt");
   let _ = input_char(ic); // [
   let prefix = test_action_list_sequence(ic, []);
   print_endline("trying to minimize");
@@ -538,49 +538,73 @@ let minimized_2: list(list(Iaction.t)) = [
   ],
 ];
 
-let validity_tests = [("minimized 2", `Quick, test_actionses(minimized_2))];
-// [
-//   ("a1", `Quick, test_actionses(a1)),
-//   ("a1'", `Quick, test_actionses(a1')),
-//   ("a2", `Quick, test_actionses(a2)),
-//   ("a3", `Quick, test_actionses(a3)),
-//   ("binding_insert", `Quick, test_actionses(binding_insert)),
-//   ("binding_delete", `Quick, test_actionses(binding_delete)),
-//   ("inconsistent", `Quick, test_actionses(inconsistent)),
-//   ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
-//   ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
-//   ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
-//   ("free_var", `Quick, test_actionses(free_var)),
-//   ("big_example", `Quick, test_actionses(big_example)),
-//   ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
-//   ("unwrap", `Quick, test_actionses(unwrap)),
-//   ("nonsense", `Quick, test_actionses(nonsense)),
-//   ("excise", `Quick, test_actionses(excise)),
-//   ("excise2", `Quick, test_actionses(excise2)),
-//   ("minimized", `Quick, test_actionses(minimized_test)),
-//   ("all", `Quick, test_actionses_all),
-//   ("random 10", `Quick, test_actionses(random_action_segments(10))),
-//   ("random 100", `Quick, test_actionses(random_action_segments(100))),
-//   (
-//     "random 1K",
-//     `Quick,
-//     () => {
-//       let actionses = random_action_segments(1000);
-//       // let s = string_of_action_list_list(actionses);
-//       // _write_string_to_file("random_action_1K" ++ ".txt", s);
-//       test_actionses(actionses, ());
-//     },
-//   ),
-//   (
-//     "random 10K",
-//     `Quick,
-//     () => {
-//       let actionses = random_action_segments(10000);
-//       // let s = string_of_action_list_list(actionses);
-//       // _write_string_to_file("random_action_10K" ++ ".txt", s);
-//       test_actionses(actionses, ());
-//     },
-//   ),
-//   ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
-//   ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
-// ];
+let minimized_3: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapPlus(One),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    WrapArrow(One),
+  ],
+  [MoveUp, Unwrap(One)],
+];
+
+let validity_tests = [
+  ("a1", `Quick, test_actionses(a1)),
+  ("a1'", `Quick, test_actionses(a1')),
+  ("a2", `Quick, test_actionses(a2)),
+  ("a3", `Quick, test_actionses(a3)),
+  ("binding_insert", `Quick, test_actionses(binding_insert)),
+  ("binding_delete", `Quick, test_actionses(binding_delete)),
+  ("inconsistent", `Quick, test_actionses(inconsistent)),
+  ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+  ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+  ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+  ("free_var", `Quick, test_actionses(free_var)),
+  ("big_example", `Quick, test_actionses(big_example)),
+  ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+  ("unwrap", `Quick, test_actionses(unwrap)),
+  ("nonsense", `Quick, test_actionses(nonsense)),
+  ("excise", `Quick, test_actionses(excise)),
+  ("excise2", `Quick, test_actionses(excise2)),
+  ("minimized", `Quick, test_actionses(minimized_test)),
+  ("minimized 2", `Quick, test_actionses(minimized_2)),
+  ("minimized 3", `Quick, test_actionses(minimized_3)),
+  ("all", `Quick, test_actionses_all),
+  ("random 10", `Quick, test_actionses(random_action_segments(10))),
+  ("random 100", `Quick, test_actionses(random_action_segments(100))),
+  (
+    "random 1K",
+    `Quick,
+    () => {
+      let actionses = random_action_segments(1000);
+      // let s = string_of_action_list_list(actionses);
+      // _write_string_to_file("random_action_1K" ++ ".txt", s);
+      test_actionses(actionses, ());
+    },
+  ),
+  (
+    "random 10K",
+    `Quick,
+    () => {
+      let actionses = random_action_segments(10000);
+      // let s = string_of_action_list_list(actionses);
+      // _write_string_to_file("random_action_10K" ++ ".txt", s);
+      test_actionses(actionses, ());
+    },
+  ),
+  (
+    "random 100K",
+    `Quick,
+    () => {
+      let actionses = random_action_segments(100000);
+      // let s = string_of_action_list_list(actionses);
+      // _write_string_to_file("random_action_100K" ++ ".txt", s);
+      test_actionses(actionses, ());
+    },
+  ),
+  ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+];
