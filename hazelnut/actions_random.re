@@ -42,7 +42,5 @@ let random_action_segment = () => random_motions() @ random_edit();
 
 let random_action_segments = n => {
   let l = List.init(n, _ => random_action_segment());
-  // let s =  string_of_action_list_list(l);
-  // write_string_to_file("random_action_" ++ string_of_int(n) ++ ".txt", s);
   l;
 };

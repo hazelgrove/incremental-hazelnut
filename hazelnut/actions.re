@@ -720,6 +720,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Var(x) =>
         remove_from_binder_set(x, e, binder_set);
         let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
+        add_bound_var_set(x, bound_vars.contents, new_binder);
+
         let update = var => update_var(var, t, m, new_binder);
         Tree.iter(update, bound_vars.contents);
       };
