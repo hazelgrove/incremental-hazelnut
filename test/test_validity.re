@@ -71,6 +71,9 @@ let string_of_list = (f, l) => {
   "[" ++ String.concat(", ", List.map(f, l)) ++ "]";
 };
 
+let string_of_action_list_list = l =>
+  string_of_list(string_of_list(Hazelnut_lib.Pexp.string_of_action), l);
+
 let _write_string_to_file = (filename, s) => {
   let current_path = Sys.getcwd();
   let current_path =
@@ -88,8 +91,7 @@ let _write_string_to_file = (filename, s) => {
 
 let random_action_segments = n => {
   let l = List.init(n, _ => random_action_segment());
-  // let s =
-  //   string_of_list(string_of_list(Hazelnut_lib.Pexp.string_of_action), l);
+  // let s =  string_of_action_list_list(l);
   // write_string_to_file("random_action_" ++ string_of_int(n) ++ ".txt", s);
   l;
 };
@@ -364,39 +366,162 @@ let test_actionses_all =
     @ nonsense,
   );
 
-type test_action_end =
-  | Comma
-  | RBracket;
+// let rec test_action = ic => {};
 
-let rec test_action = ic => {};
+// let get_action_sequence = (ic, acc) => {
+//   switch (test_action(ic)) {
+//   | Comma(a) => get_action_sequence(ic)
+//   | RBracket(a) => ()
+//   };
+// };
 
-let rec test_action_sequence = ic => {
-  switch (test_action(ic)) {
-  | Comma => test_action_sequence(ic)
-  | RBracket => ()
+let child_of_string: string => Child.t =
+  fun
+  | "One" => One
+  | "Two" => Two
+  | "Three" => Three
+  | _ => failwith("invalid child string");
+
+let action_of_string: string => Iaction.t =
+  fun
+  | "MoveUp" => MoveUp
+  | "Delete" => Delete
+  | "InsertNumType" => InsertNumType
+  | "WrapLam" => WrapLam
+  | "WrapAsc" => WrapAsc
+  | s =>
+    if (String.length(s) > String.length("MoveDown")
+        && String.sub(s, 0, String.length("MoveDown")) == "MoveDown") {
+      let child_string =
+        String.sub(
+          s,
+          String.length("MoveDown("),
+          String.length(s) - String.length("MoveDown()"),
+        );
+      MoveDown(child_of_string(child_string));
+    } else if (String.length(s) > String.length("WrapArrow")
+               && String.sub(s, 0, String.length("WrapArrow")) == "WrapArrow") {
+      let child_string =
+        String.sub(
+          s,
+          String.length("WrapArrow("),
+          String.length(s) - String.length("WrapArrow()"),
+        );
+      WrapArrow(child_of_string(child_string));
+    } else if (String.length(s) > String.length("WrapPlus")
+               && String.sub(s, 0, String.length("WrapPlus")) == "WrapPlus") {
+      let child_string =
+        String.sub(
+          s,
+          String.length("WrapPlus("),
+          String.length(s) - String.length("WrapPlus()"),
+        );
+      WrapPlus(child_of_string(child_string));
+    } else if (String.length(s) > String.length("WrapAp")
+               && String.sub(s, 0, String.length("WrapAp")) == "WrapAp") {
+      let child_string =
+        String.sub(
+          s,
+          String.length("WrapAp("),
+          String.length(s) - String.length("WrapAp()"),
+        );
+      WrapAp(child_of_string(child_string));
+    } else if (String.length(s) > String.length("Unwrap")
+               && String.sub(s, 0, String.length("Unwrap")) == "Unwrap") {
+      let child_string =
+        String.sub(
+          s,
+          String.length("Unwrap("),
+          String.length(s) - String.length("Unwrap()"),
+        );
+      Unwrap(child_of_string(child_string));
+    } else if (String.length(s) > String.length("InsertNumLit")
+               && String.sub(s, 0, String.length("InsertNumLit"))
+               == "InsertNumLit") {
+      let num_string =
+        String.sub(
+          s,
+          String.length("InsertNumLit("),
+          String.length(s) - String.length("InsertNumLit()"),
+        );
+      InsertNumLit(int_of_string(num_string));
+    } else if (String.length(s) > String.length("InsertVar")
+               && String.sub(s, 0, String.length("InsertVar")) == "InsertVar") {
+      // print_endline("insert var");
+      // print_endline(string_of_int(String.length(s)));
+      // print_endline(string_of_int(String.length("InsertVar((")));
+      // print_endline(
+      //   string_of_int(String.length(s) - String.length("InsertVar(())")),
+      // );
+      // print_endline(String.sub(s, 11, 12));
+      // print_endline("why");
+      let x =
+        String.sub(
+          s,
+          String.length("InsertVar(("),
+          String.length(s) - String.length("InsertVar(())"),
+        );
+      InsertVar(x);
+    } else {
+      failwith("unknown parse case");
+    };
+
+let rec get_action_string = (ic, acc): (string, bool) => {
+  switch (input_char(ic)) {
+  | ',' => (acc, true)
+  | ']' => (acc, false)
+  | c => get_action_string(ic, acc ++ String.make(1, c))
   };
 };
 
-let test_action_list = ic => {
-  let _ = input_char(ic); // [
-  test_action_sequence(ic);
+let rec get_action_sequence = (ic, acc): list(Iaction.t) => {
+  let (action_string, continue) = get_action_string(ic, "");
+  let action = action_of_string(action_string);
+  let action_sequence = acc @ [action];
+  if (continue) {
+    get_action_sequence(ic, action_sequence);
+  } else {
+    action_sequence;
+  };
 };
 
-let rec test_action_list_sequence = ic => {
-  test_action_list(ic);
-  let next_char = input_char(ic);
-  switch (next_char) {
-  | ',' => test_action_list_sequence(ic)
-  | ']' => ()
-  | _ => failwith("bad character")
+let get_action_list = (ic): (list(Iaction.t), bool) => {
+  let _ = input_char(ic); // [
+  let action_sequence = get_action_sequence(ic, []);
+  let last_char = input_char(ic);
+  switch (last_char) {
+  | ',' => (action_sequence, true)
+  | ']' => (action_sequence, false)
+  | _ => failwith("invalid character")
+  };
+};
+
+let rec test_action_list_sequence = (ic, acc): unit => {
+  let (action_list, continue) = get_action_list(ic);
+  let action_list_sequence = acc @ [action_list];
+  test_actionses(action_list_sequence, ());
+  let s = string_of_action_list_list(action_list_sequence);
+  _write_string_to_file("trimmed_actions.txt", s);
+  if (continue) {
+    test_action_list_sequence(ic, action_list_sequence);
   };
 };
 
 let test_action_log = () => {
-  let ic = open_in("test/random_action_10000.txt");
+  let current_path = Sys.getcwd();
+  let current_path =
+    String.sub(
+      current_path,
+      0,
+      String.length(current_path) - String.length("/_build/default/test"),
+    )
+    ++ "/test";
+  let ic = open_in(current_path ++ "/random_action_10000.txt");
   let _ = input_char(ic); // [
-  test_action_list(ic);
+  test_action_list_sequence(ic, []);
 };
+
+test_action_log();
 
 let validity_tests = [
   ("a1", `Quick, test_actionses(a1)),
