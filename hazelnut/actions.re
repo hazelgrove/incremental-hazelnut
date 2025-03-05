@@ -160,38 +160,30 @@ let rec _look_up_binder_walk =
   };
 };
 
-let remove_from_binder_set =
-    (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
-  switch (Hashtbl.find_opt(binder_set, x)) {
-  | None => failwith("removing binder that doesn't exist")
-  | Some(var_set) =>
-    let new_set = Tree.delete(fst(e.interval), var_set);
-    if (Tree.is_empty(new_set)) {
-      Hashtbl.remove(binder_set, x);
-    } else {
-      Hashtbl.replace(binder_set, x, new_set);
-    };
-  };
-};
-
-let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
-  switch (Hashtbl.find_opt(binder_set, x)) {
-  | None =>
-    let new_set =
-      Tree.insert(e, fst(e.interval), snd(e.interval), Tree.empty);
-    Hashtbl.add(binder_set, x, new_set);
-  | Some(x_binder_set) =>
-    let new_x_binder_set =
-      Tree.insert(e, fst(e.interval), snd(e.interval), x_binder_set);
-    Hashtbl.replace(binder_set, x, new_x_binder_set);
-  };
+let add_bound_var_set =
+    (x: string, joining_set: Tree.t(Iexp.upper), binder: Iexp.parent) => {
+  let parent_var_set = var_set_of_binder(x, binder);
+  Iexp.join_bound_vars(joining_set, parent_var_set);
 };
 
 let capture_name =
     (x: string, e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root) => {
   let (ancestor_binder, _, _) = look_up_binder(x, e, binder_set, root);
+  print_endline("capturing name: " ++ x);
+  switch (ancestor_binder) {
+  | Root(_) => print_endline("it was free before")
+  | _ => print_endline("it was bound before")
+  };
   let found_vars = var_set_of_binder(x, ancestor_binder);
+  print_endline(
+    "this many in parental scope: "
+    ++ string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
+  );
   let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
+  print_endline(
+    "this many excised: "
+    ++ string_of_int(List.length(Tree.list_of_t(excised_vars))),
+  );
   excised_vars;
 };
 
@@ -226,6 +218,33 @@ let rec _capture_name_body =
       _capture_name_body(actor.child, name, syn, binder),
       _capture_name_body(param.child, name, syn, binder),
     )
+  };
+};
+
+let remove_from_binder_set =
+    (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
+  switch (Hashtbl.find_opt(binder_set, x)) {
+  | None => failwith("removing binder that doesn't exist")
+  | Some(var_set) =>
+    let new_set = Tree.delete(fst(e.interval), var_set);
+    if (Tree.is_empty(new_set)) {
+      Hashtbl.remove(binder_set, x);
+    } else {
+      Hashtbl.replace(binder_set, x, new_set);
+    };
+  };
+};
+
+let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
+  switch (Hashtbl.find_opt(binder_set, x)) {
+  | None =>
+    let new_set =
+      Tree.insert(e, fst(e.interval), snd(e.interval), Tree.empty);
+    Hashtbl.add(binder_set, x, new_set);
+  | Some(x_binder_set) =>
+    let new_x_binder_set =
+      Tree.insert(e, fst(e.interval), snd(e.interval), x_binder_set);
+    Hashtbl.replace(binder_set, x, new_x_binder_set);
   };
 };
 
@@ -353,7 +372,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   let c = state.persistent.c;
   let no_movement: Istate.t = state;
 
-  // print_endline("ACT: " ++ _string_of_action(a));
+  print_endline("ACT: " ++ _string_of_action(a));
 
   let return_cursor = (c: Icursor.t): Istate.t => {
     ephemeral: state.ephemeral,
@@ -373,6 +392,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         remove_from_binder_set(x, e, binder_set);
 
         let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
+
+        add_bound_var_set(x, bound_vars.contents, new_binder);
 
         let update = var => update_var(var, t, m, new_binder);
         Tree.iter(update, bound_vars.contents);

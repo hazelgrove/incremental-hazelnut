@@ -108,6 +108,10 @@ module Iexp = {
     bound_vars.contents = remaining;
     excised;
   };
+
+  let join_bound_vars = (vars: Tree.t(upper), bound_vars: var_set) => {
+    bound_vars.contents = Tree.join((vars, bound_vars.contents));
+  };
 };
 
 let child_of_parent = (p: Iexp.parent): Iexp.upper => {
