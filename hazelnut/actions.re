@@ -169,21 +169,21 @@ let add_bound_var_set =
 let capture_name =
     (x: string, e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root) => {
   let (ancestor_binder, _, _) = look_up_binder(x, e, binder_set, root);
-  print_endline("capturing name: " ++ x);
-  switch (ancestor_binder) {
-  | Root(_) => print_endline("it was free before")
-  | _ => print_endline("it was bound before")
-  };
+  // print_endline("capturing name: " ++ x);
+  // switch (ancestor_binder) {
+  // | Root(_) => print_endline("it was free before")
+  // | _ => print_endline("it was bound before")
+  // };
   let found_vars = var_set_of_binder(x, ancestor_binder);
-  print_endline(
-    "this many in parental scope: "
-    ++ string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
-  );
+  // print_endline(
+  //   "this many in parental scope: "
+  //   ++ string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
+  // );
   let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
-  print_endline(
-    "this many excised: "
-    ++ string_of_int(List.length(Tree.list_of_t(excised_vars))),
-  );
+  // print_endline(
+  //   "this many excised: "
+  //   ++ string_of_int(List.length(Tree.list_of_t(excised_vars))),
+  // );
   excised_vars;
 };
 
@@ -372,7 +372,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   let c = state.persistent.c;
   let no_movement: Istate.t = state;
 
-  print_endline("ACT: " ++ _string_of_action(a));
+  // print_endline("ACT: " ++ _string_of_action(a));
 
   let return_cursor = (c: Icursor.t): Istate.t => {
     ephemeral: state.ephemeral,
