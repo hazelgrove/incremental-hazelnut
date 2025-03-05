@@ -27,7 +27,7 @@ let rec test_actionses_rec = (actionses: list(list(Iaction.t)), s) => {
 let test_actionses = (actionses: list(list(Iaction.t)), ()) => {
   let s = initial_state();
   test_actionses_rec(actionses, s);
-  print_endline("all tests done.");
+  // print_endline("all tests done.");
 };
 
 let random_motion = (): Iaction.t => {
@@ -496,16 +496,45 @@ let get_action_list = (ic): (list(Iaction.t), bool) => {
   };
 };
 
-let rec test_action_list_sequence = (ic, acc): unit => {
+let rec test_action_list_sequence = (ic, acc) => {
   let (action_list, continue) = get_action_list(ic);
   let action_list_sequence = acc @ [action_list];
-  test_actionses(action_list_sequence, ());
-  let s = string_of_action_list_list(action_list_sequence);
-  _write_string_to_file("trimmed_actions.txt", s);
-  if (continue) {
-    test_action_list_sequence(ic, action_list_sequence);
+  switch (test_actionses(action_list_sequence, ())) {
+  | () =>
+    if (continue) {
+      test_action_list_sequence(ic, action_list_sequence);
+    } else {
+      action_list_sequence;
+    }
+  | exception _ =>
+    let s = string_of_action_list_list(action_list_sequence);
+    _write_string_to_file("trimmed_actions.txt", s);
+    action_list_sequence;
   };
 };
+
+let rec remove_one_action = (prefix, middle, postfix) =>
+  try({
+    let actionses = prefix @ postfix;
+    test_actionses(actionses, ());
+    // no longer failing, must try removing a different one
+    switch (postfix) {
+    // unable to remove anything
+    | [] => None
+    | [middle', ...postfix'] =>
+      // try removing something further down
+      remove_one_action(prefix @ [middle], middle', postfix')
+    };
+  }) {
+  // still failing
+  | _ => Some(prefix @ postfix)
+  };
+
+let rec remove_actions_until_cant = actionses =>
+  switch (remove_one_action([], List.hd(actionses), List.tl(actionses))) {
+  | Some(actionses') => remove_actions_until_cant(actionses')
+  | None => actionses
+  };
 
 let test_action_log = () => {
   let current_path = Sys.getcwd();
@@ -518,51 +547,74 @@ let test_action_log = () => {
     ++ "/test";
   let ic = open_in(current_path ++ "/random_action_10000.txt");
   let _ = input_char(ic); // [
-  test_action_list_sequence(ic, []);
+  let prefix = test_action_list_sequence(ic, []);
+  print_endline("trying to minimize");
+  let minimized_actionses = remove_actions_until_cant(prefix);
+  let s = string_of_action_list_list(minimized_actionses);
+  _write_string_to_file("minimized_actions.txt", s);
+  ();
 };
 
-test_action_log();
+// test_action_log();
+
+let minimized_test: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+    MoveDown(One),
+    Delete,
+    MoveUp,
+    MoveDown(One),
+    InsertVar("x"),
+  ],
+];
 
 let validity_tests = [
-  ("a1", `Quick, test_actionses(a1)),
-  ("a1'", `Quick, test_actionses(a1')),
-  ("a2", `Quick, test_actionses(a2)),
-  ("a3", `Quick, test_actionses(a3)),
-  ("binding_insert", `Quick, test_actionses(binding_insert)),
-  ("binding_delete", `Quick, test_actionses(binding_delete)),
-  ("inconsistent", `Quick, test_actionses(inconsistent)),
-  ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
-  ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
-  ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
-  ("free_var", `Quick, test_actionses(free_var)),
-  ("big_example", `Quick, test_actionses(big_example)),
-  ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
-  ("unwrap", `Quick, test_actionses(unwrap)),
-  ("nonsense", `Quick, test_actionses(nonsense)),
-  ("excise", `Quick, test_actionses(excise)),
-  ("excise2", `Quick, test_actionses(excise2)),
-  ("all", `Quick, test_actionses_all),
-  ("random 10", `Quick, test_actionses(random_action_segments(10))),
-  ("random 100", `Quick, test_actionses(random_action_segments(100))),
-  ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
-  // ("random 2K", `Quick, test_actionses(random_action_segments(2000))),
-  ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
-  // ("random 3K", `Quick, test_actionses(random_action_segments(3000))),
-  // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
-  // ("random-4", `Quick, test_actionses(random_action_segments(1024))),
-  // ("random-3", `Quick, test_actionses(random_action_segments(1025))),
-  // ("random-2", `Quick, test_actionses(random_action_segments(1026))),
-  // ("random-1", `Quick, test_actionses(random_action_segments(1027))),
-  // ("random0", `Quick, test_actionses(random_action_segments(1028))),
-  // ("random1", `Quick, test_actionses(random_action_segments(1029))),
-  // ("random2", `Quick, test_actionses(random_action_segments(1030))),
-  // ("random3", `Quick, test_actionses(random_action_segments(1031))),
-  // ("random4", `Quick, test_actionses(random_action_segments(1032))),
-  // ("random5", `Quick, test_actionses(random_action_segments(1033))),
-  // ("random6", `Quick, test_actionses(random_action_segments(1034))),
-  // ("random7", `Quick, test_actionses(random_action_segments(1035))),
-  // ("random8", `Quick, test_actionses(random_action_segments(1036))),
-  // ("random9", `Quick, test_actionses(random_action_segments(1037))),
-  // ("random10", `Quick, test_actionses(random_action_segments(1038))),
-  // ("random11", `Quick, test_actionses(random_action_segments(1039))),
+  ("minimized", `Quick, test_actionses(minimized_test)),
 ];
+// [
+//   ("a1", `Quick, test_actionses(a1)),
+//   ("a1'", `Quick, test_actionses(a1')),
+//   ("a2", `Quick, test_actionses(a2)),
+//   ("a3", `Quick, test_actionses(a3)),
+//   ("binding_insert", `Quick, test_actionses(binding_insert)),
+//   ("binding_delete", `Quick, test_actionses(binding_delete)),
+//   ("inconsistent", `Quick, test_actionses(inconsistent)),
+//   ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+//   ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+//   ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+//   ("free_var", `Quick, test_actionses(free_var)),
+//   ("big_example", `Quick, test_actionses(big_example)),
+//   ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+//   ("unwrap", `Quick, test_actionses(unwrap)),
+//   ("nonsense", `Quick, test_actionses(nonsense)),
+//   ("excise", `Quick, test_actionses(excise)),
+//   ("excise2", `Quick, test_actionses(excise2)),
+//   ("all", `Quick, test_actionses_all),
+//   ("random 10", `Quick, test_actionses(random_action_segments(10))),
+//   ("random 100", `Quick, test_actionses(random_action_segments(100))),
+//   ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
+//   // ("random 2K", `Quick, test_actionses(random_action_segments(2000))),
+//   ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+//   // ("random 3K", `Quick, test_actionses(random_action_segments(3000))),
+//   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+//   // ("random-4", `Quick, test_actionses(random_action_segments(1024))),
+//   // ("random-3", `Quick, test_actionses(random_action_segments(1025))),
+//   // ("random-2", `Quick, test_actionses(random_action_segments(1026))),
+//   // ("random-1", `Quick, test_actionses(random_action_segments(1027))),
+//   // ("random0", `Quick, test_actionses(random_action_segments(1028))),
+//   // ("random1", `Quick, test_actionses(random_action_segments(1029))),
+//   // ("random2", `Quick, test_actionses(random_action_segments(1030))),
+//   // ("random3", `Quick, test_actionses(random_action_segments(1031))),
+//   // ("random4", `Quick, test_actionses(random_action_segments(1032))),
+//   // ("random5", `Quick, test_actionses(random_action_segments(1033))),
+//   // ("random6", `Quick, test_actionses(random_action_segments(1034))),
+//   // ("random7", `Quick, test_actionses(random_action_segments(1035))),
+//   // ("random8", `Quick, test_actionses(random_action_segments(1036))),
+//   // ("random9", `Quick, test_actionses(random_action_segments(1037))),
+//   // ("random10", `Quick, test_actionses(random_action_segments(1038))),
+//   // ("random11", `Quick, test_actionses(random_action_segments(1039))),
+// ];

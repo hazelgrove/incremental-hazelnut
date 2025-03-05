@@ -35,7 +35,7 @@ module Istate = {
 };
 
 let initial_state = (): Istate.t => {
-  print_endline("initializing root and state");
+  // print_endline("initializing root and state");
   let initial_exp = exp_hole_upper(initial_interval);
   let initial_root: Iexp.root = {
     root_child: initial_exp,
