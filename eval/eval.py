@@ -71,6 +71,8 @@ with doc:
         ax1.plot([min_value, max_value], [min_value, max_value], color="black")
         ax1.set_xscale('log')
         ax1.set_yscale('log')
+        ax1.set_xlabel("Fromscratch Time")
+        ax1.set_ylabel("Incremental Time")
         #ax1.set_xlim(min_value / 2, max_value * 2)
         #ax1.set_ylim(min_value / 2, max_value * 2)
 
