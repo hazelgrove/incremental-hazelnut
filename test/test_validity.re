@@ -3,6 +3,7 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Update;
+open Hazelnut_lib.Counterexample;
 // open Hazelnut_lib.Actions_random;
 
 // open Hazelnut_lib.Pexp;
@@ -12,8 +13,8 @@ let apply_actions_and_test = (actions, s) => {
   all_update_steps(s');
   switch (marked_correctly(s'.ephemeral.root.root_child)) {
   | Some(_) =>
-    // print_endline("failed test");
-    failwith("failed test")
+    print_endline("failed test");
+    failwith("failed test");
   | None => ()
   };
   s';
@@ -390,87 +391,87 @@ let minimized_4: list(list(Iaction.t)) = [
   ],
 ];
 
-let minimized_5: list(list(Iaction.t)) = [
-  [
-    WrapLam,
-    WrapAsc,
-    WrapPlus(One),
-    WrapLam,
-    WrapAsc,
-    WrapPlus(One),
-    WrapPlus(One),
-    MoveDown(One),
-    WrapLam,
-    MoveUp,
-    WrapPlus(One),
-    WrapPlus(One),
-    WrapAsc,
-    WrapAp(One),
-    MoveDown(One),
-    WrapPlus(One),
-    WrapPlus(Two),
-    MoveUp,
-    WrapAp(One),
-    WrapPlus(One),
-    Unwrap(One),
-    WrapAp(One),
-    Unwrap(Two),
-    WrapAp(One),
-    Unwrap(Two),
-    WrapPlus(One),
-    WrapLam,
-    Unwrap(One),
-    WrapAsc,
-    WrapPlus(One),
-    WrapAp(Two),
-    WrapPlus(Two),
-    WrapAp(Two),
-    WrapAsc,
-    Unwrap(Two),
-    WrapAp(One),
-    WrapLam,
-    WrapAsc,
-    WrapPlus(One),
-    WrapAsc,
-    WrapLam,
-    WrapLam,
-    WrapPlus(One),
-    WrapLam,
-    WrapAp(Two),
-    WrapPlus(One),
-    WrapAp(Two),
-    WrapLam,
-    WrapAsc,
-    WrapAp(Two),
-    WrapAsc,
-    MoveDown(One),
-    WrapAp(Two),
-    MoveUp,
-    Unwrap(Two),
-    WrapLam,
-    WrapPlus(Two),
-    Unwrap(One),
-    WrapAsc,
-    WrapAsc,
-    WrapLam,
-    WrapAp(One),
-    Unwrap(One),
-    WrapAp(Two),
-    Unwrap(One),
-    WrapLam,
-    WrapAp(Two),
-    WrapPlus(Two),
-    WrapPlus(Two),
-    MoveDown(Two),
-    WrapLam,
-    MoveDown(One),
-    InsertVar("x"),
-    MoveUp,
-    MoveUp,
-    MoveDown(One),
-    InsertVar("x"),
-  ],
-];
+// let minimized_5: list(list(Iaction.t)) = [
+//   [
+//     WrapLam,
+//     WrapAsc,
+//     WrapPlus(One),
+//     WrapLam,
+//     WrapAsc,
+//     WrapPlus(One),
+//     WrapPlus(One),
+//     MoveDown(One),
+//     WrapLam,
+//     MoveUp,
+//     WrapPlus(One),
+//     WrapPlus(One),
+//     WrapAsc,
+//     WrapAp(One),
+//     MoveDown(One),
+//     WrapPlus(One),
+//     WrapPlus(Two),
+//     MoveUp,
+//     WrapAp(One),
+//     WrapPlus(One),
+//     Unwrap(One),
+//     WrapAp(One),
+//     Unwrap(Two),
+//     WrapAp(One),
+//     Unwrap(Two),
+//     WrapPlus(One),
+//     WrapLam,
+//     Unwrap(One),
+//     WrapAsc,
+//     WrapPlus(One),
+//     WrapAp(Two),
+//     WrapPlus(Two),
+//     WrapAp(Two),
+//     WrapAsc,
+//     Unwrap(Two),
+//     WrapAp(One),
+//     WrapLam,
+//     WrapAsc,
+//     WrapPlus(One),
+//     WrapAsc,
+//     WrapLam,
+//     WrapLam,
+//     WrapPlus(One),
+//     WrapLam,
+//     WrapAp(Two),
+//     WrapPlus(One),
+//     WrapAp(Two),
+//     WrapLam,
+//     WrapAsc,
+//     WrapAp(Two),
+//     WrapAsc,
+//     MoveDown(One),
+//     WrapAp(Two),
+//     MoveUp,
+//     Unwrap(Two),
+//     WrapLam,
+//     WrapPlus(Two),
+//     Unwrap(One),
+//     WrapAsc,
+//     WrapAsc,
+//     WrapLam,
+//     WrapAp(One),
+//     Unwrap(One),
+//     WrapAp(Two),
+//     Unwrap(One),
+//     WrapLam,
+//     WrapAp(Two),
+//     WrapPlus(Two),
+//     WrapPlus(Two),
+//     MoveDown(Two),
+//     WrapLam,
+//     MoveDown(One),
+//     InsertVar("x"),
+//     MoveUp,
+//     MoveUp,
+//     MoveDown(One),
+//     InsertVar("x"),
+//   ],
+// ];
 
 // blatantly exponential, it'll never run
 let rec find_best_failing_subset = (rev_acc: list(Iaction.t)) =>
@@ -845,7 +846,7 @@ let boolean_test = actionses => {
 };
 
 let test_indepedence = () => {
-  let actionses = random_action_segments(10000);
+  let actionses = random_action_segments(100000);
   let iterations = List.init(5, _ => boolean_test(actionses));
   assert(
     List.for_all(x => x, iterations) || List.for_all(x => !x, iterations),
@@ -899,4 +900,31 @@ let actual_tests = [
 
 // generate_minimal_counterexamples();
 // minimize_prefix();
-let validity_tests = [("minimized 5", `Quick, test_actionses(minimized_5))];
+let validity_tests = [];
+//   (
+//     "minimized 5",
+//     `Quick,
+//     () => {
+//       print_endline("testing");
+//       let s = initial_state();
+//       let s' = apply_actions(minimized_5, s);
+//       all_update_steps(s');
+//       switch (marked_correctly(s'.ephemeral.root.root_child)) {
+//       | Some(_) =>
+//         print_endline("failed test");
+//         failwith("failed test");
+//       | None => ()
+//       };
+//       print_endline("passed test");
+//     },
+//   ),
+// ];
+
+print_endline("testing");
+let s = initial_state();
+let s' = apply_actions(minimized_5, s);
+all_update_steps(s');
+switch (marked_correctly(s'.ephemeral.root.root_child)) {
+| Some(_) => failwith("marked incorrectly (top test validity)")
+| None => print_endline("marked correctly (top test validity)")
+};

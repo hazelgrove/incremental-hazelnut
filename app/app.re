@@ -7,6 +7,7 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Update;
 open Hazelnut_lib.Pexp;
 open Hazelnut_lib.Marking;
+open Hazelnut_lib.Counterexample;
 
 [@deriving (sexp, fields)]
 type state = {
@@ -21,99 +22,27 @@ type state = {
   vizbit: bool,
 };
 
+let s = initial_state();
+let initial_istate = apply_actions(minimized_5, s);
+all_update_steps(initial_istate);
+switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
+| Some(_) => failwith("marked incorrectly (top level app)")
+| None => print_endline("marked correctly (top level app)")
+};
+
 module Model = {
   [@deriving (sexp, fields)]
   type t = {state};
 
   let set = (s: state): t => {state: s};
 
-  let minimized_5: list(Iaction.t) = [
-    WrapLam,
-    WrapAsc,
-    WrapPlus(One),
-    WrapLam,
-    WrapAsc,
-    WrapPlus(One),
-    WrapPlus(One),
-    MoveDown(One),
-    WrapLam,
-    MoveUp,
-    WrapPlus(One),
-    WrapPlus(One),
-    WrapAsc,
-    WrapAp(One),
-    MoveDown(One),
-    WrapPlus(One),
-    WrapPlus(Two),
-    MoveUp,
-    WrapAp(One),
-    WrapPlus(One),
-    Unwrap(One),
-    WrapAp(One),
-    Unwrap(Two),
-    WrapAp(One),
-    Unwrap(Two),
-    WrapPlus(One),
-    WrapLam,
-    Unwrap(One),
-    WrapAsc,
-    WrapPlus(One),
-    WrapAp(Two),
-    WrapPlus(Two),
-    WrapAp(Two),
-    WrapAsc,
-    Unwrap(Two),
-    WrapAp(One),
-    WrapLam,
-    WrapAsc,
-    WrapPlus(One),
-    WrapAsc,
-    WrapLam,
-    WrapLam,
-    WrapPlus(One),
-    WrapLam,
-    WrapAp(Two),
-    WrapPlus(One),
-    WrapAp(Two),
-    WrapLam,
-    WrapAsc,
-    WrapAp(Two),
-    WrapAsc,
-    MoveDown(One),
-    WrapAp(Two),
-    MoveUp,
-    Unwrap(Two),
-    WrapLam,
-    WrapPlus(Two),
-    Unwrap(One),
-    WrapAsc,
-    WrapAsc,
-    WrapLam,
-    WrapAp(One),
-    Unwrap(One),
-    WrapAp(Two),
-    Unwrap(One),
-    WrapLam,
-    WrapAp(Two),
-    WrapPlus(Two),
-    WrapPlus(Two),
-    MoveDown(Two),
-    WrapLam,
-    MoveDown(One),
-    InsertVar("x"),
-    MoveUp,
-    MoveUp,
-    MoveDown(One),
-    InsertVar("x"),
-  ];
-
   let init = (): t => {
     let s = initial_state();
-    let initial_istate: Istate.t = apply_actions(minimized_5, s);
+    let initial_istate = apply_actions(minimized_5, s);
     all_update_steps(initial_istate);
     switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
-    | Some(_) => failwith("marked incorrectly")
-    | None => print_endline("marked correctly")
+    | Some(_) => failwith("marked incorrectly (init app)")
+    | None => print_endline("marked correctly (init app)")
     };
     set({
       istate: initial_istate,
