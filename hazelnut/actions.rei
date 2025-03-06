@@ -28,3 +28,4 @@ module Iaction: {
 };
 
 let apply_action: (Istate.t, Iaction.t) => Istate.t;
+let apply_actions: (list(Iaction.t), Istate.t) => Istate.t;

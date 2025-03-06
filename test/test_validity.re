@@ -7,10 +7,6 @@ open Hazelnut_lib.Update;
 
 // open Hazelnut_lib.Pexp;
 
-let apply_actions = (actions: list(Iaction.t), s): Istate.t => {
-  List.fold_left(apply_action, s, actions);
-};
-
 let apply_actions_and_test = (actions, s) => {
   let s' = apply_actions(actions, s);
   all_update_steps(s');
@@ -468,11 +464,11 @@ let minimized_5: list(list(Iaction.t)) = [
     MoveDown(Two),
     WrapLam,
     MoveDown(One),
-    InsertVar("y"),
+    InsertVar("x"),
     MoveUp,
     MoveUp,
     MoveDown(One),
-    InsertVar("y"),
+    InsertVar("x"),
   ],
 ];
 

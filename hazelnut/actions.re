@@ -822,3 +822,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     }
   };
 };
+
+let apply_actions = (actions: list(Iaction.t), s): Istate.t => {
+  List.fold_left(apply_action, s, actions);
+};
