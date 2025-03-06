@@ -133,7 +133,7 @@ let wrap_upper = (m: Iexp.middle, syn: option(Htyp.t)): Iexp.upper => {
 
 let wrap_lower =
     (e: Iexp.upper, marked: Mark.t, ana: option(Htyp.t)): Iexp.lower => {
-  upper: dummy_upper,
+  upper: dummy_upper(),
   ana,
   marked,
   child: e,

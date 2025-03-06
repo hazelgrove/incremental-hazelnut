@@ -659,15 +659,15 @@ let boolean_test = actionses => {
 };
 
 let test_indepedence = () => {
-  let actionses = random_action_segments(100);
-  let iterations = List.init(10, _ => boolean_test(actionses));
+  let actionses = random_action_segments(10000);
+  let iterations = List.init(30, _ => boolean_test(actionses));
   assert(
     List.for_all(x => x, iterations) || List.for_all(x => !x, iterations),
   );
 };
 
 let multi_test_indepedence = () => {
-  let _ = List.init(10000, _ => test_indepedence());
+  let _ = List.init(30, _ => test_indepedence());
   ();
 };
 

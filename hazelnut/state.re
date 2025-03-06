@@ -3,6 +3,7 @@ open Incremental;
 open Tree;
 open UpdateQueue;
 open Sexplib0;
+open Order;
 
 module Icursor = {
   [@deriving sexp]
@@ -36,7 +37,9 @@ module Istate = {
 
 let initial_state = (): Istate.t => {
   // print_endline("initializing root and state");
-  let initial_exp = exp_hole_upper(initial_interval);
+  let a = Order.create();
+  let b = Order.add_next(a);
+  let initial_exp = exp_hole_upper((a, b));
   let initial_root: Iexp.root = {
     root_child: initial_exp,
     free_vars: Hashtbl.create(100),

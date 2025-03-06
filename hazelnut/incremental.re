@@ -122,8 +122,8 @@ let child_of_parent = (p: Iexp.parent): Iexp.upper => {
   };
 };
 
-let initial_om = Order.create();
-let initial_interval = (initial_om, Order.add_next(initial_om));
+// let initial_om = Order.create();
+// let initial_interval = (initial_om, Order.add_next(initial_om));
 
 let exp_hole_upper = (i: (Order.t, Order.t)): Iexp.upper => {
   parent: Deleted,
@@ -134,7 +134,11 @@ let exp_hole_upper = (i: (Order.t, Order.t)): Iexp.upper => {
   deleted_upper: false,
 };
 
-let dummy_upper = exp_hole_upper(initial_interval);
+let dummy_upper = () => {
+  let a = Order.create();
+  let b = Order.add_next(a);
+  exp_hole_upper((a, b));
+};
 
 let var_syn = (e: Iexp.upper, syn: Htyp.t) => {
   switch (e.middle) {

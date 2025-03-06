@@ -539,7 +539,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorExp(e), WrapPlus(child)) =>
     let make_plus_with_children = (parent, interval, e1, e2, q) => {
       let new_lower_left: Iexp.lower = {
-        upper: dummy_upper,
+        upper: dummy_upper(),
         ana: Some(Num),
         marked: Unmarked,
         child: e1,
@@ -547,7 +547,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         deleted_lower: false,
       };
       let new_lower_right: Iexp.lower = {
-        upper: dummy_upper,
+        upper: dummy_upper(),
         ana: Some(Num),
         marked: Unmarked,
         child: e2,
@@ -589,7 +589,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorExp(e), WrapAp(child)) =>
     let make_ap_with_children = (parent, interval, e1, e2, q) => {
       let new_lower_left: Iexp.lower = {
-        upper: dummy_upper,
+        upper: dummy_upper(),
         ana: None,
         marked: Unmarked,
         child: e1,
@@ -597,7 +597,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         deleted_lower: false,
       };
       let new_lower_right: Iexp.lower = {
-        upper: dummy_upper,
+        upper: dummy_upper(),
         ana: Some(Hole),
         marked: Unmarked,
         child: e2,
@@ -638,7 +638,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     };
   | (CursorExp(body), WrapLam) =>
     let new_lower: Iexp.lower = {
-      upper: dummy_upper,
+      upper: dummy_upper(),
       ana: None,
       marked: Unmarked,
       child: body,
@@ -675,7 +675,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
 
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
-      upper: dummy_upper,
+      upper: dummy_upper(),
       ana: Some(Hole),
       marked: Unmarked,
       child: e,
