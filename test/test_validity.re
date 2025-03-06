@@ -575,20 +575,28 @@ let test_action_log = () => {
   ();
 };
 
-let rec probabilistic_minimizer = (actionses, prob) =>
-  if (prob < 0.01) {
+let rec probabilistic_minimizer_pass = (actionses, prob) =>
+  if (prob < 0.00000001) {
     actionses;
   } else {
     let filtered_actionses =
       List.filter(_ => Random.float(1.0) < prob, actionses);
     switch (test_actionses(filtered_actionses, ())) {
-    | () => probabilistic_minimizer(actionses, prob *. 0.99) // took away too much
-    | exception _ => probabilistic_minimizer(filtered_actionses, prob) // successful filter
+    | () => probabilistic_minimizer_pass(actionses, prob *. 0.9) // took away too much
+    | exception _ => probabilistic_minimizer_pass(filtered_actionses, 0.5) // successful filter, reset
     };
   };
 
+let rec probabilistic_minimizer = (n, actionses) =>
+  if (n == 0) {
+    actionses;
+  } else {
+    let actionses' = probabilistic_minimizer_pass(actionses, 0.5);
+    probabilistic_minimizer(n - 1, actionses');
+  };
+
 let totally_minimize = prefix => {
-  let prob_minimized = probabilistic_minimizer(prefix, 0.5);
+  let prob_minimized = probabilistic_minimizer(10, prefix);
   let s = string_of_action_list_list(prob_minimized);
   _write_string_to_file("prob_minimized.txt", s);
   let minimized = remove_actions_until_cant(prob_minimized);
@@ -599,7 +607,7 @@ let totally_minimize = prefix => {
 
 // test_action_log();
 
-let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
+let rec generate_minimal_counterexample = (fuel, s_acc, rev_acc) =>
   if (fuel < 0) {
     print_endline("no counterexample found.");
     false;
@@ -608,15 +616,16 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
     let len = 1 + List.length(rev_acc);
     if (len mod 1000 != 0) {
       // print_endline("trying " ++ string_of_int(len));
+      let s_acc' = apply_actions(actions, s_acc);
       generate_minimal_counterexample(
         fuel - 1,
+        s_acc',
         [actions, ...rev_acc],
-        s,
       );
     } else {
       let prefix = List.rev([actions, ...rev_acc]);
       print_endline("trying " ++ string_of_int(len));
-      switch (test_actionses(prefix, ())) {
+      switch (apply_actions_and_test(actions, s_acc)) {
       //(apply_actions_and_test(actions, s)) {
       | exception _ =>
         // if it fails, we've found the counterexample
@@ -635,26 +644,25 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
         let _ = totally_minimize(prefix);
         true;
       // if it succeeds, continue adding random actions
-      | _ =>
-        generate_minimal_counterexample(fuel - 1, [actions, ...rev_acc], s)
+      | s_acc' =>
+        generate_minimal_counterexample(
+          fuel - 1,
+          s_acc',
+          [actions, ...rev_acc],
+        )
       };
     };
   };
 
 let rec generate_minimal_counterexamples = () => {
-  let found =
-    generate_minimal_counterexample(
-      30000,
-      minimized_4 @ minimized_3,
-      initial_state(),
-    );
+  let found = generate_minimal_counterexample(30000, initial_state(), []);
   if (!found) {
     generate_minimal_counterexamples();
   };
 };
 
 let minimize_prefix = () => {
-  let ic = open_in(current_path ++ "/prefix.txt");
+  let ic = open_in(current_path ++ "/800_prob_minimized.txt");
   print_endline("parsing...");
   let _ = input_char(ic); // [
   let prefix = test_action_list_sequence(ic, []);
@@ -735,38 +743,39 @@ let oneK_squared = () => {
 
 Random.self_init();
 
-generate_minimal_counterexamples();
-let validity_tests = [];
+let actual_tests = [
+  // ("indepedence", `Quick, multi_test_indepedence),
+  ("a1", `Quick, test_actionses(a1)),
+  ("a1'", `Quick, test_actionses(a1')),
+  ("a2", `Quick, test_actionses(a2)),
+  ("a3", `Quick, test_actionses(a3)),
+  ("binding_insert", `Quick, test_actionses(binding_insert)),
+  ("binding_delete", `Quick, test_actionses(binding_delete)),
+  ("inconsistent", `Quick, test_actionses(inconsistent)),
+  ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+  ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+  ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+  ("free_var", `Quick, test_actionses(free_var)),
+  ("big_example", `Quick, test_actionses(big_example)),
+  ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+  ("unwrap", `Quick, test_actionses(unwrap)),
+  ("nonsense", `Quick, test_actionses(nonsense)),
+  ("excise", `Quick, test_actionses(excise)),
+  ("excise2", `Quick, test_actionses(excise2)),
+  ("minimized", `Quick, test_actionses(minimized_test)),
+  ("minimized 2", `Quick, test_actionses(minimized_2)),
+  ("minimized 3", `Quick, test_actionses(minimized_3)),
+  ("minimized 4", `Quick, test_actionses(minimized_4)),
+  ("all", `Quick, test_actionses_all),
+  ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
+  ("random 1K by 1K", `Quick, oneK_squared),
+  ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+  ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
+  ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+  // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
+  ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
+];
 
-// let validity_tests = [
-//   // ("indepedence", `Quick, multi_test_indepedence),
-//   ("a1", `Quick, test_actionses(a1)),
-//   ("a1'", `Quick, test_actionses(a1')),
-//   ("a2", `Quick, test_actionses(a2)),
-//   ("a3", `Quick, test_actionses(a3)),
-//   ("binding_insert", `Quick, test_actionses(binding_insert)),
-//   ("binding_delete", `Quick, test_actionses(binding_delete)),
-//   ("inconsistent", `Quick, test_actionses(inconsistent)),
-//   ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
-//   ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
-//   ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
-//   ("free_var", `Quick, test_actionses(free_var)),
-//   ("big_example", `Quick, test_actionses(big_example)),
-//   ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
-//   ("unwrap", `Quick, test_actionses(unwrap)),
-//   ("nonsense", `Quick, test_actionses(nonsense)),
-//   ("excise", `Quick, test_actionses(excise)),
-//   ("excise2", `Quick, test_actionses(excise2)),
-//   ("minimized", `Quick, test_actionses(minimized_test)),
-//   ("minimized 2", `Quick, test_actionses(minimized_2)),
-//   ("minimized 3", `Quick, test_actionses(minimized_3)),
-//   ("minimized 4", `Quick, test_actionses(minimized_4)),
-//   ("all", `Quick, test_actionses_all),
-//   ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
-//   ("random 1K by 1K", `Quick, oneK_squared),
-//   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
-//   // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
-//   ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
-//   // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
-//   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
-// ];
+// generate_minimal_counterexamples();
+minimize_prefix();
+let validity_tests = []; //actual_tests;
