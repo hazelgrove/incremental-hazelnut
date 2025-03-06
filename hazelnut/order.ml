@@ -120,7 +120,8 @@ module Order = struct
         end else begin
             let ts' = { label=(ts.label + max_label) lsr 1; parent; prev=ts; next=null; invalidator=nop } in
             ts.next <- ts';
-            parent.back <- ts'; (* SUSPICIOUS EDITION *)
+             (* SUSPICIOUS MODIFICATION *)
+            parent.back <- ts';
             ts'
         end in
 
