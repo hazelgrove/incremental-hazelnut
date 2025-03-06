@@ -58,8 +58,8 @@ module Order = struct
   }
   (**/**)
 
-  
-  let sexp_of_t ts = Sexp.Atom(String.concat "," [(string_of_int ts.parent.parent_label) ; (string_of_int ts.label)])
+  let trim_string s = String.sub s 0 (Int.min 4 (String.length s))
+  let sexp_of_t ts = Sexp.Atom(String.concat "," [(trim_string (string_of_int ts.parent.parent_label)) ; (trim_string (string_of_int ts.label))])
   let t_of_sexp _ = null
 
   (** Return if a total-order element is the initial element (i.e., that was returned by [create]). *)

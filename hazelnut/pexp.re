@@ -4,12 +4,13 @@ open Incremental;
 open Actions;
 open UpdateQueue;
 open State;
+open Order;
 
 let compare_string = String.compare;
 let compare_int = Int.compare;
-let compare_float = Float.compare;
+// let compare_float = Float.compare;
 
-// let show_intervals = false;
+let show_intervals = true;
 
 let string_of_child: Child.t => string =
   fun
@@ -48,7 +49,7 @@ module Pexp = {
     | Plus(t, t)
     | Asc(t, t)
     | Hole
-    | Interval(float, t, float)
+    | Interval(string, t, string)
     | Mark(t, string);
 };
 
@@ -118,6 +119,13 @@ let rec unwrap_extras: Pexp.t => (Pexp.t, Pexp.t => Pexp.t) =
     }
   | e => (e, (x => x));
 
+// let string_of_interval = (i: (Order.t, Order.t)) =>
+//   "("
+//   ++ string_of_sexp(Order.sexp_of_t(fst(i)))
+//   ++ " , "
+//   ++ string_of_sexp(Order.sexp_of_t(snd(i)))
+//   ++ ")";
+
 let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
   let middle = pexp_of_iexp_middle(e.middle, s);
 
@@ -127,10 +135,14 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
     | _ => middle
     };
 
-  // let with_interval: Pexp.t =
-  //   show_intervals
-  //     ? Interval(fst(e.interval), with_cursor, snd(e.interval))
-  //     : with_cursor;
+  let with_interval: Pexp.t =
+    show_intervals
+      ? Interval(
+          string_of_sexp(Order.sexp_of_t(fst(e.interval))),
+          with_cursor,
+          string_of_sexp(Order.sexp_of_t(snd(e.interval))),
+        )
+      : with_cursor;
 
   let implement_updates = (d: Pexp.t, u: Update.t): Pexp.t => {
     switch (u) {
@@ -154,7 +166,7 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
   let with_new_types =
     List.fold_left(
       implement_updates,
-      with_cursor,
+      with_interval,
       UpdateQueue.list_of_t(s.ephemeral.q),
     );
   with_new_types;
@@ -310,13 +322,7 @@ let rec string_of_pexp: Pexp.t => string =
     paren(e, outer, Side.Left) ++ ": " ++ paren(t, outer, Side.Right)
   | Hole => "?"
   | Interval(n1, e, n2) =>
-    "{"
-    ++ string_of_float(n1)
-    ++ "]"
-    ++ string_of_pexp(e)
-    ++ "["
-    ++ string_of_float(n2)
-    ++ "}"
+    "{" ++ n1 ++ "]" ++ string_of_pexp(e) ++ "[" ++ n2 ++ "}"
   | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"
 
 and paren = (inner: Pexp.t, outer: Pexp.t, side: Side.t): string => {

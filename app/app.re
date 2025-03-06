@@ -29,6 +29,43 @@ switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
 | Some(_) => failwith("marked incorrectly (top level app)")
 | None => print_endline("marked correctly (top level app)")
 };
+// let apply_actions_and_test = (actions, s) => {
+//   let s' = apply_actions(actions, s);
+//   all_update_steps(s');
+//   switch (marked_correctly(s'.ephemeral.root.root_child)) {
+//   | Some(e') =>
+//     print_endline("failed test");
+//     print_endline("ERROR: see:");
+//     print_endline(
+//       string_of_pexp(pexp_of_iexp(s'.ephemeral.root.root_child, s')),
+//     );
+//     print_endline("should see:");
+//     print_endline(string_of_pexp(pexp_of_iexp(e', s')));
+//     failwith("failed test");
+//   | None => ()
+//   };
+//   s';
+// };
+
+// let rec test_actionses_rec = (actionses: list(list(Iaction.t)), s) => {
+//   switch (actionses) {
+//   | [] => ()
+//   | [actions, ...actionses] =>
+//     let s' = apply_actions_and_test(actions, s);
+//     test_actionses_rec(actionses, s');
+//   };
+// };
+
+// let test_actionses = (actionses: list(list(Iaction.t)), ()) => {
+//   let s = initial_state();
+//   test_actionses_rec(actionses, s);
+//   // print_endline("all tests done.");
+// };
+
+// let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
+
+// test_actionses(random_action_segments(10000000));
+// print_endline("testin done app 10M");
 
 module Model = {
   [@deriving (sexp, fields)]
