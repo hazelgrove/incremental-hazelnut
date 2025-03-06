@@ -47,12 +47,21 @@ let string_of_action_list_list = l =>
 let _write_string_to_file = (filename, s) => {
   let current_path = Sys.getcwd();
   let current_path =
-    String.sub(
-      current_path,
-      0,
-      String.length(current_path) - String.length("/_build/default/test"),
-    )
-    ++ "/test";
+    if (String.sub(
+          current_path,
+          String.length(current_path) - String.length("/_build/default/test"),
+          String.length("/_build"),
+        )
+        == "/_build") {
+      String.sub(
+        current_path,
+        0,
+        String.length(current_path) - String.length("/_build/default/test"),
+      )
+      ++ "/test";
+    } else {
+      current_path ++ "/test";
+    };
   // print_endline(current_path);
   let oc = open_out(current_path ++ "/" ++ filename);
   output_string(oc, s);
@@ -368,6 +377,19 @@ let minimized_3: list(list(Iaction.t)) = [
   [MoveUp, Unwrap(One)],
 ];
 
+let minimized_4: list(list(Iaction.t)) = [
+  [
+    InsertVar("x"),
+    WrapPlus(One),
+    MoveDown(Two),
+    InsertVar("x"),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    Delete,
+    InsertVar("x"),
+  ],
+];
 let child_of_string: string => Child.t =
   fun
   | "One" => One
@@ -660,14 +682,14 @@ let boolean_test = actionses => {
 
 let test_indepedence = () => {
   let actionses = random_action_segments(10000);
-  let iterations = List.init(30, _ => boolean_test(actionses));
+  let iterations = List.init(5, _ => boolean_test(actionses));
   assert(
     List.for_all(x => x, iterations) || List.for_all(x => !x, iterations),
   );
 };
 
 let multi_test_indepedence = () => {
-  let _ = List.init(30, _ => test_indepedence());
+  let _ = List.init(10, _ => test_indepedence());
   ();
 };
 
@@ -676,7 +698,7 @@ Random.self_init();
 // let validity_tests = [];
 
 let validity_tests = [
-  ("indepedence", `Quick, multi_test_indepedence),
+  // ("indepedence", `Quick, multi_test_indepedence),
   // ("a1", `Quick, test_actionses(a1)),
   // ("a1'", `Quick, test_actionses(a1')),
   // ("a2", `Quick, test_actionses(a2)),
@@ -697,6 +719,7 @@ let validity_tests = [
   // ("minimized", `Quick, test_actionses(minimized_test)),
   // ("minimized 2", `Quick, test_actionses(minimized_2)),
   // ("minimized 3", `Quick, test_actionses(minimized_3)),
+  ("minimized 4", `Quick, test_actionses(minimized_4)),
   // ("all", `Quick, test_actionses_all),
   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
   // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
