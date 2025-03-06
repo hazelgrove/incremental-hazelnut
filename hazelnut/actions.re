@@ -8,6 +8,13 @@ open UpdateQueue;
 
 // open Monad_lib.Monad;
 
+let _string_of_interval = (i: (Order.t, Order.t)) =>
+  "("
+  ++ string_of_sexp(Order.sexp_of_t(fst(i)))
+  ++ " , "
+  ++ string_of_sexp(Order.sexp_of_t(snd(i)))
+  ++ ")";
+
 module Child = {
   [@deriving (sexp, compare)]
   type t =
@@ -137,9 +144,15 @@ let look_up_binder =
   switch (Hashtbl.find_opt(binder_set, x)) {
   | None => free
   | Some(x_binder_set) =>
+    print_endline(
+      "finding container for: " ++ _string_of_interval(e.interval),
+    );
     switch (Tree.find_tightest_container(e.interval, x_binder_set)) {
     | None => free
     | Some(upper) =>
+      print_endline(
+        "found container: " ++ _string_of_interval(upper.interval),
+      );
       switch (upper.middle) {
       | Lam(bind, t, _, _, body, _) when Bind.Var(x) == bind.contents => (
           Lower(body),
@@ -147,8 +160,8 @@ let look_up_binder =
           Unmarked,
         )
       | _ => failwith("invalid binder lookup")
-      }
-    }
+      };
+    };
   };
 };
 
@@ -190,12 +203,6 @@ let capture_name =
   //   "this many in parental scope: "
   //   ++ string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
   // );
-  // let string_of_interval = (i: (Order.t, Order.t)) =>
-  //   "("
-  //   ++ string_of_sexp(Order.sexp_of_t(fst(i)))
-  //   ++ " , "
-  //   ++ string_of_sexp(Order.sexp_of_t(snd(i)))
-  //   ++ ")";
   // let intervals =
   //   List.map(
   //     (upper: Iexp.upper) => string_of_interval(upper.interval),
@@ -264,6 +271,7 @@ let remove_from_binder_set =
 };
 
 let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
+  print_endline("adding binder at: " ++ _string_of_interval(e.interval));
   switch (Hashtbl.find_opt(binder_set, x)) {
   | None =>
     let new_set =
@@ -309,6 +317,9 @@ let interval_around = (e: Iexp.upper) => {
   let a = Order.add_prev(b);
   let d = Order.add_next(c);
   // a < b < c < d
+  // assert(Order.lt(a, b));
+  // assert(Order.lt(b, c));
+  // assert(Order.lt(c, d));
   (a, d);
 };
 
@@ -317,6 +328,9 @@ let interval_after = (e: Iexp.upper) => {
   let c = Order.add_next(b);
   let d = Order.add_next(c);
   // a < b < c < d
+  // assert(Order.lt(_a, b));
+  // assert(Order.lt(b, c));
+  // assert(Order.lt(c, d));
   (c, d);
 };
 
@@ -325,6 +339,9 @@ let interval_before = (e: Iexp.upper) => {
   let b = Order.add_prev(c);
   let a = Order.add_prev(b);
   // a < b < c < d
+  // assert(Order.lt(a, b));
+  // assert(Order.lt(b, c));
+  // assert(Order.lt(c, _d));
   (a, b);
 };
 
@@ -400,7 +417,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   let c = state.persistent.c;
   let no_movement: Istate.t = state;
 
-  // print_endline("ACT: " ++ _string_of_action(a));
+  print_endline("ACT: " ++ _string_of_action(a));
 
   let return_cursor = (c: Icursor.t): Istate.t => {
     ephemeral: state.ephemeral,
@@ -556,10 +573,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
       };
-      // switch (parent) {
-      // | Root(_) => print_endline("isnerting to root")
-      // | _ => print_endline("inserting ound")
-      // };
+      switch (parent) {
+      | Root(_) => print_endline("isnerting to root")
+      | _ => print_endline("inserting ound")
+      };
       delete_upper(e);
       replace(e, e');
       bind_to_binder(e', parent);

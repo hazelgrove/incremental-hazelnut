@@ -2,6 +2,7 @@
 open Hazelnut_lib.Actions;
 open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
+open Hazelnut_lib.Pexp;
 open Hazelnut_lib.Update;
 open Hazelnut_lib.Counterexample;
 // open Hazelnut_lib.Actions_random;
@@ -12,8 +13,14 @@ let apply_actions_and_test = (actions, s) => {
   let s' = apply_actions(actions, s);
   all_update_steps(s');
   switch (marked_correctly(s'.ephemeral.root.root_child)) {
-  | Some(_) =>
+  | Some(e') =>
     print_endline("failed test");
+    print_endline("ERROR: see:");
+    print_endline(
+      string_of_pexp(pexp_of_iexp(s'.ephemeral.root.root_child, s')),
+    );
+    print_endline("should see:");
+    print_endline(string_of_pexp(pexp_of_iexp(e', s')));
     failwith("failed test");
   | None => ()
   };
@@ -900,31 +907,24 @@ let actual_tests = [
 
 // generate_minimal_counterexamples();
 // minimize_prefix();
-let validity_tests = [];
-//   (
-//     "minimized 5",
-//     `Quick,
-//     () => {
-//       print_endline("testing");
-//       let s = initial_state();
-//       let s' = apply_actions(minimized_5, s);
-//       all_update_steps(s');
-//       switch (marked_correctly(s'.ephemeral.root.root_child)) {
-//       | Some(_) =>
-//         print_endline("failed test");
-//         failwith("failed test");
-//       | None => ()
-//       };
-//       print_endline("passed test");
-//     },
-//   ),
-// ];
+let validity_tests = [
+  (
+    "minimized 5",
+    `Quick,
+    () => {
+      print_endline("testing");
+      let s = initial_state();
+      let _ = apply_actions_and_test(minimized_5, s);
+      ();
+    },
+  ),
+];
 
-print_endline("testing");
-let s = initial_state();
-let s' = apply_actions(minimized_5, s);
-all_update_steps(s');
-switch (marked_correctly(s'.ephemeral.root.root_child)) {
-| Some(_) => failwith("marked incorrectly (top test validity)")
-| None => print_endline("marked correctly (top test validity)")
-};
+// print_endline("testing");
+// let s = initial_state();
+// let s' = apply_actions(minimized_5, s);
+// all_update_steps(s');
+// switch (marked_correctly(s'.ephemeral.root.root_child)) {
+// | Some(_) => failwith("marked incorrectly (top test validity)")
+// | None => print_endline("marked correctly (top test validity)")
+// };
