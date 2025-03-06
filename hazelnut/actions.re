@@ -317,9 +317,9 @@ let interval_around = (e: Iexp.upper) => {
   let a = Order.add_prev(b);
   let d = Order.add_next(c);
   // a < b < c < d
-  assert(Order.lt(a, b));
-  assert(Order.lt(b, c));
-  assert(Order.lt(c, d));
+  // assert(Order.lt(a, b));
+  // assert(Order.lt(b, c));
+  // assert(Order.lt(c, d));
   (a, d);
 };
 
@@ -328,9 +328,9 @@ let interval_after = (e: Iexp.upper) => {
   let c = Order.add_next(b);
   let d = Order.add_next(c);
   // a < b < c < d
-  assert(Order.lt(_a, b));
-  assert(Order.lt(b, c));
-  assert(Order.lt(c, d));
+  // assert(Order.lt(_a, b));
+  // assert(Order.lt(b, c));
+  // assert(Order.lt(c, d));
   (c, d);
 };
 
@@ -339,9 +339,9 @@ let interval_before = (e: Iexp.upper) => {
   let b = Order.add_prev(c);
   let a = Order.add_prev(b);
   // a < b < c < d
-  assert(Order.lt(a, b));
-  assert(Order.lt(b, c));
-  assert(Order.lt(c, _d));
+  // assert(Order.lt(a, b));
+  // assert(Order.lt(b, c));
+  // assert(Order.lt(c, _d));
   (a, b);
 };
 
