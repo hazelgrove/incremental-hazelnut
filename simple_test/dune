@@ -1,0 +1,4 @@
+(executable
+ (name simple_test)
+ (public_name simple_test)
+ (libraries core incr_dom monad_lib hazelnut_lib))

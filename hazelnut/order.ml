@@ -69,16 +69,16 @@ module Order = struct
   let is_valid ts = ts.label > 0 && ts.parent.parent_label >= 0
 
   (**/**) (* helper functions *)
-  let neg = (lor) min_int
+  (* let neg = (lor) min_int *)
   let pos = (land) (lnot min_int)
-  let invalidate ts =
+  (* let invalidate ts =
       ts.label <- neg ts.label;
       ts.invalidator ts;
       (* help GC mark phase by cutting the object graph *)
       ts.invalidator <- nop;
       ts.prev <- null;
-      ts.next <- null
-  let invalidate_parent parent =
+      ts.next <- null *)
+  (* let invalidate_parent parent =
       parent.parent_label <- neg parent.parent_label;
       let rec invalidate_ts ts = if ts != null then begin
           let next = ts.next in
@@ -90,7 +90,7 @@ module Order = struct
       parent.parent_prev <- null_parent;
       parent.parent_next <- null_parent;
       parent.front <- null;
-      parent.back <- null
+      parent.back <- null *)
   (**/**)
 
   (** Compare two total-order elements. *)
@@ -236,7 +236,7 @@ module Order = struct
     let prev = if ts.prev != null then ts.prev else ts.parent.parent_prev.back in 
     add_next prev
   end
-
+(* 
   (** Splice two elements [ts] and [ts'] in a total-order such that, [ts] is immediately followed by [ts'], removing all elements between them;
       optionally, if [inclusive] is [true], [ts] and [ts'] will also be removed. *)
   let splice ?(inclusive=false) ts ts' =
@@ -332,5 +332,5 @@ module Order = struct
   (** Reset the invalidator function for the given total-order element. *)
   let reset_invalidator ts =
       if not (is_valid ts) then invalid_arg "TotalOrder.reset_invalidator";
-      ts.invalidator <- nop
+      ts.invalidator <- nop *)
 end

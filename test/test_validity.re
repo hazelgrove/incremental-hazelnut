@@ -920,11 +920,11 @@ let validity_tests = [
   ),
 ];
 
-// print_endline("testing");
-// let s = initial_state();
-// let s' = apply_actions(minimized_5, s);
-// all_update_steps(s');
-// switch (marked_correctly(s'.ephemeral.root.root_child)) {
-// | Some(_) => failwith("marked incorrectly (top test validity)")
-// | None => print_endline("marked correctly (top test validity)")
-// };
+print_endline("testing");
+let s = initial_state();
+let s' = apply_actions(minimized_5, s);
+all_update_steps(s');
+switch (marked_correctly(s'.ephemeral.root.root_child)) {
+| Some(_) => failwith("marked incorrectly (top test validity)")
+| None => print_endline("marked correctly (top test validity)")
+};
