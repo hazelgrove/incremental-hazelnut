@@ -393,6 +393,115 @@ let minimized_4: list(list(Iaction.t)) = [
     InsertVar("x"),
   ],
 ];
+
+let minimized_5: list(list(Iaction.t)) = [
+  [
+    WrapLam,
+    WrapAsc,
+    WrapPlus(One),
+    WrapLam,
+    WrapAsc,
+    WrapPlus(One),
+    WrapPlus(One),
+    MoveDown(One),
+    WrapLam,
+    MoveUp,
+    WrapPlus(One),
+    WrapPlus(One),
+    WrapAsc,
+    WrapAp(One),
+    MoveDown(One),
+    WrapPlus(One),
+    WrapPlus(Two),
+    MoveUp,
+    WrapAp(One),
+    WrapPlus(One),
+    Unwrap(One),
+    WrapAp(One),
+    Unwrap(Two),
+    WrapAp(One),
+    Unwrap(Two),
+    WrapPlus(One),
+    WrapLam,
+    Unwrap(One),
+    WrapAsc,
+    WrapPlus(One),
+    WrapAp(Two),
+    WrapPlus(Two),
+    WrapAp(Two),
+    WrapAsc,
+    Unwrap(Two),
+    WrapAp(One),
+    WrapLam,
+    WrapAsc,
+    WrapPlus(One),
+    WrapAsc,
+    WrapLam,
+    WrapLam,
+    WrapPlus(One),
+    WrapLam,
+    WrapAp(Two),
+    WrapPlus(One),
+    WrapAp(Two),
+    WrapLam,
+    WrapAsc,
+    WrapAp(Two),
+    WrapAsc,
+    MoveDown(One),
+    WrapAp(Two),
+    MoveUp,
+    Unwrap(Two),
+    WrapLam,
+    WrapPlus(Two),
+    Unwrap(One),
+    WrapAsc,
+    WrapAsc,
+    WrapLam,
+    WrapAp(One),
+    Unwrap(One),
+    WrapAp(Two),
+    Unwrap(One),
+    WrapLam,
+    WrapAp(Two),
+    WrapPlus(Two),
+    WrapPlus(Two),
+    MoveDown(Two),
+    WrapLam,
+    MoveDown(One),
+    InsertVar("y"),
+    MoveUp,
+    MoveUp,
+    MoveDown(One),
+    InsertVar("y"),
+  ],
+];
+
+// blatantly exponential, it'll never run
+let rec find_best_failing_subset = (rev_acc: list(Iaction.t)) =>
+  fun
+  | [] => {
+      let acc = List.rev(rev_acc);
+      switch (test_actionses([acc], ())) {
+      | exception _ => Some(acc)
+      | _ => None
+      };
+    }
+  | [h, ...t] => {
+      switch (
+        find_best_failing_subset(rev_acc, t),
+        find_best_failing_subset([h, ...rev_acc], t),
+      ) {
+      | (None, r) => r
+      | (r, None) => r
+      | (Some(r1), Some(r2)) =>
+        if (List.length(r1) > List.length(r2)) {
+          Some(r2);
+        } else {
+          Some(r1);
+        }
+      };
+    };
+
 let child_of_string: string => Child.t =
   fun
   | "One" => One
@@ -549,6 +658,32 @@ let rec remove_actions_until_cant = actionses =>
   | None => actionses
   };
 
+let rec remove_one_little_action = (rev_prefix, middle, postfix) => {
+  let actions = List.rev(rev_prefix) @ postfix;
+  try(
+    {
+      test_actionses([actions], ());
+      // no longer failing, must try removing a different one
+      switch (postfix) {
+      // unable to remove anything
+      | [] => None
+      | [middle', ...postfix'] =>
+        // try removing something further down
+        remove_one_little_action([middle, ...rev_prefix], middle', postfix')
+      };
+    }
+  ) {
+  // still failing
+  | _ => Some(actions)
+  };
+};
+
+let rec remove_little_actions_until_cant = actions =>
+  switch (remove_one_little_action([], List.hd(actions), List.tl(actions))) {
+  | Some(actions') => remove_little_actions_until_cant(actions')
+  | None => actions
+  };
+
 let test_action_log = () => {
   let current_path = Sys.getcwd();
   let current_path =
@@ -593,6 +728,27 @@ let rec probabilistic_minimizer = (n, actionses) =>
   } else {
     let actionses' = probabilistic_minimizer_pass(actionses, 0.5);
     probabilistic_minimizer(n - 1, actionses');
+  };
+
+let rec little_probabilistic_minimizer_pass = (actions, prob) =>
+  if (prob < 0.00000001) {
+    actions;
+  } else {
+    let filtered_actions =
+      List.filter(_ => Random.float(1.0) < prob, actions);
+    switch (test_actionses([filtered_actions], ())) {
+    | () => little_probabilistic_minimizer_pass(actions, prob *. 0.9) // took away too much
+    | exception _ =>
+      little_probabilistic_minimizer_pass(filtered_actions, 0.5) // successful filter, reset
+    };
+  };
+
+let rec little_probabilistic_minimizer = (n, actions) =>
+  if (n == 0) {
+    actions;
+  } else {
+    let actions' = little_probabilistic_minimizer_pass(actions, 0.5);
+    little_probabilistic_minimizer(n - 1, actions');
   };
 
 let totally_minimize = prefix => {
@@ -662,59 +818,28 @@ let rec generate_minimal_counterexamples = () => {
 };
 
 let minimize_prefix = () => {
-  let ic = open_in(current_path ++ "/800_prob_minimized.txt");
+  let ic = open_in(current_path ++ "/hand_minimized.txt");
   print_endline("parsing...");
   let _ = input_char(ic); // [
   let prefix = test_action_list_sequence(ic, []);
+  let prefix = List.concat(prefix);
   print_endline("this better fail...");
-  switch (test_actionses(prefix, ())) {
+  switch (test_actionses([prefix], ())) {
   | exception _ => ()
   | _ => failwith("...it works now... ??")
   };
   print_endline("lesgo");
 
   print_endline("minimizing...");
-  let minimized_actionses = totally_minimize(prefix);
-  let s = string_of_action_list_list(minimized_actionses);
-  _write_string_to_file("minimized.txt", s);
+  // let prob_minimized = little_probabilistic_minimizer(100, prefix);
+  // let minimized_actionses = remove_little_actions_until_cant(prob_minimized);
+  let minimized_actions = Option.get(find_best_failing_subset([], prefix));
+  let s = string_of_action_list_list([minimized_actions]);
+  _write_string_to_file("subset_minimized.txt", s);
   ();
 };
 
 let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
-
-// let validity_tests = [];
-
-// let validity_tests = [
-//   (
-//     "thing",
-//     `Quick,
-//     test_actionses([
-//       [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
-//       [
-//         MoveDown(Three),
-//         MoveUp,
-//         MoveUp,
-//         MoveDown(One),
-//         MoveUp,
-//         MoveUp,
-//         MoveDown(Three),
-//         WrapLam,
-//         MoveDown(One),
-//         InsertVar("x"),
-//         MoveUp,
-//       ],
-//       [
-//         MoveDown(One),
-//         MoveUp,
-//         MoveDown(Two),
-//         MoveUp,
-//         MoveDown(Three),
-//         InsertVar("x"),
-//       ],
-//       [MoveDown(Two), MoveUp, MoveUp, MoveDown(Two), WrapArrow(One)],
-//     ]),
-//   ),
-// ];
 
 let boolean_test = actionses => {
   switch (test_actionses(actionses, ())) {
@@ -768,14 +893,14 @@ let actual_tests = [
   ("minimized 4", `Quick, test_actionses(minimized_4)),
   ("all", `Quick, test_actionses_all),
   ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
-  ("random 1K by 1K", `Quick, oneK_squared),
-  ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
-  ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
-  ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+  // ("random 1K by 1K", `Quick, oneK_squared),
+  // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+  // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
+  // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
   // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 ];
 
 // generate_minimal_counterexamples();
-minimize_prefix();
-let validity_tests = []; //actual_tests;
+// minimize_prefix();
+let validity_tests = [("minimized 5", `Quick, test_actionses(minimized_5))];

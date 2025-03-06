@@ -370,6 +370,8 @@ module Tree = {
         let (ll, lr) = split(rv.left, Node(ll, lv, lr));
         let l = union((ll, rl));
         let r = union((lr, rr));
-        node(l, rv, r);
+        let t = node(l, rv, r);
+        // assert_order_invariant(t);
+        t;
       };
 };
