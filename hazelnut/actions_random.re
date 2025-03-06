@@ -13,7 +13,7 @@ let random_motion = (): Iaction.t => {
 };
 
 let random_motions = () => {
-  List.init(Random.int(7), _ => random_motion());
+  List.init(Random.int(10), _ => random_motion());
 };
 
 let random_edit = (): list(Iaction.t) => {
@@ -38,7 +38,10 @@ let random_edit = (): list(Iaction.t) => {
   List.nth(edits, Random.int(List.length(edits)));
 };
 
-let random_action_segment = () => random_motions() @ random_edit();
+let random_action_segment = () => {
+  Random.self_init();
+  random_motions() @ random_edit();
+};
 
 let random_action_segments = n => {
   let l = List.init(n, _ => random_action_segment());

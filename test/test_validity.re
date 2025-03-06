@@ -568,14 +568,10 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
   if (fuel == 0) {
     print_endline("no counterexample found.");
   } else {
-    let _actions1 = Hazelnut_lib.Actions_random.random_action_segment();
-    let _actions2 = Hazelnut_lib.Actions_random.random_action_segment();
-    // let _actions3 = Hazelnut_lib.Actions_random.random_action_segment();
-    // let _actions4 = Hazelnut_lib.Actions_random.random_action_segment();
     let _actions5 = Hazelnut_lib.Actions_random.random_action_segment();
     let actions = _actions5;
     let prefix = List.rev([actions, ...rev_acc]);
-    // print_endline("trying");
+    print_endline("trying " ++ string_of_int(List.length(prefix)));
     switch (test_actionses(prefix, ())) {
     //(apply_actions_and_test(actions, s)) {
     | exception _ =>
@@ -585,8 +581,10 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
         ++ string_of_int(List.length(prefix)),
       );
       print_endline("this better fail...");
-      test_actionses(prefix, ());
-      failwith("...it works now... ??");
+      switch (test_actionses(prefix, ())) {
+      | exception _ => ()
+      | _ => failwith("...it works now... ??")
+      };
     // let s = string_of_action_list_list(prefix);
     // _write_string_to_file("prefix.txt", s);
     // let prob_minimized = probabilistic_minimizer(prefix, 0.5);
@@ -601,11 +599,15 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
     };
   };
 
-generate_minimal_counterexample(1000000, [], initial_state());
-
 let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
 
-let validity_tests = [];
+generate_minimal_counterexample(
+  1000000,
+  random_action_segments(500),
+  initial_state(),
+);
+
+// let validity_tests = [];
 
 // let validity_tests = [
 //   (
@@ -632,6 +634,10 @@ let validity_tests = [];
 //   ),
 // ];
 
+Random.self_init();
+
+let validity_tests = [];
+
 // let validity_tests = [
 //   ("a1", `Quick, test_actionses(a1)),
 //   ("a1'", `Quick, test_actionses(a1')),
@@ -654,39 +660,22 @@ let validity_tests = [];
 //   ("minimized 2", `Quick, test_actionses(minimized_2)),
 //   ("minimized 3", `Quick, test_actionses(minimized_3)),
 //   ("all", `Quick, test_actionses_all),
-//   ("random 10", `Quick, test_actionses(random_action_segments(10))),
-//   ("random 100", `Quick, test_actionses(random_action_segments(100))),
-//   (
-//     "random 1K",
-//     `Quick,
-//     () => {
-//       let actionses = random_action_segments(1000);
-//       // let s = string_of_action_list_list(actionses);
-//       // _write_string_to_file("random_action_1K" ++ ".txt", s);
-//       test_actionses(actionses, ());
-//     },
-//   ),
-//   (
-//     "random 10K",
-//     `Quick,
-//     () => {
-//       let actionses = random_action_segments(10000);
-//       let s = string_of_action_list_list(actionses);
-//       _write_string_to_file("random_action_10K" ++ ".txt", s);
-//       test_actionses(actionses, ());
-//     },
-//   ),
-//   (
-//     "random 100K",
-//     `Quick,
-//     () => {
-//       let actionses = random_action_segments(100000);
-//       let s = string_of_action_list_list(actionses);
-//       _write_string_to_file("random_action_100K" ++ ".txt", s);
-//       test_actionses(actionses, ());
-//     },
-//   ),
-//   ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+//   // ("random 10", `Quick, test_actionses(random_action_segments(10))),
+//   // ("random 100", `Quick, test_actionses(random_action_segments(100))),
+//   // (
+//   //   "random 1K",
+//   //   `Quick,
+//   //   () => {
+//   //     let actionses = random_action_segments(1000);
+//   //     // let s = string_of_action_list_list(actionses);
+//   //     // _write_string_to_file("random_action_1K" ++ ".txt", s);
+//   //     test_actionses(actionses, ());
+//   //   },
+//   // ),
+//   ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+//   ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
+//   // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+//   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 //   // ("random 10asdM1aaasdfasdfsdaasdfsdffsf", `Quick, () => {
 //   //     let actionses = random_action_segments(10018);
 //   //     let s = string_of_action_list_list(actionses);
