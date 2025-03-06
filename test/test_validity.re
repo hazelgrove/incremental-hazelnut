@@ -4,7 +4,7 @@ open Hazelnut_lib.Marking;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Pexp;
 open Hazelnut_lib.Update;
-open Hazelnut_lib.Counterexample;
+// open Hazelnut_lib.Counterexample;
 // open Hazelnut_lib.Actions_random;
 
 // open Hazelnut_lib.Pexp;
@@ -397,6 +397,7 @@ let minimized_4: list(list(Iaction.t)) = [
     InsertVar("x"),
   ],
 ];
+let minimized_5 = Hazelnut_lib.Counterexample.minimized_5;
 
 // let minimized_5: list(list(Iaction.t)) = [
 //   [
@@ -905,9 +906,12 @@ let actual_tests = [
   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 ];
 
+let _ = Hazelnut_lib.Order.Order.create();
+
 // generate_minimal_counterexamples();
 // minimize_prefix();
 let validity_tests = [
+  //("always_fails", `Quick, () => assert(false))];
   (
     "minimized 5",
     `Quick,
@@ -918,13 +922,13 @@ let validity_tests = [
       ();
     },
   ),
-];
+]; //actual_tests;
 
-print_endline("testing");
-let s = initial_state();
-let s' = apply_actions(minimized_5, s);
-all_update_steps(s');
-switch (marked_correctly(s'.ephemeral.root.root_child)) {
-| Some(_) => failwith("marked incorrectly (top test validity)")
-| None => print_endline("marked correctly (top test validity)")
-};
+// print_endline("testing");
+// let s = initial_state();
+// let s' = apply_actions(minimized_5, s);
+// all_update_steps(s');
+// switch (marked_correctly(s'.ephemeral.root.root_child)) {
+// | Some(_) => failwith("marked incorrectly (top test validity)")
+// | None => print_endline("marked correctly (top test validity)")
+// };

@@ -2,6 +2,7 @@ open Hazelnut;
 open Incremental;
 open Tree;
 open UpdateQueue;
+open Sexplib.Std;
 open Sexplib0;
 open Order;
 
@@ -38,6 +39,10 @@ module Istate = {
 let initial_state = (): Istate.t => {
   // print_endline("initializing root and state");
   let a = Order.create();
+  print_endline(
+    "initializing state with first OM: "
+    ++ string_of_sexp(Order.sexp_of_t(a)),
+  );
   let b = Order.add_next(a);
   let initial_exp = exp_hole_upper((a, b));
   let initial_root: Iexp.root = {

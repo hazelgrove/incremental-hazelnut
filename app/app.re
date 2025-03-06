@@ -22,13 +22,15 @@ type state = {
   vizbit: bool,
 };
 
-let s = initial_state();
-let initial_istate = apply_actions(minimized_5, s);
-all_update_steps(initial_istate);
-switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
-| Some(_) => failwith("marked incorrectly (top level app)")
-| None => print_endline("marked correctly (top level app)")
-};
+let _ = Hazelnut_lib.Order.Order.create();
+
+// let s = initial_state();
+// let initial_istate = apply_actions(minimized_5, s);
+// all_update_steps(initial_istate);
+// switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
+// | Some(_) => failwith("marked incorrectly (top level app)")
+// | None => print_endline("marked correctly (top level app)")
+// };
 // let apply_actions_and_test = (actions, s) => {
 //   let s' = apply_actions(actions, s);
 //   all_update_steps(s');
