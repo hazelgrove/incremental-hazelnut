@@ -207,16 +207,6 @@ module Tree = {
     node(l, v, r);
   };
 
-  let rec union: ((t('a), t('a))) => t('a) =
-    fun
-    | (Leaf, t)
-    | (t, Leaf) => t
-    | (Node(ll, lv, lr), r) => {
-        let (l, v) = splay_largest((ll, lv, lr));
-        let l_r = union((l, r));
-        insert(v.entry, v.left, v.right, l_r);
-      };
-
   let delete = (left: Order.t) =>
     fun
     | Leaf => Leaf
@@ -371,4 +361,15 @@ module Tree = {
     // print_endline("gt: " ++ string_of_int(List.length(list_of_t(t_gt))));
     (join((t_lt, t_gt)), t_in);
   };
+
+  let rec union: ((t('a), t('a))) => t('a) =
+    fun
+    | (Leaf, t)
+    | (t, Leaf) => t
+    | (Node(ll, lv, lr), Node(rl, rv, rr)) => {
+        let (ll, lr) = split(rv.left, Node(ll, lv, lr));
+        let l = union((ll, rl));
+        let r = union((lr, rr));
+        node(l, rv, r);
+      };
 };

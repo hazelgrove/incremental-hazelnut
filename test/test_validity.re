@@ -44,24 +44,27 @@ let string_of_list = (f, l) => {
 
 let string_of_action_list_list = l =>
   string_of_list(string_of_list(Hazelnut_lib.Pexp.string_of_action), l);
-let _write_string_to_file = (filename, s) => {
+
+let current_path = {
   let current_path = Sys.getcwd();
-  let current_path =
-    if (String.sub(
-          current_path,
-          String.length(current_path) - String.length("/_build/default/test"),
-          String.length("/_build"),
-        )
-        == "/_build") {
-      String.sub(
+  if (String.sub(
         current_path,
-        0,
         String.length(current_path) - String.length("/_build/default/test"),
+        String.length("/_build"),
       )
-      ++ "/test";
-    } else {
-      current_path ++ "/test";
-    };
+      == "/_build") {
+    String.sub(
+      current_path,
+      0,
+      String.length(current_path) - String.length("/_build/default/test"),
+    )
+    ++ "/test";
+  } else {
+    current_path ++ "/test";
+  };
+};
+
+let _write_string_to_file = (filename, s) => {
   // print_endline(current_path);
   let oc = open_out(current_path ++ "/" ++ filename);
   output_string(oc, s);
@@ -573,26 +576,36 @@ let test_action_log = () => {
 };
 
 let rec probabilistic_minimizer = (actionses, prob) =>
-  if (prob < 0.0000001) {
+  if (prob < 0.01) {
     actionses;
   } else {
     let filtered_actionses =
       List.filter(_ => Random.float(1.0) < prob, actionses);
     switch (test_actionses(filtered_actionses, ())) {
-    | () => probabilistic_minimizer(actionses, prob *. 0.9) // took away too much
-    | exception _ => probabilistic_minimizer(filtered_actionses, prob /. 0.9) // successful filter
+    | () => probabilistic_minimizer(actionses, prob *. 0.99) // took away too much
+    | exception _ => probabilistic_minimizer(filtered_actionses, prob) // successful filter
     };
   };
+
+let totally_minimize = prefix => {
+  let prob_minimized = probabilistic_minimizer(prefix, 0.5);
+  let s = string_of_action_list_list(prob_minimized);
+  _write_string_to_file("prob_minimized.txt", s);
+  let minimized = remove_actions_until_cant(prob_minimized);
+  let s = string_of_action_list_list(minimized);
+  _write_string_to_file("minimized.txt", s);
+  minimized;
+};
 
 // test_action_log();
 
 let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
-  if (fuel == 0) {
+  if (fuel < 0) {
     print_endline("no counterexample found.");
+    false;
   } else {
     let actions = Hazelnut_lib.Actions_random.random_action_segment();
-    let prefix = List.rev([actions, ...rev_acc]);
-    let len = List.length(prefix);
+    let len = 1 + List.length(rev_acc);
     if (len mod 1000 != 0) {
       // print_endline("trying " ++ string_of_int(len));
       generate_minimal_counterexample(
@@ -601,6 +614,7 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
         s,
       );
     } else {
+      let prefix = List.rev([actions, ...rev_acc]);
       print_endline("trying " ++ string_of_int(len));
       switch (test_actionses(prefix, ())) {
       //(apply_actions_and_test(actions, s)) {
@@ -618,12 +632,8 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
         print_endline("lesgo");
         let s = string_of_action_list_list(prefix);
         _write_string_to_file("prefix.txt", s);
-        let prob_minimized = probabilistic_minimizer(prefix, 0.5);
-        let s = string_of_action_list_list(prob_minimized);
-        _write_string_to_file("prob_minimized.txt", s);
-        let minimized = remove_actions_until_cant(prob_minimized);
-        let s = string_of_action_list_list(minimized);
-        _write_string_to_file("minimized.txt", s);
+        let _ = totally_minimize(prefix);
+        true;
       // if it succeeds, continue adding random actions
       | _ =>
         generate_minimal_counterexample(fuel - 1, [actions, ...rev_acc], s)
@@ -631,13 +641,38 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
     };
   };
 
-let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
+let rec generate_minimal_counterexamples = () => {
+  let found =
+    generate_minimal_counterexample(
+      30000,
+      minimized_4 @ minimized_3,
+      initial_state(),
+    );
+  if (!found) {
+    generate_minimal_counterexamples();
+  };
+};
 
-// generate_minimal_counterexample(
-//   1000000,
-//   random_action_segments(500),
-//   initial_state(),
-// );
+let minimize_prefix = () => {
+  let ic = open_in(current_path ++ "/prefix.txt");
+  print_endline("parsing...");
+  let _ = input_char(ic); // [
+  let prefix = test_action_list_sequence(ic, []);
+  print_endline("this better fail...");
+  switch (test_actionses(prefix, ())) {
+  | exception _ => ()
+  | _ => failwith("...it works now... ??")
+  };
+  print_endline("lesgo");
+
+  print_endline("minimizing...");
+  let minimized_actionses = totally_minimize(prefix);
+  let s = string_of_action_list_list(minimized_actionses);
+  _write_string_to_file("minimized.txt", s);
+  ();
+};
+
+let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
 
 // let validity_tests = [];
 
@@ -695,34 +730,36 @@ let multi_test_indepedence = () => {
 
 Random.self_init();
 
+generate_minimal_counterexamples();
 // let validity_tests = [];
 
 let validity_tests = [
   // ("indepedence", `Quick, multi_test_indepedence),
-  ("a1", `Quick, test_actionses(a1)),
-  ("a1'", `Quick, test_actionses(a1')),
-  ("a2", `Quick, test_actionses(a2)),
-  ("a3", `Quick, test_actionses(a3)),
-  ("binding_insert", `Quick, test_actionses(binding_insert)),
-  ("binding_delete", `Quick, test_actionses(binding_delete)),
-  ("inconsistent", `Quick, test_actionses(inconsistent)),
-  ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
-  ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
-  ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
-  ("free_var", `Quick, test_actionses(free_var)),
-  ("big_example", `Quick, test_actionses(big_example)),
-  ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
-  ("unwrap", `Quick, test_actionses(unwrap)),
-  ("nonsense", `Quick, test_actionses(nonsense)),
-  ("excise", `Quick, test_actionses(excise)),
-  ("excise2", `Quick, test_actionses(excise2)),
-  ("minimized", `Quick, test_actionses(minimized_test)),
-  ("minimized 2", `Quick, test_actionses(minimized_2)),
-  ("minimized 3", `Quick, test_actionses(minimized_3)),
-  ("minimized 4", `Quick, test_actionses(minimized_4)),
-  ("all", `Quick, test_actionses_all),
-  ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
-  ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
-  ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+  // ("a1", `Quick, test_actionses(a1)),
+  // ("a1'", `Quick, test_actionses(a1')),
+  // ("a2", `Quick, test_actionses(a2)),
+  // ("a3", `Quick, test_actionses(a3)),
+  // ("binding_insert", `Quick, test_actionses(binding_insert)),
+  // ("binding_delete", `Quick, test_actionses(binding_delete)),
+  // ("inconsistent", `Quick, test_actionses(inconsistent)),
+  // ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+  // ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+  // ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+  // ("free_var", `Quick, test_actionses(free_var)),
+  // ("big_example", `Quick, test_actionses(big_example)),
+  // ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+  // ("unwrap", `Quick, test_actionses(unwrap)),
+  // ("nonsense", `Quick, test_actionses(nonsense)),
+  // ("excise", `Quick, test_actionses(excise)),
+  // ("excise2", `Quick, test_actionses(excise2)),
+  // ("minimized", `Quick, test_actionses(minimized_test)),
+  // ("minimized 2", `Quick, test_actionses(minimized_2)),
+  // ("minimized 3", `Quick, test_actionses(minimized_3)),
+  // ("minimized 4", `Quick, test_actionses(minimized_4)),
+  // ("all", `Quick, test_actionses_all),
+  // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+  // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
+  // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+  // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 ];

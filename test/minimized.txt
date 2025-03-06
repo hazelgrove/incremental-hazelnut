@@ -1,1 +1,0 @@
-[[InsertVar("x")],[MoveUp,WrapPlus(One)],[MoveUp,MoveUp,MoveDown(Two),InsertVar("x")],[WrapLam,MoveDown(One),InsertVar("x"),MoveUp],[Unwrap(One)],[MoveUp,MoveDown(One),MoveDown(Three),WrapLam,MoveDown(One),InsertVar("x"),MoveUp]]
