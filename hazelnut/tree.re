@@ -16,6 +16,29 @@ module Tree = {
     | Leaf
     | Node(t('a), info('a), t('a));
 
+  let rec assert_order_invariant: t('a) => unit =
+    fun
+    | Leaf => ()
+    | Node(l, info, right) => {
+        // Left comparison
+        switch (l) {
+        | Leaf => ()
+        | Node(_, l_info, _) => assert(!Order.lt(info.left, l_info.left))
+        };
+
+        // Left subtree
+        assert_order_invariant(l);
+
+        // Right comparison
+        switch (right) {
+        | Leaf => ()
+        | Node(_, right_info, _) =>
+          assert(!Order.gt(info.left, right_info.left))
+        };
+        // Right subtree
+        assert_order_invariant(right);
+      };
+
   let empty = Leaf;
 
   let is_empty =
@@ -154,7 +177,8 @@ module Tree = {
     | (t, Leaf) => t
     | (Node(ll, lv, lr), r) => {
         let (l, v) = splay_largest((ll, lv, lr));
-        node(l, v, r);
+        let t = node(l, v, r);
+        t;
       };
 
   let rec insert_t = (entry: 'a, left: Order.t, right: Order.t) =>
@@ -182,6 +206,16 @@ module Tree = {
     let (l, v, r) = splay(left, (l, v, r));
     node(l, v, r);
   };
+
+  let rec union: ((t('a), t('a))) => t('a) =
+    fun
+    | (Leaf, t)
+    | (t, Leaf) => t
+    | (Node(ll, lv, lr), r) => {
+        let (l, v) = splay_largest((ll, lv, lr));
+        let l_r = union((l, r));
+        insert(v.entry, v.left, v.right, l_r);
+      };
 
   let delete = (left: Order.t) =>
     fun
@@ -329,8 +363,12 @@ module Tree = {
   // the input Order.t elements can be assumed not to appear anywhere in the tree
   let excise_interval =
       ((left, right): (Order.t, Order.t), t: t('a)): (t('a), t('a)) => {
+    assert_order_invariant(t);
     let (t_lt, t_geq) = split(left, t);
     let (t_in, t_gt) = split(right, t_geq);
+    // print_endline("lt: " ++ string_of_int(List.length(list_of_t(t_lt))));
+    // print_endline("in: " ++ string_of_int(List.length(list_of_t(t_in))));
+    // print_endline("gt: " ++ string_of_int(List.length(list_of_t(t_gt))));
     (join((t_lt, t_gt)), t_in);
   };
 };

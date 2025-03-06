@@ -93,9 +93,20 @@ let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
 };
 
 let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+  // print_endline("adding to binder");
   Iexp.add_bound_var(
     var,
     var_set_of_binder(name_of_var_upper(var), parent),
+    // print_endline(
+    //   "now has this many: "
+    //   ++ string_of_int(
+    //        List.length(
+    //          Tree.list_of_t(
+    //            var_set_of_binder(name_of_var_upper(var), parent).contents,
+    //          ),
+    //        ),
+    //      ),
+    // );
   );
 };
 
@@ -163,7 +174,7 @@ let rec _look_up_binder_walk =
 let add_bound_var_set =
     (x: string, joining_set: Tree.t(Iexp.upper), binder: Iexp.parent) => {
   let parent_var_set = var_set_of_binder(x, binder);
-  Iexp.join_bound_vars(joining_set, parent_var_set);
+  Iexp.union_bound_vars(joining_set, parent_var_set);
 };
 
 let capture_name =
@@ -179,10 +190,27 @@ let capture_name =
   //   "this many in parental scope: "
   //   ++ string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
   // );
+  // let string_of_interval = (i: (Order.t, Order.t)) =>
+  //   "("
+  //   ++ string_of_sexp(Order.sexp_of_t(fst(i)))
+  //   ++ " , "
+  //   ++ string_of_sexp(Order.sexp_of_t(snd(i)))
+  //   ++ ")";
+  // let intervals =
+  //   List.map(
+  //     (upper: Iexp.upper) => string_of_interval(upper.interval),
+  //     Tree.list_of_t(found_vars.contents),
+  //   );
+  // print_endline("parent var intervals: " ++ String.concat(", ", intervals));
+  // print_endline("excising interval: " ++ string_of_interval(e.interval));
   let excised_vars = Iexp.excise_bound_vars(e.interval, found_vars);
   // print_endline(
   //   "this many excised: "
   //   ++ string_of_int(List.length(Tree.list_of_t(excised_vars))),
+  // );
+  // print_endline(
+  //   "now this many in parental scope: "
+  //   ++ string_of_int(List.length(Tree.list_of_t(found_vars.contents))),
   // );
   excised_vars;
 };
@@ -528,6 +556,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
       };
+      // switch (parent) {
+      // | Root(_) => print_endline("isnerting to root")
+      // | _ => print_endline("inserting ound")
+      // };
       delete_upper(e);
       replace(e, e');
       bind_to_binder(e', parent);

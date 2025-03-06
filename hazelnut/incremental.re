@@ -109,8 +109,8 @@ module Iexp = {
     excised;
   };
 
-  let join_bound_vars = (vars: Tree.t(upper), bound_vars: var_set) => {
-    bound_vars.contents = Tree.join((vars, bound_vars.contents));
+  let union_bound_vars = (vars: Tree.t(upper), bound_vars: var_set) => {
+    bound_vars.contents = Tree.union((vars, bound_vars.contents));
   };
 };
 
