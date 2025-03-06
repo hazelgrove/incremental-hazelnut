@@ -16,7 +16,8 @@ open Sexplib0
 
 module Order = struct
     let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
-    let label_bits = 14 (* Sys.word_size - 2 use only the positive range *)
+    let label_bits = Sys.word_size - 2 (*use only the positive range*)
+    (*let label_bits = 31 - 2 (*use only the positive range *)*)
     let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)
     let gap_size = max_label / label_bits (* gap between elements after rebalancing *)
     let end_label = max_label - gap_size
@@ -57,7 +58,7 @@ module Order = struct
         invalidator=nop;
     }
     
-    let trim_string s = String.sub s 0 (Int.min 4 (String.length s))
+    let trim_string s = if (String.length s > 15) then (String.cat (String.sub s 0 ((String.length s) - 15)) "-") else s
     let sexp_of_t ts = Sexp.Atom(String.concat "," [(trim_string (string_of_int ts.parent.parent_label)) ; (trim_string (string_of_int ts.label))])
     let t_of_sexp _ = failwith("t_of_sexp not implemented")
 
@@ -119,6 +120,7 @@ module Order = struct
         end else begin
             let ts' = { label=(ts.label + max_label) lsr 1; parent; prev=ts; next=null; invalidator=nop } in
             ts.next <- ts';
+            parent.back <- ts'; (*  SUSPICIOUS EDITION *)
             ts'
         end in
 
@@ -229,9 +231,7 @@ module Order = struct
             next=null;
             invalidator=nop;
         } in
-        let ts = add_next(first_ts) in 
-        print_endline (Sexplib.Std.string_of_sexp (sexp_of_t ts));
-        ts
+        add_next(first_ts) 
     end
 
     let add_prev ts = begin 

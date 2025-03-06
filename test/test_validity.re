@@ -9,9 +9,25 @@ open Hazelnut_lib.Update;
 
 // open Hazelnut_lib.Pexp;
 
+let rec apply_actions = (actions: list(Iaction.t), s): Istate.t => {
+  switch (actions) {
+  | [] => s
+  | [action, ...actions] =>
+    let s' = apply_action(s, action);
+    all_update_steps(s');
+    print_endline(
+      string_of_pexp(pexp_of_iexp(s'.ephemeral.root.root_child, s')),
+    );
+    apply_actions(actions, s');
+  };
+};
+
 let apply_actions_and_test = (actions, s) => {
   let s' = apply_actions(actions, s);
   all_update_steps(s');
+  // print_endline(
+  //   string_of_pexp(pexp_of_iexp(s'.ephemeral.root.root_child, s')),
+  // );
   switch (marked_correctly(s'.ephemeral.root.root_child)) {
   | Some(e') =>
     print_endline("failed test");
@@ -397,89 +413,7 @@ let minimized_4: list(list(Iaction.t)) = [
     InsertVar("x"),
   ],
 ];
-let minimized_5 = Hazelnut_lib.Counterexample.minimized_5;
-
-// let minimized_5: list(list(Iaction.t)) = [
-//   [
-//     WrapLam,
-//     WrapAsc,
-//     WrapPlus(One),
-//     WrapLam,
-//     WrapAsc,
-//     WrapPlus(One),
-//     WrapPlus(One),
-//     MoveDown(One),
-//     WrapLam,
-//     MoveUp,
-//     WrapPlus(One),
-//     WrapPlus(One),
-//     WrapAsc,
-//     WrapAp(One),
-//     MoveDown(One),
-//     WrapPlus(One),
-//     WrapPlus(Two),
-//     MoveUp,
-//     WrapAp(One),
-//     WrapPlus(One),
-//     Unwrap(One),
-//     WrapAp(One),
-//     Unwrap(Two),
-//     WrapAp(One),
-//     Unwrap(Two),
-//     WrapPlus(One),
-//     WrapLam,
-//     Unwrap(One),
-//     WrapAsc,
-//     WrapPlus(One),
-//     WrapAp(Two),
-//     WrapPlus(Two),
-//     WrapAp(Two),
-//     WrapAsc,
-//     Unwrap(Two),
-//     WrapAp(One),
-//     WrapLam,
-//     WrapAsc,
-//     WrapPlus(One),
-//     WrapAsc,
-//     WrapLam,
-//     WrapLam,
-//     WrapPlus(One),
-//     WrapLam,
-//     WrapAp(Two),
-//     WrapPlus(One),
-//     WrapAp(Two),
-//     WrapLam,
-//     WrapAsc,
-//     WrapAp(Two),
-//     WrapAsc,
-//     MoveDown(One),
-//     WrapAp(Two),
-//     MoveUp,
-//     Unwrap(Two),
-//     WrapLam,
-//     WrapPlus(Two),
-//     Unwrap(One),
-//     WrapAsc,
-//     WrapAsc,
-//     WrapLam,
-//     WrapAp(One),
-//     Unwrap(One),
-//     WrapAp(Two),
-//     Unwrap(One),
-//     WrapLam,
-//     WrapAp(Two),
-//     WrapPlus(Two),
-//     WrapPlus(Two),
-//     MoveDown(Two),
-//     WrapLam,
-//     MoveDown(One),
-//     InsertVar("x"),
-//     MoveUp,
-//     MoveUp,
-//     MoveDown(One),
-//     InsertVar("x"),
-//   ],
-// ];
+let minimized_5 = [Hazelnut_lib.Counterexample.minimized_5];
 
 // blatantly exponential, it'll never run
 let rec find_best_failing_subset = (rev_acc: list(Iaction.t)) =>
@@ -896,8 +830,9 @@ let actual_tests = [
   ("minimized 2", `Quick, test_actionses(minimized_2)),
   ("minimized 3", `Quick, test_actionses(minimized_3)),
   ("minimized 4", `Quick, test_actionses(minimized_4)),
+  ("minimized 5", `Quick, test_actionses(minimized_5)),
   ("all", `Quick, test_actionses_all),
-  ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
+  // ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
   // ("random 1K by 1K", `Quick, oneK_squared),
   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
   // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
@@ -906,23 +841,9 @@ let actual_tests = [
   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 ];
 
-let _ = Hazelnut_lib.Order.Order.create();
-
 // generate_minimal_counterexamples();
 // minimize_prefix();
-let validity_tests = [
-  //("always_fails", `Quick, () => assert(false))];
-  (
-    "minimized 5",
-    `Quick,
-    () => {
-      print_endline("testing");
-      let s = initial_state();
-      let _ = apply_actions_and_test(minimized_5, s);
-      ();
-    },
-  ),
-]; //actual_tests;
+let validity_tests = actual_tests;
 
 // print_endline("testing");
 // let s = initial_state();
