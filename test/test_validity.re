@@ -16,8 +16,8 @@ let apply_actions_and_test = (actions, s) => {
   all_update_steps(s');
   switch (marked_correctly(s'.ephemeral.root.root_child)) {
   | Some(_) =>
-    print_endline("failed test");
-    failwith("failed test");
+    // print_endline("failed test");
+    failwith("failed test")
   | None => ()
   };
   s';
@@ -47,12 +47,12 @@ let string_of_action_list_list = l =>
 let _write_string_to_file = (filename, s) => {
   let current_path = Sys.getcwd();
   let current_path =
-    // String.sub(
-    //   current_path,
-    //   0,
-    //   String.length(current_path) - String.length("/_build/default/test"),
-    // )
-    current_path ++ "/test";
+    String.sub(
+      current_path,
+      0,
+      String.length(current_path) - String.length("/_build/default/test"),
+    )
+    ++ "/test";
   // print_endline(current_path);
   let oc = open_out(current_path ++ "/" ++ filename);
   output_string(oc, s);
@@ -568,44 +568,54 @@ let rec generate_minimal_counterexample = (fuel, rev_acc, s: Istate.t) =>
   if (fuel == 0) {
     print_endline("no counterexample found.");
   } else {
-    let _actions5 = Hazelnut_lib.Actions_random.random_action_segment();
-    let actions = _actions5;
+    let actions = Hazelnut_lib.Actions_random.random_action_segment();
     let prefix = List.rev([actions, ...rev_acc]);
-    print_endline("trying " ++ string_of_int(List.length(prefix)));
-    switch (test_actionses(prefix, ())) {
-    //(apply_actions_and_test(actions, s)) {
-    | exception _ =>
-      // if it fails, we've found the counterexample
-      print_endline(
-        "counterexample found with prefix length "
-        ++ string_of_int(List.length(prefix)),
+    let len = List.length(prefix);
+    if (len mod 1000 != 0) {
+      // print_endline("trying " ++ string_of_int(len));
+      generate_minimal_counterexample(
+        fuel - 1,
+        [actions, ...rev_acc],
+        s,
       );
-      print_endline("this better fail...");
+    } else {
+      print_endline("trying " ++ string_of_int(len));
       switch (test_actionses(prefix, ())) {
-      | exception _ => ()
-      | _ => failwith("...it works now... ??")
+      //(apply_actions_and_test(actions, s)) {
+      | exception _ =>
+        // if it fails, we've found the counterexample
+        print_endline(
+          "counterexample found with prefix length "
+          ++ string_of_int(List.length(prefix)),
+        );
+        print_endline("this better fail...");
+        switch (test_actionses(prefix, ())) {
+        | exception _ => ()
+        | _ => failwith("...it works now... ??")
+        };
+        print_endline("lesgo");
+        let s = string_of_action_list_list(prefix);
+        _write_string_to_file("prefix.txt", s);
+        let prob_minimized = probabilistic_minimizer(prefix, 0.5);
+        let s = string_of_action_list_list(prob_minimized);
+        _write_string_to_file("prob_minimized.txt", s);
+        let minimized = remove_actions_until_cant(prob_minimized);
+        let s = string_of_action_list_list(minimized);
+        _write_string_to_file("minimized.txt", s);
+      // if it succeeds, continue adding random actions
+      | _ =>
+        generate_minimal_counterexample(fuel - 1, [actions, ...rev_acc], s)
       };
-    // let s = string_of_action_list_list(prefix);
-    // _write_string_to_file("prefix.txt", s);
-    // let prob_minimized = probabilistic_minimizer(prefix, 0.5);
-    // let s = string_of_action_list_list(prob_minimized);
-    // _write_string_to_file("prob_minimized.txt", s);
-    // let minimized = remove_actions_until_cant(prob_minimized);
-    // let s = string_of_action_list_list(minimized);
-    // _write_string_to_file("minimized.txt", s);
-    // if it succeeds, continue adding random actions
-    | _ =>
-      generate_minimal_counterexample(fuel - 1, [actions, ...rev_acc], s)
     };
   };
 
 let random_action_segments = Hazelnut_lib.Actions_random.random_action_segments;
 
-generate_minimal_counterexample(
-  1000000,
-  random_action_segments(500),
-  initial_state(),
-);
+// generate_minimal_counterexample(
+//   1000000,
+//   random_action_segments(500),
+//   initial_state(),
+// );
 
 // let validity_tests = [];
 
@@ -614,72 +624,82 @@ generate_minimal_counterexample(
 //     "thing",
 //     `Quick,
 //     test_actionses([
-//       [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
+//       [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
 //       [
+//         MoveDown(Three),
 //         MoveUp,
 //         MoveUp,
+//         MoveDown(One),
 //         MoveUp,
 //         MoveUp,
+//         MoveDown(Three),
 //         WrapLam,
 //         MoveDown(One),
 //         InsertVar("x"),
 //         MoveUp,
 //       ],
-//       [MoveUp, MoveDown(Three), MoveUp, Unwrap(One)],
-//       [MoveDown(Three), WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
-//       [WrapAp(Two)],
-//       [MoveDown(Two), MoveDown(Two), MoveDown(Three), WrapAp(Two)],
-//       [MoveUp, MoveUp, MoveDown(One), InsertVar("y")],
+//       [
+//         MoveDown(One),
+//         MoveUp,
+//         MoveDown(Two),
+//         MoveUp,
+//         MoveDown(Three),
+//         InsertVar("x"),
+//       ],
+//       [MoveDown(Two), MoveUp, MoveUp, MoveDown(Two), WrapArrow(One)],
 //     ]),
 //   ),
 // ];
 
+let boolean_test = actionses => {
+  switch (test_actionses(actionses, ())) {
+  | exception _ => false
+  | () => true
+  };
+};
+
+let test_indepedence = () => {
+  let actionses = random_action_segments(100);
+  let iterations = List.init(10, _ => boolean_test(actionses));
+  assert(
+    List.for_all(x => x, iterations) || List.for_all(x => !x, iterations),
+  );
+};
+
+let multi_test_indepedence = () => {
+  let _ = List.init(10000, _ => test_indepedence());
+  ();
+};
+
 Random.self_init();
 
-let validity_tests = [];
+// let validity_tests = [];
 
-// let validity_tests = [
-//   ("a1", `Quick, test_actionses(a1)),
-//   ("a1'", `Quick, test_actionses(a1')),
-//   ("a2", `Quick, test_actionses(a2)),
-//   ("a3", `Quick, test_actionses(a3)),
-//   ("binding_insert", `Quick, test_actionses(binding_insert)),
-//   ("binding_delete", `Quick, test_actionses(binding_delete)),
-//   ("inconsistent", `Quick, test_actionses(inconsistent)),
-//   ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
-//   ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
-//   ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
-//   ("free_var", `Quick, test_actionses(free_var)),
-//   ("big_example", `Quick, test_actionses(big_example)),
-//   ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
-//   ("unwrap", `Quick, test_actionses(unwrap)),
-//   ("nonsense", `Quick, test_actionses(nonsense)),
-//   ("excise", `Quick, test_actionses(excise)),
-//   ("excise2", `Quick, test_actionses(excise2)),
-//   ("minimized", `Quick, test_actionses(minimized_test)),
-//   ("minimized 2", `Quick, test_actionses(minimized_2)),
-//   ("minimized 3", `Quick, test_actionses(minimized_3)),
-//   ("all", `Quick, test_actionses_all),
-//   // ("random 10", `Quick, test_actionses(random_action_segments(10))),
-//   // ("random 100", `Quick, test_actionses(random_action_segments(100))),
-//   // (
-//   //   "random 1K",
-//   //   `Quick,
-//   //   () => {
-//   //     let actionses = random_action_segments(1000);
-//   //     // let s = string_of_action_list_list(actionses);
-//   //     // _write_string_to_file("random_action_1K" ++ ".txt", s);
-//   //     test_actionses(actionses, ());
-//   //   },
-//   // ),
-//   ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
-//   ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
-//   // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
-//   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
-//   // ("random 10asdM1aaasdfasdfsdaasdfsdffsf", `Quick, () => {
-//   //     let actionses = random_action_segments(10018);
-//   //     let s = string_of_action_list_list(actionses);
-//   //     _write_string_to_file("random_actiasasdfdfasdasdffonasasdffd_10asdK3" ++ ".txt", s);
-//   //     test_actionses(actionses, ());
-//   //   },),
-// ];
+let validity_tests = [
+  ("indepedence", `Quick, multi_test_indepedence),
+  // ("a1", `Quick, test_actionses(a1)),
+  // ("a1'", `Quick, test_actionses(a1')),
+  // ("a2", `Quick, test_actionses(a2)),
+  // ("a3", `Quick, test_actionses(a3)),
+  // ("binding_insert", `Quick, test_actionses(binding_insert)),
+  // ("binding_delete", `Quick, test_actionses(binding_delete)),
+  // ("inconsistent", `Quick, test_actionses(inconsistent)),
+  // ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+  // ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+  // ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+  // ("free_var", `Quick, test_actionses(free_var)),
+  // ("big_example", `Quick, test_actionses(big_example)),
+  // ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+  // ("unwrap", `Quick, test_actionses(unwrap)),
+  // ("nonsense", `Quick, test_actionses(nonsense)),
+  // ("excise", `Quick, test_actionses(excise)),
+  // ("excise2", `Quick, test_actionses(excise2)),
+  // ("minimized", `Quick, test_actionses(minimized_test)),
+  // ("minimized 2", `Quick, test_actionses(minimized_2)),
+  // ("minimized 3", `Quick, test_actionses(minimized_3)),
+  // ("all", `Quick, test_actionses_all),
+  // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+  // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
+  // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+  ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
+];

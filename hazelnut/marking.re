@@ -1,7 +1,7 @@
 open Hazelnut;
 open Incremental;
-open Order;
 open Tree;
+open Order;
 // open Hashtbl;
 
 type bareExp =
@@ -116,13 +116,17 @@ let performance_mark = (e: bareExp) => {
   ();
 };
 
-let dummy_interval = (Order.null, Order.null);
+let dummy_interval = () => {
+  let a = Order.create();
+  let b = Order.add_next(a);
+  (a, b);
+};
 
 let wrap_upper = (m: Iexp.middle, syn: option(Htyp.t)): Iexp.upper => {
   parent: Deleted,
   syn,
   middle: m,
-  interval: dummy_interval,
+  interval: dummy_interval(),
   in_queue_upper: InQueue.default_upper(),
   deleted_upper: false,
 };

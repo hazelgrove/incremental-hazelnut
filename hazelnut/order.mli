@@ -5,7 +5,7 @@ module Order : sig
   type t
   val sexp_of_t : t -> Sexp.t
   val t_of_sexp : Sexp.t -> t
-  val null : t
+  (* val null : t *)
   val create : unit -> t
   val is_valid : t -> bool
   val compare : t -> t -> int

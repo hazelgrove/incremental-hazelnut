@@ -107,6 +107,7 @@ module Order = struct
 
   (** Add a new total-order element after the given element. *)
   let add_next ts =
+      (* print_endline (String.concat " " [string_of_int ts.parent.parent_label; string_of_int ts.label]); *)
       if not (is_valid ts || is_initial ts) then invalid_arg "TotalOrder.add_next";
 
       let parent = ts.parent in
@@ -215,20 +216,20 @@ module Order = struct
 
   (** Create a new total order and return its initial element. *)
   let create () = begin 
-    let rec ts = {
+    let rec first_ts = {
         label=0;
         parent={
             parent_label=0;
             parent_next=null_parent;
             parent_prev=null_parent;
-            front=ts;
-            back=ts;
+            front=first_ts;
+            back=first_ts;
         };
         prev=null;
         next=null;
         invalidator=nop;
     } in
-    add_next(ts)
+    add_next(first_ts)
   end
 
   let add_prev ts = begin 
