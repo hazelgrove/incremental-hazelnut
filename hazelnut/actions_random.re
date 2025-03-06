@@ -18,20 +18,20 @@ let random_motions = () => {
 
 let random_edit = (): list(Iaction.t) => {
   let edits: list(list(Iaction.t)) = [
-    // [Delete],
+    [Delete],
     // [WrapArrow(One)],
     // [WrapArrow(Two)],
     // [InsertNumType],
     // [InsertNumLit(0)],
     [InsertVar("x")],
-    [InsertVar("y")],
+    // [InsertVar("y")],
     [WrapPlus(One)],
     // [WrapPlus(Two)],
     // [WrapAp(One)],
     // [WrapAp(Two)],
     // [WrapAsc],
     [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
-    [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
+    // [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
     [Unwrap(One)],
     // [Unwrap(Two)],
   ];

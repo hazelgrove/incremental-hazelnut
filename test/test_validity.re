@@ -728,38 +728,45 @@ let multi_test_indepedence = () => {
   ();
 };
 
+let oneK_squared = () => {
+  let _ = List.init(10, _ => test_actionses(random_action_segments(100000)));
+  ();
+};
+
 Random.self_init();
 
 generate_minimal_counterexamples();
-// let validity_tests = [];
+let validity_tests = [];
 
-let validity_tests = [
-  // ("indepedence", `Quick, multi_test_indepedence),
-  // ("a1", `Quick, test_actionses(a1)),
-  // ("a1'", `Quick, test_actionses(a1')),
-  // ("a2", `Quick, test_actionses(a2)),
-  // ("a3", `Quick, test_actionses(a3)),
-  // ("binding_insert", `Quick, test_actionses(binding_insert)),
-  // ("binding_delete", `Quick, test_actionses(binding_delete)),
-  // ("inconsistent", `Quick, test_actionses(inconsistent)),
-  // ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
-  // ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
-  // ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
-  // ("free_var", `Quick, test_actionses(free_var)),
-  // ("big_example", `Quick, test_actionses(big_example)),
-  // ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
-  // ("unwrap", `Quick, test_actionses(unwrap)),
-  // ("nonsense", `Quick, test_actionses(nonsense)),
-  // ("excise", `Quick, test_actionses(excise)),
-  // ("excise2", `Quick, test_actionses(excise2)),
-  // ("minimized", `Quick, test_actionses(minimized_test)),
-  // ("minimized 2", `Quick, test_actionses(minimized_2)),
-  // ("minimized 3", `Quick, test_actionses(minimized_3)),
-  // ("minimized 4", `Quick, test_actionses(minimized_4)),
-  // ("all", `Quick, test_actionses_all),
-  // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
-  // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
-  // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
-  // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
-  ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
-];
+// let validity_tests = [
+//   // ("indepedence", `Quick, multi_test_indepedence),
+//   ("a1", `Quick, test_actionses(a1)),
+//   ("a1'", `Quick, test_actionses(a1')),
+//   ("a2", `Quick, test_actionses(a2)),
+//   ("a3", `Quick, test_actionses(a3)),
+//   ("binding_insert", `Quick, test_actionses(binding_insert)),
+//   ("binding_delete", `Quick, test_actionses(binding_delete)),
+//   ("inconsistent", `Quick, test_actionses(inconsistent)),
+//   ("non_arrow_ap", `Quick, test_actionses(non_arrow_ap)),
+//   ("non_arrow_lam", `Quick, test_actionses(non_arrow_lam)),
+//   ("lam_ann_inconsistent", `Quick, test_actionses(lam_ann_inconsistent)),
+//   ("free_var", `Quick, test_actionses(free_var)),
+//   ("big_example", `Quick, test_actionses(big_example)),
+//   ("big_example_broken_up", `Quick, test_actionses(big_example_broken_up)),
+//   ("unwrap", `Quick, test_actionses(unwrap)),
+//   ("nonsense", `Quick, test_actionses(nonsense)),
+//   ("excise", `Quick, test_actionses(excise)),
+//   ("excise2", `Quick, test_actionses(excise2)),
+//   ("minimized", `Quick, test_actionses(minimized_test)),
+//   ("minimized 2", `Quick, test_actionses(minimized_2)),
+//   ("minimized 3", `Quick, test_actionses(minimized_3)),
+//   ("minimized 4", `Quick, test_actionses(minimized_4)),
+//   ("all", `Quick, test_actionses_all),
+//   ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
+//   ("random 1K by 1K", `Quick, oneK_squared),
+//   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+//   // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
+//   ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+//   // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
+//   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
+// ];
