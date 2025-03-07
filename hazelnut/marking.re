@@ -10,6 +10,7 @@ type bareExp =
   | Plus(bareExp, bareExp)
   | Lam(Bind.t, Htyp.t, bareExp)
   | Ap(bareExp, bareExp)
+  | Product(bareExp, bareExp)
   | Asc(bareExp, Htyp.t)
   | EHole;
 
