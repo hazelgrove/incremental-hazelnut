@@ -207,6 +207,8 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       NonArrowAp,
       Ap(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
     )
+  | Product(e1, e2) =>
+    pexp_markif
   | Asc(body, t) =>
     let pt =
       switch (s.persistent.c) {
@@ -267,6 +269,7 @@ let rec prec: Pexp.t => int =
   | Ap(_) => 2
   | NumLit(_) => 0
   | Plus(_) => 3
+  | Product(_) => 3
   | Asc(_) => 4
   | Hole => 0
   | Interval(_) => 0
