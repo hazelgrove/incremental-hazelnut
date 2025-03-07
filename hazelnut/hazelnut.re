@@ -48,6 +48,8 @@ let rec erase_typ = (t: Ztyp.t): Htyp.t => {
   | Cursor(t) => t
   | LArrow(zt1, t2) => Arrow(erase_typ(zt1), t2)
   | RArrow(t1, zt2) => Arrow(t1, erase_typ(zt2))
+  | LProduct(zt1, t2) => Product(erase_typ(zt1), t2)
+  | RProduct(t1, zt2) => Product(t1, erase_typ(zt2))
   };
 };
 
@@ -75,6 +77,8 @@ let rec is_type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
   | (_, Hole) => true
   | (Num, Num) => true
   | (Arrow(t11, t12), Arrow(t21, t22)) =>
+    is_type_consistent(t11, t21) && is_type_consistent(t12, t22)
+  | (Product(t11, t12), Product(t21, t22)) =>
     is_type_consistent(t11, t21) && is_type_consistent(t12, t22)
   | _ => false
   };
