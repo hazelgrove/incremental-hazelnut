@@ -48,6 +48,7 @@ module Iexp = {
     | Ap(lower, ref(Mark.t), lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
+    | Product(lower, lower)
 
   and upper = {
     mutable parent,

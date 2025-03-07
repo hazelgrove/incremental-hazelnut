@@ -4,6 +4,7 @@ module Htyp = {
   [@deriving (sexp, compare)]
   type t =
     | Arrow(t, t)
+    | Product(t, t)
     | Num
     | Hole;
 };
