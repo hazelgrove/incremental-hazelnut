@@ -295,6 +295,7 @@ let rec assoc: Pexp.t => Side.t =
   | Ap(_) => Left
   | NumLit(_) => Atom
   | Plus(_) => Left
+  | Product(_) => Left
   | Asc(_) => Left
   | Hole => Atom
   | Interval(_) => Atom
