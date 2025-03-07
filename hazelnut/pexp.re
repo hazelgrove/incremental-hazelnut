@@ -208,7 +208,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       Ap(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
     )
   | Product(e1, e2) =>
-    Product(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
+    Product(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
   | Asc(body, t) =>
     let pt =
       switch (s.persistent.c) {
