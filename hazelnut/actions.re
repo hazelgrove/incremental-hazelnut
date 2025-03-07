@@ -440,6 +440,7 @@ let _string_of_action: Iaction.t => string =
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ _string_of_child(c) ++ ")"
   | WrapAp(c) => "WrapAp(" ++ _string_of_child(c) ++ ")"
+  | WrapProduct(c) => "WrapProduct(" ++ _string_of_child(c) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
   | Unwrap(c) => "Unwrap(" ++ _string_of_child(c) ++ ")";
