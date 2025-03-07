@@ -95,6 +95,11 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       let e2 = performance_mark_ana(ctx, t1, b2);
       (Ap(e1, m, e2), t2);
     }
+  | Product(b1, b2) => {
+      let (e1, syn1) = performance_mark_syn(ctx, b1);
+      let (e2, syn2) = performance_mark_syn(ctx, b2);
+      (Product(e1, e2), Product(syn1, syn2))
+    }
   | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
   | EHole => (EHole, Hole)
 
