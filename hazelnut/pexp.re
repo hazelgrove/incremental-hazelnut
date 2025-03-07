@@ -29,6 +29,7 @@ let string_of_action: Iaction.t => string =
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
   | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
+  | WrapProduct(c) => "WrapProduct(" ++ string_of_child(c) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
