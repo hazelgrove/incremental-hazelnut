@@ -15,9 +15,9 @@ let rec apply_actions = (actions: list(Iaction.t), s): Istate.t => {
   | [action, ...actions] =>
     let s' = apply_action(s, action);
     all_update_steps(s');
-    print_endline(
-      string_of_pexp(pexp_of_iexp(s'.ephemeral.root.root_child, s')),
-    );
+    // print_endline(
+    //   string_of_pexp(pexp_of_iexp(s'.ephemeral.root.root_child, s')),
+    // );
     apply_actions(actions, s');
   };
 };
@@ -415,6 +415,84 @@ let minimized_4: list(list(Iaction.t)) = [
 ];
 let minimized_5 = [Hazelnut_lib.Counterexample.minimized_5];
 
+let minimized_6: list(list(Iaction.t)) = [
+  [
+    WrapAp(Two),
+    WrapAp(Two),
+    WrapAp(Two),
+    WrapPlus(Two),
+    WrapPlus(Two),
+    WrapAp(Two),
+    WrapAp(Two),
+    WrapPlus(Two),
+    WrapAp(One),
+    WrapPlus(One),
+    WrapAp(Two),
+    WrapAp(One),
+    WrapAsc,
+    WrapAsc,
+    WrapPlus(One),
+    WrapAsc,
+    WrapPlus(One),
+    WrapPlus(One),
+    WrapLam,
+    WrapPlus(Two),
+    WrapAp(One),
+    WrapAp(One),
+    WrapPlus(One),
+    WrapAp(Two),
+    WrapAp(Two),
+    WrapAp(Two),
+    WrapLam,
+    WrapPlus(One),
+    WrapLam,
+    WrapLam,
+    WrapPlus(Two),
+    WrapAp(One),
+    WrapAp(One),
+    WrapLam,
+    WrapAsc,
+    WrapAp(Two),
+    WrapLam,
+    WrapLam,
+    WrapAp(One),
+    WrapPlus(One),
+    WrapAp(One),
+    WrapPlus(One),
+    WrapPlus(One),
+    WrapAp(One),
+    WrapAp(One),
+    WrapPlus(One),
+    WrapPlus(One),
+    WrapAp(Two),
+    WrapAp(One),
+    Unwrap(Two),
+    WrapAp(Two),
+    WrapPlus(One),
+    Unwrap(One),
+    MoveDown(Two),
+    WrapLam,
+    MoveUp,
+    WrapAp(One),
+    MoveDown(One),
+    MoveDown(Two),
+    WrapLam,
+    MoveDown(Three),
+    WrapAsc,
+    MoveUp,
+    MoveUp,
+    MoveUp,
+    MoveDown(Two),
+    WrapAp(One),
+    WrapLam,
+    MoveUp,
+    MoveDown(One),
+    MoveDown(Two),
+    MoveUp,
+    Unwrap(Two),
+  ],
+];
+
 // blatantly exponential, it'll never run
 let rec find_best_failing_subset = (rev_acc: list(Iaction.t)) =>
   fun
@@ -702,7 +780,24 @@ let totally_minimize = prefix => {
 
 // test_action_log();
 
-let rec generate_minimal_counterexample = (fuel, s_acc, rev_acc) =>
+let rec generate_minimal_counterexample = (fuel, s_acc, rev_acc) => {
+  let deal_with_countexample = prefix => {
+    print_endline(
+      "counterexample found with prefix length "
+      ++ string_of_int(List.length(prefix)),
+    );
+    print_endline("this better fail...");
+    switch (test_actionses(prefix, ())) {
+    | exception _ => ()
+    | _ => failwith("...it works now... ??")
+    };
+    print_endline("lesgo");
+    let s = string_of_action_list_list(prefix);
+    _write_string_to_file("prefix.txt", s);
+    let _ = totally_minimize(prefix);
+    true;
+  };
+
   if (fuel < 0) {
     print_endline("no counterexample found.");
     false;
@@ -711,33 +806,22 @@ let rec generate_minimal_counterexample = (fuel, s_acc, rev_acc) =>
     let len = 1 + List.length(rev_acc);
     if (len mod 1000 != 0) {
       // print_endline("trying " ++ string_of_int(len));
-      let s_acc' = apply_actions(actions, s_acc);
-      generate_minimal_counterexample(
-        fuel - 1,
-        s_acc',
-        [actions, ...rev_acc],
-      );
+      switch (apply_actions(actions, s_acc)) {
+      | exception _ =>
+        deal_with_countexample(List.rev([actions, ...rev_acc]))
+      | s_acc' =>
+        generate_minimal_counterexample(
+          fuel - 1,
+          s_acc',
+          [actions, ...rev_acc],
+        )
+      };
     } else {
-      let prefix = List.rev([actions, ...rev_acc]);
       print_endline("trying " ++ string_of_int(len));
       switch (apply_actions_and_test(actions, s_acc)) {
       //(apply_actions_and_test(actions, s)) {
       | exception _ =>
-        // if it fails, we've found the counterexample
-        print_endline(
-          "counterexample found with prefix length "
-          ++ string_of_int(List.length(prefix)),
-        );
-        print_endline("this better fail...");
-        switch (test_actionses(prefix, ())) {
-        | exception _ => ()
-        | _ => failwith("...it works now... ??")
-        };
-        print_endline("lesgo");
-        let s = string_of_action_list_list(prefix);
-        _write_string_to_file("prefix.txt", s);
-        let _ = totally_minimize(prefix);
-        true;
+        deal_with_countexample(List.rev([actions, ...rev_acc]))
       // if it succeeds, continue adding random actions
       | s_acc' =>
         generate_minimal_counterexample(
@@ -748,6 +832,7 @@ let rec generate_minimal_counterexample = (fuel, s_acc, rev_acc) =>
       };
     };
   };
+};
 
 let rec generate_minimal_counterexamples = () => {
   let found = generate_minimal_counterexample(30000, initial_state(), []);
@@ -757,7 +842,7 @@ let rec generate_minimal_counterexamples = () => {
 };
 
 let minimize_prefix = () => {
-  let ic = open_in(current_path ++ "/hand_minimized.txt");
+  let ic = open_in(current_path ++ "/prob_minimized.txt");
   print_endline("parsing...");
   let _ = input_char(ic); // [
   let prefix = test_action_list_sequence(ic, []);
@@ -770,11 +855,11 @@ let minimize_prefix = () => {
   print_endline("lesgo");
 
   print_endline("minimizing...");
-  // let prob_minimized = little_probabilistic_minimizer(100, prefix);
-  // let minimized_actionses = remove_little_actions_until_cant(prob_minimized);
-  let minimized_actions = Option.get(find_best_failing_subset([], prefix));
+  let prob_minimized = little_probabilistic_minimizer(100, prefix);
+  let minimized_actions = remove_little_actions_until_cant(prob_minimized);
+  // let minimized_actions = Option.get(find_best_failing_subset([], prefix));
   let s = string_of_action_list_list([minimized_actions]);
-  _write_string_to_file("subset_minimized.txt", s);
+  _write_string_to_file("more_minimized.txt", s);
   ();
 };
 
@@ -830,19 +915,21 @@ let actual_tests = [
   ("minimized 2", `Quick, test_actionses(minimized_2)),
   ("minimized 3", `Quick, test_actionses(minimized_3)),
   ("minimized 4", `Quick, test_actionses(minimized_4)),
-  // ("minimized 5", `Quick, test_actionses(minimized_5)),
+  ("minimized 5", `Quick, test_actionses(minimized_5)),
+  ("minimized 6", `Quick, test_actionses(minimized_6)),
   ("all", `Quick, test_actionses_all),
   // ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
   // ("random 1K by 1K", `Quick, oneK_squared),
   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
   // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
-  ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
+  // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
   // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 ];
 
 // generate_minimal_counterexamples();
 // minimize_prefix();
+// let validity_tests = [];
 let validity_tests = actual_tests;
 
 // print_endline("testing");
