@@ -324,6 +324,8 @@ let rec string_of_pexp: Pexp.t => string =
 
   | Ap(e1, e2) as outer =>
     paren(e1, outer, Side.Left) ++ " " ++ paren(e2, outer, Side.Right)
+  | Product(e1, e2) =>
+    "(" ++ string_of_pexp(e1) ++ ", " ++ string_of_pexp(e2) ++ ")"
   | NumLit(n) => string_of_int(n)
   | Plus(e1, e2) as outer =>
     paren(e1, outer, Side.Left) ++ " + " ++ paren(e2, outer, Side.Right)
