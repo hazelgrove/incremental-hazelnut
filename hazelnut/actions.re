@@ -310,6 +310,9 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Ap(e1, _, e2) =>
     delete_lower(e1);
     delete_lower(e2);
+  | Product(e1, e2) =>
+    delete_lower(e1);
+    delete_lower(e2);
   };
 }
 
