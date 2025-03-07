@@ -48,6 +48,7 @@ module Pexp = {
     | Ap(t, t)
     | NumLit(int)
     | Plus(t, t)
+    | Product(t, t)
     | Asc(t, t)
     | Hole
     | Interval(string, t, string)
