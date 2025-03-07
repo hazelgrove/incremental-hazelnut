@@ -14,7 +14,9 @@ module Ztyp = {
   type t =
     | Cursor(Htyp.t)
     | LArrow(t, Htyp.t)
-    | RArrow(Htyp.t, t);
+    | RArrow(Htyp.t, t)
+    | LProduct(t, Htyp.t)
+    | RProduct(t, Htyp.t);
 };
 
 module Bind = {
