@@ -254,6 +254,11 @@ let rec _capture_name_body =
       _capture_name_body(actor.child, name, syn, binder),
       _capture_name_body(param.child, name, syn, binder),
     )
+  | Product(lower_a, lower_b) =>
+    List.append(
+      _capture_name_body(lower_a.child, name, syn, binder),
+      _capture_name_body(lower_b.child, name, syn, binder),
+    )
   };
 };
 
