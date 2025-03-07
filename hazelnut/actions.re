@@ -364,29 +364,54 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
   | (Cursor(Arrow(t1, t2)), MoveDown(Two)) => RArrow(t1, Cursor(t2))
   | (Cursor(Arrow(_)), MoveDown(Three)) => z
+  | (Cursor(Product(t1, t2)), MoveDown(One)) => LProduct(Cursor(t1), t2)
+  | (Cursor(Product(t1, t2)), MoveDown(Two)) => RProduct(t1, Cursor(t2))
+  | (Cursor(Product(_)), MoveDown(Three)) => z
   | (Cursor(_), Delete) => Cursor(Hole)
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
   | (Cursor(_), InsertNumType) => z
   | (Cursor(t), WrapArrow(One)) => Cursor(Arrow(t, Hole))
   | (Cursor(t), WrapArrow(Two)) => Cursor(Arrow(Hole, t))
   | (Cursor(_), WrapArrow(Three)) => z
+  | (Cursor(t), WrapProduct(One)) => Cursor(Product(t, Hole))
+  | (Cursor(t), WrapProduct(Two)) => Cursor(Product(Hole, t))
+  | (Cursor(_), WrapProduct(Three)) => z
   | (Cursor(Hole), Unwrap(_)) => z
   | (Cursor(Num), Unwrap(_)) => z
   | (Cursor(Arrow(t, _)), Unwrap(One))
   | (Cursor(Arrow(_, t)), Unwrap(Two)) => Cursor(t)
   | (Cursor(Arrow(_)), Unwrap(Three)) => z
+  | (Cursor(Product(t, _)), Unwrap(One))
+  | (Cursor(Product(_, t)), Unwrap(Two)) => Cursor(t)
+  | (Cursor(Product(_)), Unwrap(Three)) => z
   | (LArrow(z, t), MoveUp)
   | (LArrow(z, t), MoveDown(_))
   | (LArrow(z, t), Delete)
   | (LArrow(z, t), InsertNumType)
   | (LArrow(z, t), WrapArrow(_))
+  | (LArrow(z, t), WrapProduct(_))
   | (LArrow(z, t), Unwrap(_)) => LArrow(apply_action_typ(z, a), t)
   | (RArrow(t, z), MoveUp)
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
   | (RArrow(t, z), InsertNumType)
   | (RArrow(t, z), WrapArrow(_))
+  | (RArrow(t, z), WrapProduct(_))
   | (RArrow(t, z), Unwrap(_)) => RArrow(t, apply_action_typ(z, a))
+  | (LProduct(z, t), MoveUp)
+  | (LProduct(z, t), MoveDown(_))
+  | (LProduct(z, t), Delete)
+  | (LProduct(z, t), InsertNumType)
+  | (LProduct(z, t), WrapArrow(_))
+  | (LProduct(z, t), WrapProduct(_))
+  | (LProduct(z, t), Unwrap(_)) => LProduct(apply_action_typ(z, a), t)
+  | (RProduct(t, z), MoveUp)
+  | (RProduct(t, z), MoveDown(_))
+  | (RProduct(t, z), Delete)
+  | (RProduct(t, z), InsertNumType)
+  | (RProduct(t, z), WrapArrow(_))
+  | (RProduct(t, z), WrapProduct(_))
+  | (RProduct(t, z), Unwrap(_)) => RProduct(t, apply_action_typ(z, a))
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
