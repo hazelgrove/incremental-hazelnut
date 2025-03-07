@@ -71,7 +71,9 @@ let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   fun
   | Cursor(t) => Cursor(pexp_of_htyp(t))
   | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
-  | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z));
+  | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z))
+  | LProduct(z, t) => Product(pexp_of_ztyp(z), pexp_of_htyp(t))
+  | RProduct(t, z) => Product(pexp_of_htyp(t), pexp_of_ztyp(z));
 
 let pexp_of_bind: Bind.t => Pexp.t = {
   fun
