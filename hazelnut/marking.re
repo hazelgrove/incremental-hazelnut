@@ -34,6 +34,7 @@ and erase_middle: Iexp.middle => bareExp =
   | Plus(e1, e2) => Plus(erase_lower(e1), erase_lower(e2))
   | Lam(x, t, _, _, e, _) => Lam(x.contents, t.contents, erase_lower(e))
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
+  | Product(e1, e2) => Product(erase_lower(e1), erase_lower(e2))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
