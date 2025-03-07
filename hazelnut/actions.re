@@ -543,6 +543,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | NumLit(_)
     | EHole => no_movement
     | Plus(e1, e2)
+    | Product(e1, e2)
     | Ap(e1, _, e2) =>
       switch (child) {
       | One => return_cursor(CursorExp(e1.child))
