@@ -58,6 +58,7 @@ module Pexp = {
 let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
   fun
   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
+  | Product(t1, t2) => Product(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Num => Num
   | Hole => Hole;
 
