@@ -757,6 +757,55 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
 
+  | (CursorExp(e), WrapProduct(child)) =>
+     let make_product_with_children = (parent, interval, e1, e2, q) => {
+      let new_lower_left: Iexp.lower = {
+        upper: dummy_upper(),
+        ana: None,
+        marked: Unmarked,
+        child: e1,
+        in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
+      };
+      let new_lower_right: Iexp.lower = {
+        upper: dummy_upper(),
+        ana: None,
+        marked: Unmarked,
+        child: e2,
+        in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
+      };
+      let new_mid: Iexp.middle = Product(new_lower_left, new_lower_right);
+      let new_upper: Iexp.upper = {
+        parent,
+        syn: Some(Product(Hole, Hole)),
+        interval,
+        middle: new_mid,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+
+      splice(new_lower_left, new_upper);
+      splice(new_lower_right, new_upper);
+
+      let update_list = [
+        Update.NewAna(parent),
+        Update.NewSyn(new_upper),
+      ];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(new_upper));
+    };
+    let interval = interval_around(e);
+    switch (child) {
+    | One =>
+      let hole = exp_hole_upper(interval_after(e));
+      make_product_with_children(e.parent, interval, e, hole, q);
+    | Two =>
+      let hole = exp_hole_upper(interval_before(e));
+      make_product_with_children(e.parent, interval, hole, e, q);
+    | Three => no_movement
+    };
+
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
       upper: dummy_upper(),
