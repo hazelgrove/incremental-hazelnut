@@ -2,6 +2,7 @@ module Htyp: {
   [@deriving (sexp, compare)]
   type t =
     | Arrow(t, t)
+    | Product(t, t)
     | Num
     | Hole;
 };
@@ -11,7 +12,9 @@ module Ztyp: {
   type t =
     | Cursor(Htyp.t)
     | LArrow(t, Htyp.t)
-    | RArrow(Htyp.t, t);
+    | RArrow(Htyp.t, t)
+    | LProduct(t, Htyp.t)
+    | RProduct(Htyp.t, t);
 };
 
 module Bind: {

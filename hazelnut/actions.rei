@@ -22,6 +22,7 @@ module Iaction: {
     | InsertVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
+    | WrapProduct(Child.t)
     | WrapLam
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
