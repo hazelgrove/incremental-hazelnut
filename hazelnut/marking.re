@@ -20,6 +20,7 @@ type markedExp =
   | Plus(markedExp, markedExp)
   | Lam(Bind.t, Htyp.t, Mark.t, Mark.t, markedExp)
   | Ap(markedExp, Mark.t, markedExp)
+  | Product(markedExp, markedExp)
   | Asc(markedExp, Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
