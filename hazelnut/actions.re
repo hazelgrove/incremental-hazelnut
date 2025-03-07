@@ -893,7 +893,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(body));
 
-    | Plus(left_arg, right_arg) =>
+    | Plus(left_arg, right_arg)
+    | Product(left_arg, right_arg) =>
       let (body_lower, deleted_lower) =
         switch (child) {
         | One => (left_arg, right_arg)
