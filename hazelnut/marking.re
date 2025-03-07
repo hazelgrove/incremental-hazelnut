@@ -194,6 +194,16 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
         Some(t2),
       );
     }
+  | Product(b1, b2) => {
+      let e1 = validity_mark_syn(ctx, b1);
+      let e2 = validity_mark_syn(ctx, b2);
+      let syn1 = Option.get(e1.syn);
+      let syn2 = Option.get(e2.syn);
+      wrap_upper(
+        Product(wrap_lower(e1, Unmarked, None), wrap_lower(e2, Unmarked, None)),
+        Some(Product(syn1, syn2))
+      );
+    }
   | Asc(e, t) =>
     wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t)), Some(t))
   | EHole => wrap_upper(EHole, Some(Hole))
