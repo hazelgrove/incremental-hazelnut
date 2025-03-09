@@ -781,7 +781,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let new_mid: Iexp.middle = Product(new_lower_left, new_lower_right);
       let new_upper: Iexp.upper = {
         parent,
-        syn: Some(Product(Hole, Hole)),
+        syn: None,
         interval,
         middle: new_mid,
         in_queue_upper: InQueue.default_upper(),
