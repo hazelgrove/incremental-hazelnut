@@ -252,6 +252,8 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
     //print_endine("comparing ap");
     return(equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4))
+  | (Product(e1, e2), Product(e3, e4)) =>
+    return(equiv_lower(e1, e3) && equiv_lower(e2, e4))
   | (Asc(e1, t1), Asc(e2, t2)) =>
     //print_endine("comparing asc");
     equiv_lower(e1, e2) && t1 == t2
