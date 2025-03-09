@@ -791,7 +791,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
 
       let update_list = [
         Update.NewAna(parent),
-        Update.NewSyn(new_upper),
+        Update.NewSyn(e1),
+        Update.NewSyn(e2),
       ];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(new_upper));

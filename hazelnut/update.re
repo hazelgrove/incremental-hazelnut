@@ -43,6 +43,12 @@ let update_step = (state: Istate.t): stepped => {
           body.marked = Unmarked;
           let update_list = [Update.NewSyn(parent.upper)];
           UpdateQueue.update_push_list(update_list, q);
+        | Product(e1, e2) when Option.is_none(parent.ana) =>
+          parent.upper.syn = product_matched_syn(e1.child.syn, e2.child.syn);
+          e1.marked = Unmarked;
+          e2.marked = Unmarked;
+          let update_list = [Update.NewSyn(parent.upper)];
+          UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana)

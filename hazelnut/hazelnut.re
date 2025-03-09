@@ -106,4 +106,14 @@ let arrow_unless =
   };
 };
 
+let product_matched_syn =
+    (t1: option(Htyp.t), t2: option(Htyp.t)): option(Htyp.t) => {
+  switch (t1, t2) {
+  | (None, None)
+  | (Some(_), None)
+  | (None, Some(_)) => None
+  | (Some(t1), Some(t2)) => Some(Product(t1, t2))
+  }
+}
+
 exception Unimplemented;
