@@ -359,6 +359,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (Cursor(_), MoveUp) => z
   | (LArrow(Cursor(t1), t2), MoveUp)
   | (RArrow(t1, Cursor(t2)), MoveUp) => Cursor(Arrow(t1, t2))
+  | (LProduct(Cursor(t1), t2), MoveUp)
+  | (RProduct(t1, Cursor(t2)), MoveUp) => Cursor(Product(t1, t2))
   | (Cursor(Hole), MoveDown(_)) => z
   | (Cursor(Num), MoveDown(_)) => z
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
