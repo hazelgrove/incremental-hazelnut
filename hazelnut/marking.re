@@ -10,7 +10,7 @@ type bareExp =
   | Plus(bareExp, bareExp)
   | Lam(Bind.t, Htyp.t, bareExp)
   | Ap(bareExp, bareExp)
-  | Product(bareExp, bareExp)
+  | Pair(bareExp, bareExp)
   | Asc(bareExp, Htyp.t)
   | EHole;
 
@@ -20,7 +20,7 @@ type markedExp =
   | Plus(markedExp, markedExp)
   | Lam(Bind.t, Htyp.t, Mark.t, Mark.t, markedExp)
   | Ap(markedExp, Mark.t, markedExp)
-  | Product(markedExp, markedExp)
+  | Pair(markedExp, markedExp)
   | Asc(markedExp, Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
@@ -35,7 +35,7 @@ and erase_middle: Iexp.middle => bareExp =
   | Plus(e1, e2) => Plus(erase_lower(e1), erase_lower(e2))
   | Lam(x, t, _, _, e, _) => Lam(x.contents, t.contents, erase_lower(e))
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
-  | Product(e1, e2) => Product(erase_lower(e1), erase_lower(e2))
+  | Pair(e1, e2) => Pair(erase_lower(e1), erase_lower(e2))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
@@ -95,10 +95,10 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       let e2 = performance_mark_ana(ctx, t1, b2);
       (Ap(e1, m, e2), t2);
     }
-  | Product(b1, b2) => {
+  | Pair(b1, b2) => {
       let (e1, syn1) = performance_mark_syn(ctx, b1);
       let (e2, syn2) = performance_mark_syn(ctx, b2);
-      (Product(e1, e2), Product(syn1, syn2))
+      (Pair(e1, e2), Product(syn1, syn2))
     }
   | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
   | EHole => (EHole, Hole)
@@ -194,13 +194,13 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
         Some(t2),
       );
     }
-  | Product(b1, b2) => {
+  | Pair(b1, b2) => {
       let e1 = validity_mark_syn(ctx, b1);
       let e2 = validity_mark_syn(ctx, b2);
       let syn1 = Option.get(e1.syn);
       let syn2 = Option.get(e2.syn);
       wrap_upper(
-        Product(wrap_lower(e1, Unmarked, None), wrap_lower(e2, Unmarked, None)),
+        Pair(wrap_lower(e1, Unmarked, None), wrap_lower(e2, Unmarked, None)),
         Some(Product(syn1, syn2))
       );
     }
@@ -252,7 +252,7 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
     //print_endine("comparing ap");
     return(equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4))
-  | (Product(e1, e2), Product(e3, e4)) =>
+  | (Pair(e1, e2), Pair(e3, e4)) =>
     return(equiv_lower(e1, e3) && equiv_lower(e2, e4))
   | (Asc(e1, t1), Asc(e2, t2)) =>
     //print_endine("comparing asc");

@@ -35,6 +35,7 @@ module Iaction = {
     | InsertVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
+    | WrapPair(Child.t)
     | WrapProduct(Child.t)
     | WrapLam
     | WrapAsc
@@ -254,7 +255,7 @@ let rec _capture_name_body =
       _capture_name_body(actor.child, name, syn, binder),
       _capture_name_body(param.child, name, syn, binder),
     )
-  | Product(lower_a, lower_b) =>
+  | Pair(lower_a, lower_b) =>
     List.append(
       _capture_name_body(lower_a.child, name, syn, binder),
       _capture_name_body(lower_b.child, name, syn, binder),
@@ -310,7 +311,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Ap(e1, _, e2) =>
     delete_lower(e1);
     delete_lower(e2);
-  | Product(e1, e2) =>
+  | Pair(e1, e2) =>
     delete_lower(e1);
     delete_lower(e2);
   };
@@ -419,6 +420,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (z, InsertVar(_)) => z
   | (z, WrapPlus(_)) => z
   | (z, WrapAp(_)) => z
+  | (z, WrapPair(_)) => z
   | (z, WrapLam) => z
   };
 };
@@ -442,6 +444,7 @@ let _string_of_action: Iaction.t => string =
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ _string_of_child(c) ++ ")"
   | WrapAp(c) => "WrapAp(" ++ _string_of_child(c) ++ ")"
+  | WrapPair(c) => "WrapPair(" ++ _string_of_child(c) ++ ")"
   | WrapProduct(c) => "WrapProduct(" ++ _string_of_child(c) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
@@ -545,7 +548,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | NumLit(_)
     | EHole => no_movement
     | Plus(e1, e2)
-    | Product(e1, e2)
+    | Pair(e1, e2)
     | Ap(e1, _, e2) =>
       switch (child) {
       | One => return_cursor(CursorExp(e1.child))
@@ -581,6 +584,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     return_cursor(CursorExp(e'));
   | (CursorExp(_), InsertNumType)
   | (CursorExp(_), WrapArrow(_)) => no_movement
+  | (CursorExp(_), WrapProduct(_)) => no_movement
   | (CursorExp(e), InsertNumLit(x)) =>
     switch (e.middle) {
     | EHole =>
@@ -760,7 +764,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
 
-  | (CursorExp(e), WrapProduct(child)) =>
+  | (CursorExp(e), WrapPair(child)) =>
      let make_product_with_children = (parent, interval, e1, e2, q) => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper(),
@@ -778,7 +782,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_lower: InQueue.default_lower(),
         deleted_lower: false,
       };
-      let new_mid: Iexp.middle = Product(new_lower_left, new_lower_right);
+      let new_mid: Iexp.middle = Pair(new_lower_left, new_lower_right);
       let new_upper: Iexp.upper = {
         parent,
         syn: None,
@@ -897,7 +901,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       return_cursor(CursorExp(body));
 
     | Plus(left_arg, right_arg)
-    | Product(left_arg, right_arg) =>
+    | Pair(left_arg, right_arg) =>
       let (body_lower, deleted_lower) =
         switch (child) {
         | One => (left_arg, right_arg)

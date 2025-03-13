@@ -46,7 +46,7 @@ module Iexp = {
         var_set,
       )
     | Ap(lower, ref(Mark.t), lower)
-    | Product(lower, lower)
+    | Pair(lower, lower)
     | Asc(lower, ref(Htyp.t))
     | EHole
 

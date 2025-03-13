@@ -303,6 +303,8 @@ let view =
           button("Wrap Lambda", Action.HazelnutAction(WrapLam), None),
           button("Wrap Ap (Fun)", Action.HazelnutAction(WrapAp(One)), None), // input needed here? or some cursor needed
           button("Wrap Ap (Arg)", Action.HazelnutAction(WrapAp(Two)), None),
+          button("Wrap Pair (Left)",  Action.HazelnutAction(WrapPair(One)), None),
+          button("Wrap Pair (Right)",  Action.HazelnutAction(WrapPair(Two)), None),
           button("Wrap Product (Left)",  Action.HazelnutAction(WrapProduct(One)), None),
           button("Wrap Product (Right)", Action.HazelnutAction(WrapProduct(Two)), None),
           button("Wrap Asc", Action.HazelnutAction(WrapAsc), None),

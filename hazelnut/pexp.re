@@ -29,6 +29,7 @@ let string_of_action: Iaction.t => string =
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
   | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
+  | WrapPair(c) => "WrapPair(" ++ string_of_child(c) ++ ")"
   | WrapProduct(c) => "WrapProduct(" ++ string_of_child(c) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
@@ -48,6 +49,7 @@ module Pexp = {
     | Ap(t, t)
     | NumLit(int)
     | Plus(t, t)
+    | Pair(t, t)
     | Product(t, t)
     | Asc(t, t)
     | Hole
@@ -207,8 +209,8 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       NonArrowAp,
       Ap(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
     )
-  | Product(e1, e2) =>
-    Product(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
+  | Pair(e1, e2) =>
+    Pair(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
   | Asc(body, t) =>
     let pt =
       switch (s.persistent.c) {
@@ -269,6 +271,7 @@ let rec prec: Pexp.t => int =
   | Ap(_) => 2
   | NumLit(_) => 0
   | Plus(_) => 3
+  | Pair(_) => 3
   | Product(_) => 3
   | Asc(_) => 4
   | Hole => 0
@@ -295,6 +298,7 @@ let rec assoc: Pexp.t => Side.t =
   | Ap(_) => Left
   | NumLit(_) => Atom
   | Plus(_) => Left
+  | Pair(_) => Left
   | Product(_) => Left
   | Asc(_) => Left
   | Hole => Atom
@@ -324,8 +328,10 @@ let rec string_of_pexp: Pexp.t => string =
 
   | Ap(e1, e2) as outer =>
     paren(e1, outer, Side.Left) ++ " " ++ paren(e2, outer, Side.Right)
-  | Product(e1, e2) =>
+  | Pair(e1, e2) =>
     "(" ++ string_of_pexp(e1) ++ ", " ++ string_of_pexp(e2) ++ ")"
+  | Product(t1, t2) as outer =>
+    paren(t1, outer, Side.Left) ++ " × " ++ paren(t2, outer, Side.Right)
   | NumLit(n) => string_of_int(n)
   | Plus(e1, e2) as outer =>
     paren(e1, outer, Side.Left) ++ " + " ++ paren(e2, outer, Side.Right)
