@@ -71,6 +71,14 @@ let matched_arrow_typ_opt =
   };
 };
 
+let matched_product_typ = (t: Htyp.t): (Htyp.t, Htyp.t, Mark.t) => {
+  switch(t) {
+  | Product(t1, t2) => (t1, t2, Unmarked)
+  | Hole => (Hole, Hole, Unmarked)
+  | _ => (Hole, Hole, Marked)
+  }
+}
+
 let rec is_type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
   switch (t1, t2) {
   | (Hole, _)
