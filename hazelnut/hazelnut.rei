@@ -47,6 +47,7 @@ let erase_typ: Ztyp.t => Htyp.t;
 let matched_arrow_typ: Htyp.t => (Htyp.t, Htyp.t, Mark.t);
 let matched_arrow_typ_opt:
   option(Htyp.t) => (option(Htyp.t), option(Htyp.t), Mark.t);
+let matched_product_typ: Htyp.t => (Htyp.t, Htyp.t, Mark.t);
 let type_consistent: (Htyp.t, Htyp.t) => Mark.t;
 let type_consistent_opt: (option(Htyp.t), option(Htyp.t)) => Mark.t;
 let arrow_unless:
