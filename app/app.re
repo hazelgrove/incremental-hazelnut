@@ -307,6 +307,8 @@ let view =
           button("Wrap Pair (Right)",  Action.HazelnutAction(WrapPair(Two)), None),
           button("Wrap Product (Left)",  Action.HazelnutAction(WrapProduct(One)), None),
           button("Wrap Product (Right)", Action.HazelnutAction(WrapProduct(Two)), None),
+          button("Wrap Proj (Fst)", Action.HazelnutAction(WrapProj(Fst)), None),
+          button("Wrap Proj (Snd)", Action.HazelnutAction(WrapProj(Snd)), None),
           button("Wrap Asc", Action.HazelnutAction(WrapAsc), None),
           button(
             "Construct Num Lit",
