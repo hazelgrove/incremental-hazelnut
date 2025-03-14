@@ -38,6 +38,7 @@ module MarkMessage: {
     | NonArrowAp
     | NonArrowLam
     | NonProdPair
+    | NonProdProj
     | LamAnnIncon
     | Inconsistent;
 };

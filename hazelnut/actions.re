@@ -438,7 +438,7 @@ let _string_of_child: Child.t => string =
   | Two => "Two"
   | Three => "Three";
 
-let _string_of_prod_side: ProdSide.t => string=
+let _string_of_prod_side: ProdSide.t => string =
   fun
   | Fst => "fst"
   | Snd => "snd"
