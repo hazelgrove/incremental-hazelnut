@@ -48,6 +48,12 @@ let update_step = (state: Istate.t): stepped => {
           parent.marked = Unmarked; // Removes the mark from the originating child
           let update_list = [Update.NewSyn(parent.upper)];
           UpdateQueue.update_push_list(update_list, q);
+        | Proj(prod_side, e, m) =>
+          let (t_side_body, m_all_body) = matched_proj_typ_opt(prod_side, e.child.syn);
+          m.contents = m_all_body;
+          parent.upper.syn = t_side_body;
+          let update_list = [Update.NewSyn(parent.upper)];
+          UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana)
