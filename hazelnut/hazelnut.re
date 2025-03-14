@@ -79,6 +79,16 @@ let matched_product_typ = (t: Htyp.t): (Htyp.t, Htyp.t, Mark.t) => {
   }
 }
 
+let matched_product_typ_opt =
+    (t: option(Htyp.t)): (option(Htyp.t), option(Htyp.t), Mark.t) => {
+  switch (t) {
+  | Some(t) =>
+    let (t1, t2, m) = matched_product_typ(t);
+    (Some(t1), Some(t2), m)
+  | None => (None, None, Unmarked)
+  }
+}
+
 let rec is_type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
   switch (t1, t2) {
   | (Hole, _)
@@ -114,13 +124,14 @@ let arrow_unless =
   };
 };
 
-let product_matched_syn =
-    (t1: option(Htyp.t), t2: option(Htyp.t)): option(Htyp.t) => {
-  switch (t1, t2) {
-  | (None, None)
-  | (Some(_), None)
-  | (None, Some(_)) => None
-  | (Some(t1), Some(t2)) => Some(Product(t1, t2))
+let product_unless =
+    (t1: option(Htyp.t), t2: option(Htyp.t), unless: option(Htyp.t)): option(Htyp.t) => {
+  switch (unless, t1, t2) {
+  | (None, None, None)
+  | (None, Some(_), None)
+  | (None, None, Some(_)) => None
+  | (None, Some(t1), Some(t2)) => Some(Product(t1, t2))
+  | (Some(_), _, _) => None
   }
 }
 
