@@ -42,6 +42,7 @@ module Mark: {
 };
 
 exception Unimplemented;
+exception Unreachable;
 
 let erase_typ: Ztyp.t => Htyp.t;
 let matched_arrow_typ: Htyp.t => (Htyp.t, Htyp.t, Mark.t);

@@ -136,3 +136,4 @@ let product_unless =
 }
 
 exception Unimplemented;
+exception Unreachable;

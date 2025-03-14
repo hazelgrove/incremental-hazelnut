@@ -255,7 +255,7 @@ let rec _capture_name_body =
       _capture_name_body(actor.child, name, syn, binder),
       _capture_name_body(param.child, name, syn, binder),
     )
-  | Pair(lower_a, lower_b) =>
+  | Pair(lower_a, lower_b, _) =>
     List.append(
       _capture_name_body(lower_a.child, name, syn, binder),
       _capture_name_body(lower_b.child, name, syn, binder),
@@ -311,7 +311,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Ap(e1, _, e2) =>
     delete_lower(e1);
     delete_lower(e2);
-  | Pair(e1, e2) =>
+  | Pair(e1, e2, _) =>
     delete_lower(e1);
     delete_lower(e2);
   };
@@ -548,7 +548,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | NumLit(_)
     | EHole => no_movement
     | Plus(e1, e2)
-    | Pair(e1, e2)
+    | Pair(e1, e2, _)
     | Ap(e1, _, e2) =>
       switch (child) {
       | One => return_cursor(CursorExp(e1.child))
@@ -765,7 +765,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     return_cursor(CursorExp(new_upper));
 
   | (CursorExp(e), WrapPair(child)) =>
-     let make_product_with_children = (parent, interval, e1, e2, q) => {
+     let make_product_with_children = (parent, interval, e1, e2, q, child) => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper(),
         ana: None,
@@ -782,7 +782,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_lower: InQueue.default_lower(),
         deleted_lower: false,
       };
-      let new_mid: Iexp.middle = Pair(new_lower_left, new_lower_right);
+      let new_mid: Iexp.middle = Pair(new_lower_left, new_lower_right, ref(Mark.Unmarked));
       let new_upper: Iexp.upper = {
         parent,
         syn: None,
@@ -799,6 +799,11 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewAna(parent),
         Update.NewSyn(e1),
         Update.NewSyn(e2),
+        switch (child) {
+        | Child.One => Update.NewAna(Lower(new_lower_left))
+        | Child.Two => Update.NewAna(Lower(new_lower_right))
+        | Child.Three => raise(Unreachable);
+        }
       ];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(new_upper));
@@ -807,10 +812,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     switch (child) {
     | One =>
       let hole = exp_hole_upper(interval_after(e));
-      make_product_with_children(e.parent, interval, e, hole, q);
+      make_product_with_children(e.parent, interval, e, hole, q, Child.One);
     | Two =>
       let hole = exp_hole_upper(interval_before(e));
-      make_product_with_children(e.parent, interval, hole, e, q);
+      make_product_with_children(e.parent, interval, hole, e, q, Child.Two);
     | Three => no_movement
     };
 
@@ -901,7 +906,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       return_cursor(CursorExp(body));
 
     | Plus(left_arg, right_arg)
-    | Pair(left_arg, right_arg) =>
+    | Pair(left_arg, right_arg, _) =>
       let (body_lower, deleted_lower) =
         switch (child) {
         | One => (left_arg, right_arg)
