@@ -233,7 +233,7 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let e1 = validity_mark_ana(ctx, t1, b1);
       let e2 = validity_mark_ana(ctx, t2, b2);
       let middle: Iexp.middle = Pair(e1, e2, ref(m));
-      wrap_lower(wrap_upper(middle, None), m, Some(ana))
+      wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana))
     }
   | b => {
       let e = validity_mark_syn(ctx, b);
