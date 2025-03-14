@@ -38,6 +38,7 @@ and erase_middle: Iexp.middle => bareExp =
   | Lam(x, t, _, _, e, _) => Lam(x.contents, t.contents, erase_lower(e))
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
   | Pair(e1, e2, _) => Pair(erase_lower(e1), erase_lower(e2))
+  | Proj(prod_side, e, _) => Proj(prod_side, erase_lower(e))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
@@ -101,6 +102,11 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       let (e1, syn1) = performance_mark_syn(ctx, b1);
       let (e2, syn2) = performance_mark_syn(ctx, b2);
       (Pair(e1, e2, Unmarked), Product(syn1, syn2))
+    }
+  | Proj(prod_side, b) => {
+      let (e, syn) = performance_mark_syn(ctx, b);
+      let (t_side, m) = matched_proj_typ(prod_side, syn);
+      (Proj(prod_side, e, m), t_side)
     }
   | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
   | EHole => (EHole, Hole)
@@ -210,6 +216,15 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       wrap_upper(
         Pair(wrap_lower(e1, Unmarked, None), wrap_lower(e2, Unmarked, None), ref(Mark.Unmarked)),
         Some(Product(syn1, syn2))
+      );
+    }
+  | Proj(prod_side, b) => {
+      let e = validity_mark_syn(ctx, b);
+      let syn = Option.get(e.syn);
+      let (t_side, m) = matched_proj_typ(prod_side, syn);
+      wrap_upper(
+        Proj(prod_side, wrap_lower(e, Unmarked, None), ref(m)),
+        Some(t_side)
       );
     }
   | Asc(e, t) =>
