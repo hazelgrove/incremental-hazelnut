@@ -41,6 +41,7 @@ module Iexp: {
       )
     | Ap(lower, ref(Mark.t), lower)
     | Pair(lower, lower, ref(Mark.t))
+    | Proj(ProdSide.t, lower, ref(Mark.t))
     | Asc(lower, ref(Htyp.t))
     | EHole
 

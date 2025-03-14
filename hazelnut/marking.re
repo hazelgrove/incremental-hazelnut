@@ -11,6 +11,7 @@ type bareExp =
   | Lam(Bind.t, Htyp.t, bareExp)
   | Ap(bareExp, bareExp)
   | Pair(bareExp, bareExp)
+  | Proj(ProdSide.t, bareExp)
   | Asc(bareExp, Htyp.t)
   | EHole;
 
@@ -21,6 +22,7 @@ type markedExp =
   | Lam(Bind.t, Htyp.t, Mark.t, Mark.t, markedExp)
   | Ap(markedExp, Mark.t, markedExp)
   | Pair(markedExp, markedExp, Mark.t)
+  | Proj(ProdSide.t, markedExp, Mark.t)
   | Asc(markedExp, Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);

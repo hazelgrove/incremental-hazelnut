@@ -19,6 +19,13 @@ module Ztyp = {
     | RProduct(Htyp.t, t);
 };
 
+module ProdSide = {
+  [@deriving (sexp, compare)]
+  type t =
+    | Fst
+    | Snd
+};
+
 module Bind = {
   [@deriving sexp]
   type t =
