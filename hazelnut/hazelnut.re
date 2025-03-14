@@ -97,6 +97,24 @@ let matched_product_typ_opt =
   }
 }
 
+let matched_proj_typ = (prod_side: ProdSide.t, t: Htyp.t): (Htyp.t, Mark.t) => {
+  let (t_fst, t_snd, m) = matched_product_typ(t);
+  switch (prod_side) {
+  | Fst => (t_fst, m)
+  | Snd => (t_snd, m)
+  }
+}
+
+let matched_proj_typ_opt =
+  (prod_side: ProdSide.t, t: option(Htyp.t)): (option(Htyp.t), Mark.t) => {
+  switch (t) {
+  | Some(t) =>
+    let (t, m) = matched_proj_typ(prod_side, t);
+    (Some(t), m)
+  | None => (None, Unmarked)
+  }
+}
+
 let rec is_type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
   switch (t1, t2) {
   | (Hole, _)
