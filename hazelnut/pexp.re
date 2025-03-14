@@ -88,6 +88,7 @@ let string_of_mark_message: Hazelnut.MarkMessage.t => string = {
   | Free => "Free"
   | NonArrowAp => "NonArrowAp"
   | NonArrowLam => "NonArrowLam"
+  | NonProdPair => "NonProdPair"
   | LamAnnIncon => "LamAnnIncon"
   | Inconsistent => "Inconsistent";
 };
@@ -209,8 +210,12 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       NonArrowAp,
       Ap(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
     )
-  | Pair(e1, e2) =>
-    Pair(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
+  | Pair(e1, e2, m) =>
+    pexp_markif(
+      m.contents,
+      NonProdPair,
+      Pair(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
+    )
   | Asc(body, t) =>
     let pt =
       switch (s.persistent.c) {

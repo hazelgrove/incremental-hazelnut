@@ -32,6 +32,7 @@ module MarkMessage = {
     | Free
     | NonArrowAp
     | NonArrowLam
+    | NonProdPair
     | LamAnnIncon
     | Inconsistent;
 };
