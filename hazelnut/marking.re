@@ -35,7 +35,7 @@ and erase_middle: Iexp.middle => bareExp =
   | Plus(e1, e2) => Plus(erase_lower(e1), erase_lower(e2))
   | Lam(x, t, _, _, e, _) => Lam(x.contents, t.contents, erase_lower(e))
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
-  | Pair(e1, e2) => Pair(erase_lower(e1), erase_lower(e2))
+  | Pair(e1, e2, _) => Pair(erase_lower(e1), erase_lower(e2))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
@@ -206,7 +206,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       let syn1 = Option.get(e1.syn);
       let syn2 = Option.get(e2.syn);
       wrap_upper(
-        Pair(wrap_lower(e1, Unmarked, None), wrap_lower(e2, Unmarked, None)),
+        Pair(wrap_lower(e1, Unmarked, None), wrap_lower(e2, Unmarked, None), ref(Mark.Unmarked)),
         Some(Product(syn1, syn2))
       );
     }
@@ -265,8 +265,8 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
     //print_endine("comparing ap");
     return(equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4))
-  | (Pair(e1, e2), Pair(e3, e4)) =>
-    return(equiv_lower(e1, e3) && equiv_lower(e2, e4))
+  | (Pair(e1, e2, m1), Pair(e3, e4, m2)) =>
+    return(equiv_lower(e1, e3) && equiv_lower(e2, e4)) && m1 == m2
   | (Asc(e1, t1), Asc(e2, t2)) =>
     //print_endine("comparing asc");
     equiv_lower(e1, e2) && t1 == t2
