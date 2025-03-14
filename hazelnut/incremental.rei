@@ -40,7 +40,7 @@ module Iexp: {
         var_set,
       )
     | Ap(lower, ref(Mark.t), lower)
-    | Pair(lower, lower)
+    | Pair(lower, lower, ref(Mark.t))
     | Asc(lower, ref(Htyp.t))
     | EHole
 

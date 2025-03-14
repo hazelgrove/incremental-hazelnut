@@ -20,7 +20,7 @@ type markedExp =
   | Plus(markedExp, markedExp)
   | Lam(Bind.t, Htyp.t, Mark.t, Mark.t, markedExp)
   | Ap(markedExp, Mark.t, markedExp)
-  | Pair(markedExp, markedExp)
+  | Pair(markedExp, markedExp, Mark.t)
   | Asc(markedExp, Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
@@ -98,7 +98,7 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
   | Pair(b1, b2) => {
       let (e1, syn1) = performance_mark_syn(ctx, b1);
       let (e2, syn2) = performance_mark_syn(ctx, b2);
-      (Pair(e1, e2), Product(syn1, syn2))
+      (Pair(e1, e2, Unmarked), Product(syn1, syn2))
     }
   | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
   | EHole => (EHole, Hole)
@@ -112,6 +112,12 @@ and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
       let body = performance_mark_ana(ctx, t2, e);
       Ctx.remove_bind(ctx, x);
       Lam(x, t, m1, m2, body);
+    }
+  | Pair(b1, b2) => {
+      let (t1, t2, m) = matched_product_typ(ana);
+      let e1 = performance_mark_ana(ctx, t1, b1);
+      let e2 = performance_mark_ana(ctx, t2, b2);
+      Pair(e1, e2, m)
     }
   | b => {
       let (e, syn) = performance_mark_syn(ctx, b);
@@ -219,6 +225,13 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let middle: Iexp.middle =
         Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref(Tree.empty));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
+    }
+  | Pair(b1, b2) => {
+      let (t1, t2, m) = matched_product_typ(ana);
+      let e1 = validity_mark_ana(ctx, t1, b1);
+      let e2 = validity_mark_ana(ctx, t2, b2);
+      let middle: Iexp.middle = Pair(e1, e2, ref(m));
+      wrap_lower(wrap_upper(middle, None), m, Some(ana))
     }
   | b => {
       let e = validity_mark_syn(ctx, b);
