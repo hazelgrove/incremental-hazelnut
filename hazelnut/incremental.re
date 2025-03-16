@@ -47,6 +47,7 @@ module Iexp = {
       )
     | Ap(lower, ref(Mark.t), lower)
     | Asc(lower, ref(Htyp.t))
+    | ListRec(ref(Htyp.t))
     | EHole
 
   and upper = {

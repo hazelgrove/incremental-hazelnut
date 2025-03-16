@@ -3,6 +3,7 @@ module Htyp: {
   type t =
     | Arrow(t, t)
     | Num
+    | List
     | Hole;
 };
 
