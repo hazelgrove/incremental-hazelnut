@@ -18,6 +18,11 @@ let string_of_child: Child.t => string =
   | Two => "Two"
   | Three => "Three";
 
+let string_of_prod_side: ProdSide.t => string =
+  fun
+  | Fst => "fst"
+  | Snd => "snd";
+
 let string_of_action: Iaction.t => string =
   fun
   | MoveUp => "MoveUp"
@@ -29,6 +34,10 @@ let string_of_action: Iaction.t => string =
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
   | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
+  | WrapPair(c) => "WrapPair(" ++ string_of_child(c) ++ ")"
+  | WrapProduct(c) => "WrapProduct(" ++ string_of_child(c) ++ ")"
+  | WrapProj(prod_side) =>
+    "WrapProj(" ++ string_of_prod_side(prod_side) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
@@ -47,6 +56,10 @@ module Pexp = {
     | Ap(t, t)
     | NumLit(int)
     | Plus(t, t)
+    | Pair(t, t)
+    | Product(t, t)
+    | Fst(t)
+    | Snd(t)
     | Asc(t, t)
     | Hole
     | Interval(string, t, string)
@@ -56,6 +69,7 @@ module Pexp = {
 let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
   fun
   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
+  | Product(t1, t2) => Product(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Num => Num
   | Hole => Hole;
 
@@ -68,7 +82,9 @@ let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   fun
   | Cursor(t) => Cursor(pexp_of_htyp(t))
   | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
-  | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z));
+  | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z))
+  | LProduct(z, t) => Product(pexp_of_ztyp(z), pexp_of_htyp(t))
+  | RProduct(t, z) => Product(pexp_of_htyp(t), pexp_of_ztyp(z));
 
 let pexp_of_bind: Bind.t => Pexp.t = {
   fun
@@ -81,6 +97,8 @@ let string_of_mark_message: Hazelnut.MarkMessage.t => string = {
   | Free => "Free"
   | NonArrowAp => "NonArrowAp"
   | NonArrowLam => "NonArrowLam"
+  | NonProdPair => "NonProdPair"
+  | NonProdProj => "NonProdProj"
   | LamAnnIncon => "LamAnnIncon"
   | Inconsistent => "Inconsistent";
 };
@@ -202,6 +220,21 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       NonArrowAp,
       Ap(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
     )
+  | Pair(e1, e2, m) =>
+    pexp_markif(
+      m.contents,
+      NonProdPair,
+      Pair(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
+    )
+  | Proj(proj_side, e, m) =>
+    pexp_markif(
+      m.contents,
+      NonProdProj,
+      switch (proj_side) {
+      | Fst => Fst(pexp_of_iexp_lower(e, s))
+      | Snd => Snd(pexp_of_iexp_lower(e, s))
+      },
+    )
   | Asc(body, t) =>
     let pt =
       switch (s.persistent.c) {
@@ -262,6 +295,10 @@ let rec prec: Pexp.t => int =
   | Ap(_) => 2
   | NumLit(_) => 0
   | Plus(_) => 3
+  | Pair(_) => 3
+  | Fst(_) => 4
+  | Snd(_) => 4
+  | Product(_) => 3
   | Asc(_) => 4
   | Hole => 0
   | Interval(_) => 0
@@ -287,6 +324,10 @@ let rec assoc: Pexp.t => Side.t =
   | Ap(_) => Left
   | NumLit(_) => Atom
   | Plus(_) => Left
+  | Pair(_) => Left
+  | Fst(_) => Left
+  | Snd(_) => Left
+  | Product(_) => Left
   | Asc(_) => Left
   | Hole => Atom
   | Interval(_) => Atom
@@ -315,6 +356,12 @@ let rec string_of_pexp: Pexp.t => string =
 
   | Ap(e1, e2) as outer =>
     paren(e1, outer, Side.Left) ++ " " ++ paren(e2, outer, Side.Right)
+  | Pair(e1, e2) =>
+    "(" ++ string_of_pexp(e1) ++ ", " ++ string_of_pexp(e2) ++ ")"
+  | Product(t1, t2) as outer =>
+    paren(t1, outer, Side.Left) ++ " × " ++ paren(t2, outer, Side.Right)
+  | Fst(e) => string_of_pexp(e) ++ ".fst"
+  | Snd(e) => string_of_pexp(e) ++ ".snd"
   | NumLit(n) => string_of_int(n)
   | Plus(e1, e2) as outer =>
     paren(e1, outer, Side.Left) ++ " + " ++ paren(e2, outer, Side.Right)

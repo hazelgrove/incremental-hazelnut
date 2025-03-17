@@ -35,6 +35,9 @@ module Iaction = {
     | InsertVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
+    | WrapPair(Child.t)
+    | WrapProduct(Child.t)
+    | WrapProj(ProdSide.t)
     | WrapLam
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
@@ -253,6 +256,12 @@ let rec _capture_name_body =
       _capture_name_body(actor.child, name, syn, binder),
       _capture_name_body(param.child, name, syn, binder),
     )
+  | Pair(lower_a, lower_b, _) =>
+    List.append(
+      _capture_name_body(lower_a.child, name, syn, binder),
+      _capture_name_body(lower_b.child, name, syn, binder),
+    )
+  | Proj(_, lower, _) => _capture_name_body(lower.child, name, syn, binder)
   };
 };
 
@@ -304,6 +313,10 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Ap(e1, _, e2) =>
     delete_lower(e1);
     delete_lower(e2);
+  | Pair(e1, e2, _) =>
+    delete_lower(e1);
+    delete_lower(e2);
+  | Proj(_, e, _) => delete_lower(e)
   };
 }
 
@@ -350,39 +363,68 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (Cursor(_), MoveUp) => z
   | (LArrow(Cursor(t1), t2), MoveUp)
   | (RArrow(t1, Cursor(t2)), MoveUp) => Cursor(Arrow(t1, t2))
+  | (LProduct(Cursor(t1), t2), MoveUp)
+  | (RProduct(t1, Cursor(t2)), MoveUp) => Cursor(Product(t1, t2))
   | (Cursor(Hole), MoveDown(_)) => z
   | (Cursor(Num), MoveDown(_)) => z
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
   | (Cursor(Arrow(t1, t2)), MoveDown(Two)) => RArrow(t1, Cursor(t2))
   | (Cursor(Arrow(_)), MoveDown(Three)) => z
+  | (Cursor(Product(t1, t2)), MoveDown(One)) => LProduct(Cursor(t1), t2)
+  | (Cursor(Product(t1, t2)), MoveDown(Two)) => RProduct(t1, Cursor(t2))
+  | (Cursor(Product(_)), MoveDown(Three)) => z
   | (Cursor(_), Delete) => Cursor(Hole)
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
   | (Cursor(_), InsertNumType) => z
   | (Cursor(t), WrapArrow(One)) => Cursor(Arrow(t, Hole))
   | (Cursor(t), WrapArrow(Two)) => Cursor(Arrow(Hole, t))
   | (Cursor(_), WrapArrow(Three)) => z
+  | (Cursor(t), WrapProduct(One)) => Cursor(Product(t, Hole))
+  | (Cursor(t), WrapProduct(Two)) => Cursor(Product(Hole, t))
+  | (Cursor(_), WrapProduct(Three)) => z
   | (Cursor(Hole), Unwrap(_)) => z
   | (Cursor(Num), Unwrap(_)) => z
   | (Cursor(Arrow(t, _)), Unwrap(One))
   | (Cursor(Arrow(_, t)), Unwrap(Two)) => Cursor(t)
   | (Cursor(Arrow(_)), Unwrap(Three)) => z
+  | (Cursor(Product(t, _)), Unwrap(One))
+  | (Cursor(Product(_, t)), Unwrap(Two)) => Cursor(t)
+  | (Cursor(Product(_)), Unwrap(Three)) => z
   | (LArrow(z, t), MoveUp)
   | (LArrow(z, t), MoveDown(_))
   | (LArrow(z, t), Delete)
   | (LArrow(z, t), InsertNumType)
   | (LArrow(z, t), WrapArrow(_))
+  | (LArrow(z, t), WrapProduct(_))
   | (LArrow(z, t), Unwrap(_)) => LArrow(apply_action_typ(z, a), t)
   | (RArrow(t, z), MoveUp)
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
   | (RArrow(t, z), InsertNumType)
   | (RArrow(t, z), WrapArrow(_))
+  | (RArrow(t, z), WrapProduct(_))
   | (RArrow(t, z), Unwrap(_)) => RArrow(t, apply_action_typ(z, a))
+  | (LProduct(z, t), MoveUp)
+  | (LProduct(z, t), MoveDown(_))
+  | (LProduct(z, t), Delete)
+  | (LProduct(z, t), InsertNumType)
+  | (LProduct(z, t), WrapArrow(_))
+  | (LProduct(z, t), WrapProduct(_))
+  | (LProduct(z, t), Unwrap(_)) => LProduct(apply_action_typ(z, a), t)
+  | (RProduct(t, z), MoveUp)
+  | (RProduct(t, z), MoveDown(_))
+  | (RProduct(t, z), Delete)
+  | (RProduct(t, z), InsertNumType)
+  | (RProduct(t, z), WrapArrow(_))
+  | (RProduct(t, z), WrapProduct(_))
+  | (RProduct(t, z), Unwrap(_)) => RProduct(t, apply_action_typ(z, a))
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
   | (z, WrapPlus(_)) => z
   | (z, WrapAp(_)) => z
+  | (z, WrapPair(_)) => z
+  | (z, WrapProj(_)) => z
   | (z, WrapLam) => z
   };
 };
@@ -395,6 +437,11 @@ let _string_of_child: Child.t => string =
   | Two => "Two"
   | Three => "Three";
 
+let _string_of_prod_side: ProdSide.t => string =
+  fun
+  | Fst => "fst"
+  | Snd => "snd";
+
 let _string_of_action: Iaction.t => string =
   fun
   | MoveUp => "MoveUp"
@@ -406,6 +453,10 @@ let _string_of_action: Iaction.t => string =
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ _string_of_child(c) ++ ")"
   | WrapAp(c) => "WrapAp(" ++ _string_of_child(c) ++ ")"
+  | WrapPair(c) => "WrapPair(" ++ _string_of_child(c) ++ ")"
+  | WrapProduct(c) => "WrapProduct(" ++ _string_of_child(c) ++ ")"
+  | WrapProj(prod_side) =>
+    "WrapProj(" ++ _string_of_prod_side(prod_side) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
   | Unwrap(c) => "Unwrap(" ++ _string_of_child(c) ++ ")";
@@ -508,6 +559,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | NumLit(_)
     | EHole => no_movement
     | Plus(e1, e2)
+    | Pair(e1, e2, _)
     | Ap(e1, _, e2) =>
       switch (child) {
       | One => return_cursor(CursorExp(e1.child))
@@ -524,6 +576,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (child) {
       | One => return_cursor(CursorExp(e1.child))
       | Two => return_cursor(CursorTyp(e, Cursor(t.contents)))
+      | Three => no_movement
+      }
+    | Proj(_, e, _) =>
+      switch (child) {
+      | One => return_cursor(CursorExp(e.child))
+      | Two => no_movement
       | Three => no_movement
       }
     }
@@ -543,6 +601,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     return_cursor(CursorExp(e'));
   | (CursorExp(_), InsertNumType)
   | (CursorExp(_), WrapArrow(_)) => no_movement
+  | (CursorExp(_), WrapProduct(_)) => no_movement
   | (CursorExp(e), InsertNumLit(x)) =>
     switch (e.middle) {
     | EHole =>
@@ -722,6 +781,94 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
 
+  | (CursorExp(e), WrapPair(child)) =>
+    let make_product_with_children = (parent, interval, e1, e2, q, child) => {
+      let new_lower_left: Iexp.lower = {
+        upper: dummy_upper(),
+        ana: None,
+        marked: Unmarked,
+        child: e1,
+        in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
+      };
+      let new_lower_right: Iexp.lower = {
+        upper: dummy_upper(),
+        ana: None,
+        marked: Unmarked,
+        child: e2,
+        in_queue_lower: InQueue.default_lower(),
+        deleted_lower: false,
+      };
+      let new_mid: Iexp.middle =
+        Pair(new_lower_left, new_lower_right, ref(Mark.Unmarked));
+      let new_upper: Iexp.upper = {
+        parent,
+        syn: None,
+        interval,
+        middle: new_mid,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+
+      splice(new_lower_left, new_upper);
+      splice(new_lower_right, new_upper);
+
+      let update_list = [
+        Update.NewAna(parent),
+        Update.NewSyn(e1),
+        Update.NewSyn(e2),
+        switch (child) {
+        | Child.One => Update.NewAna(Lower(new_lower_left))
+        | Child.Two => Update.NewAna(Lower(new_lower_right))
+        | Child.Three => raise(Unreachable)
+        },
+      ];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(new_upper));
+    };
+    let interval = interval_around(e);
+    switch (child) {
+    | One =>
+      let hole = exp_hole_upper(interval_after(e));
+      make_product_with_children(e.parent, interval, e, hole, q, Child.One);
+    | Two =>
+      let hole = exp_hole_upper(interval_before(e));
+      make_product_with_children(e.parent, interval, hole, e, q, Child.Two);
+    | Three => no_movement
+    };
+
+  | (CursorExp(e), WrapProj(prod_side)) =>
+    let parent = e.parent;
+    let interval = interval_around(e);
+    let new_lower: Iexp.lower = {
+      upper: dummy_upper(),
+      ana: None,
+      marked: Unmarked,
+      child: e,
+      in_queue_lower: InQueue.default_lower(),
+      deleted_lower: false,
+    };
+    let new_middle: Iexp.middle =
+      Proj(prod_side, new_lower, ref(Mark.Unmarked));
+    let new_upper: Iexp.upper = {
+      parent,
+      syn: e.syn,
+      interval,
+      middle: new_middle,
+      in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
+    };
+
+    splice(new_lower, new_upper);
+
+    let update_list = [
+      Update.NewAna(parent),
+      Update.NewSyn(e),
+      Update.NewAna(Lower(new_lower)),
+    ];
+    UpdateQueue.update_push_list(update_list, q);
+    return_cursor(CursorExp(new_upper));
+
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
       upper: dummy_upper(),
@@ -808,7 +955,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(body));
 
-    | Plus(left_arg, right_arg) =>
+    | Plus(left_arg, right_arg)
+    | Pair(left_arg, right_arg, _) =>
       let (body_lower, deleted_lower) =
         switch (child) {
         | One => (left_arg, right_arg)
@@ -826,7 +974,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(body));
 
-    | Asc(body_lower, _ty) =>
+    | Proj(_, body_lower, _)
+    | Asc(body_lower, _) =>
       let body = body_lower.child;
 
       e.deleted_upper = true;

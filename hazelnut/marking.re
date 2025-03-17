@@ -10,6 +10,8 @@ type bareExp =
   | Plus(bareExp, bareExp)
   | Lam(Bind.t, Htyp.t, bareExp)
   | Ap(bareExp, bareExp)
+  | Pair(bareExp, bareExp)
+  | Proj(ProdSide.t, bareExp)
   | Asc(bareExp, Htyp.t)
   | EHole;
 
@@ -19,6 +21,8 @@ type markedExp =
   | Plus(markedExp, markedExp)
   | Lam(Bind.t, Htyp.t, Mark.t, Mark.t, markedExp)
   | Ap(markedExp, Mark.t, markedExp)
+  | Pair(markedExp, markedExp, Mark.t)
+  | Proj(ProdSide.t, markedExp, Mark.t)
   | Asc(markedExp, Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
@@ -33,6 +37,8 @@ and erase_middle: Iexp.middle => bareExp =
   | Plus(e1, e2) => Plus(erase_lower(e1), erase_lower(e2))
   | Lam(x, t, _, _, e, _) => Lam(x.contents, t.contents, erase_lower(e))
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
+  | Pair(e1, e2, _) => Pair(erase_lower(e1), erase_lower(e2))
+  | Proj(prod_side, e, _) => Proj(prod_side, erase_lower(e))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
@@ -92,6 +98,16 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       let e2 = performance_mark_ana(ctx, t1, b2);
       (Ap(e1, m, e2), t2);
     }
+  | Pair(b1, b2) => {
+      let (e1, syn1) = performance_mark_syn(ctx, b1);
+      let (e2, syn2) = performance_mark_syn(ctx, b2);
+      (Pair(e1, e2, Unmarked), Product(syn1, syn2));
+    }
+  | Proj(prod_side, b) => {
+      let (e, syn) = performance_mark_syn(ctx, b);
+      let (t_side, m) = matched_proj_typ(prod_side, syn);
+      (Proj(prod_side, e, m), t_side);
+    }
   | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
   | EHole => (EHole, Hole)
 
@@ -104,6 +120,12 @@ and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
       let body = performance_mark_ana(ctx, t2, e);
       Ctx.remove_bind(ctx, x);
       Lam(x, t, m1, m2, body);
+    }
+  | Pair(b1, b2) => {
+      let (t1, t2, m) = matched_product_typ(ana);
+      let e1 = performance_mark_ana(ctx, t1, b1);
+      let e2 = performance_mark_ana(ctx, t2, b2);
+      Pair(e1, e2, m);
     }
   | b => {
       let (e, syn) = performance_mark_syn(ctx, b);
@@ -186,6 +208,29 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
         Some(t2),
       );
     }
+  | Pair(b1, b2) => {
+      let e1 = validity_mark_syn(ctx, b1);
+      let e2 = validity_mark_syn(ctx, b2);
+      let syn1 = Option.get(e1.syn);
+      let syn2 = Option.get(e2.syn);
+      wrap_upper(
+        Pair(
+          wrap_lower(e1, Unmarked, None),
+          wrap_lower(e2, Unmarked, None),
+          ref(Mark.Unmarked),
+        ),
+        Some(Product(syn1, syn2)),
+      );
+    }
+  | Proj(prod_side, b) => {
+      let e = validity_mark_syn(ctx, b);
+      let syn = Option.get(e.syn);
+      let (t_side, m) = matched_proj_typ(prod_side, syn);
+      wrap_upper(
+        Proj(prod_side, wrap_lower(e, Unmarked, None), ref(m)),
+        Some(t_side),
+      );
+    }
   | Asc(e, t) =>
     wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t)), Some(t))
   | EHole => wrap_upper(EHole, Some(Hole))
@@ -200,6 +245,13 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       Ctx.remove_bind(ctx, x);
       let middle: Iexp.middle =
         Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref(Tree.empty));
+      wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
+    }
+  | Pair(b1, b2) => {
+      let (t1, t2, m) = matched_product_typ(ana);
+      let e1 = validity_mark_ana(ctx, t1, b1);
+      let e2 = validity_mark_ana(ctx, t2, b2);
+      let middle: Iexp.middle = Pair(e1, e2, ref(m));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | b => {
@@ -234,6 +286,10 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
     //print_endine("comparing ap");
     return(equiv_lower(e1, e3) && m1 == m2 && equiv_lower(e2, e4))
+  | (Pair(e1, e2, m1), Pair(e3, e4, m2)) =>
+    return(equiv_lower(e1, e3) && equiv_lower(e2, e4)) && m1 == m2
+  | (Proj(s1, e1, m1), Proj(s2, e2, m2)) =>
+    return(equiv_lower(e1, e2) && s1 == s2 && m1 == m2)
   | (Asc(e1, t1), Asc(e2, t2)) =>
     //print_endine("comparing asc");
     equiv_lower(e1, e2) && t1 == t2

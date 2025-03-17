@@ -1,4 +1,4 @@
-// open Hazelnut;
+open Hazelnut;
 // open Incremental;
 open State;
 
@@ -22,6 +22,9 @@ module Iaction: {
     | InsertVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
+    | WrapPair(Child.t)
+    | WrapProduct(Child.t)
+    | WrapProj(ProdSide.t)
     | WrapLam
     | WrapAsc
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
