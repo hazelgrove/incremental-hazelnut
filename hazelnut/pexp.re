@@ -21,7 +21,7 @@ let string_of_child: Child.t => string =
 let string_of_prod_side: ProdSide.t => string =
   fun
   | Fst => "fst"
-  | Snd => "snd"
+  | Snd => "snd";
 
 let string_of_action: Iaction.t => string =
   fun
@@ -36,7 +36,8 @@ let string_of_action: Iaction.t => string =
   | WrapAp(c) => "WrapAp(" ++ string_of_child(c) ++ ")"
   | WrapPair(c) => "WrapPair(" ++ string_of_child(c) ++ ")"
   | WrapProduct(c) => "WrapProduct(" ++ string_of_child(c) ++ ")"
-  | WrapProj(prod_side) => "WrapProj(" ++ string_of_prod_side(prod_side) ++ ")"
+  | WrapProj(prod_side) =>
+    "WrapProj(" ++ string_of_prod_side(prod_side) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
@@ -223,7 +224,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
     pexp_markif(
       m.contents,
       NonProdPair,
-      Pair(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
+      Pair(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s)),
     )
   | Proj(proj_side, e, m) =>
     pexp_markif(
@@ -232,7 +233,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       switch (proj_side) {
       | Fst => Fst(pexp_of_iexp_lower(e, s))
       | Snd => Snd(pexp_of_iexp_lower(e, s))
-      }
+      },
     )
   | Asc(body, t) =>
     let pt =

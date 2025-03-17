@@ -830,7 +830,7 @@ let actual_tests = [
   ("minimized 2", `Quick, test_actionses(minimized_2)),
   ("minimized 3", `Quick, test_actionses(minimized_3)),
   ("minimized 4", `Quick, test_actionses(minimized_4)),
-  // ("minimized 5", `Quick, test_actionses(minimized_5)),
+  ("minimized 5", `Quick, test_actionses(minimized_5)),
   ("all", `Quick, test_actionses_all),
   // ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
   // ("random 1K by 1K", `Quick, oneK_squared),

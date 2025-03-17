@@ -101,12 +101,12 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
   | Pair(b1, b2) => {
       let (e1, syn1) = performance_mark_syn(ctx, b1);
       let (e2, syn2) = performance_mark_syn(ctx, b2);
-      (Pair(e1, e2, Unmarked), Product(syn1, syn2))
+      (Pair(e1, e2, Unmarked), Product(syn1, syn2));
     }
   | Proj(prod_side, b) => {
       let (e, syn) = performance_mark_syn(ctx, b);
       let (t_side, m) = matched_proj_typ(prod_side, syn);
-      (Proj(prod_side, e, m), t_side)
+      (Proj(prod_side, e, m), t_side);
     }
   | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
   | EHole => (EHole, Hole)
@@ -125,7 +125,7 @@ and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
       let (t1, t2, m) = matched_product_typ(ana);
       let e1 = performance_mark_ana(ctx, t1, b1);
       let e2 = performance_mark_ana(ctx, t2, b2);
-      Pair(e1, e2, m)
+      Pair(e1, e2, m);
     }
   | b => {
       let (e, syn) = performance_mark_syn(ctx, b);
@@ -214,8 +214,12 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       let syn1 = Option.get(e1.syn);
       let syn2 = Option.get(e2.syn);
       wrap_upper(
-        Pair(wrap_lower(e1, Unmarked, None), wrap_lower(e2, Unmarked, None), ref(Mark.Unmarked)),
-        Some(Product(syn1, syn2))
+        Pair(
+          wrap_lower(e1, Unmarked, None),
+          wrap_lower(e2, Unmarked, None),
+          ref(Mark.Unmarked),
+        ),
+        Some(Product(syn1, syn2)),
       );
     }
   | Proj(prod_side, b) => {
@@ -224,7 +228,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       let (t_side, m) = matched_proj_typ(prod_side, syn);
       wrap_upper(
         Proj(prod_side, wrap_lower(e, Unmarked, None), ref(m)),
-        Some(t_side)
+        Some(t_side),
       );
     }
   | Asc(e, t) =>
@@ -248,7 +252,7 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let e1 = validity_mark_ana(ctx, t1, b1);
       let e2 = validity_mark_ana(ctx, t2, b2);
       let middle: Iexp.middle = Pair(e1, e2, ref(m));
-      wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana))
+      wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | b => {
       let e = validity_mark_syn(ctx, b);

@@ -44,12 +44,14 @@ let update_step = (state: Istate.t): stepped => {
           let update_list = [Update.NewSyn(parent.upper)];
           UpdateQueue.update_push_list(update_list, q);
         | Pair(e1, e2, _) when Option.is_none(parent.ana) =>
-          parent.upper.syn = product_unless(e1.child.syn, e2.child.syn, parent.ana);
+          parent.upper.syn =
+            product_unless(e1.child.syn, e2.child.syn, parent.ana);
           parent.marked = Unmarked; // Removes the mark from the originating child
           let update_list = [Update.NewSyn(parent.upper)];
           UpdateQueue.update_push_list(update_list, q);
         | Proj(prod_side, e, m) =>
-          let (t_side_body, m_all_body) = matched_proj_typ_opt(prod_side, e.child.syn);
+          let (t_side_body, m_all_body) =
+            matched_proj_typ_opt(prod_side, e.child.syn);
           m.contents = m_all_body;
           parent.upper.syn = t_side_body;
           let update_list = [Update.NewSyn(parent.upper)];

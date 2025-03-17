@@ -23,7 +23,7 @@ module ProdSide = {
   [@deriving (sexp, compare)]
   type t =
     | Fst
-    | Snd
+    | Snd;
 };
 
 module Bind = {
@@ -81,40 +81,40 @@ let matched_arrow_typ_opt =
 };
 
 let matched_product_typ = (t: Htyp.t): (Htyp.t, Htyp.t, Mark.t) => {
-  switch(t) {
+  switch (t) {
   | Product(t1, t2) => (t1, t2, Unmarked)
   | Hole => (Hole, Hole, Unmarked)
   | _ => (Hole, Hole, Marked)
-  }
-}
+  };
+};
 
 let matched_product_typ_opt =
     (t: option(Htyp.t)): (option(Htyp.t), option(Htyp.t), Mark.t) => {
   switch (t) {
   | Some(t) =>
     let (t1, t2, m) = matched_product_typ(t);
-    (Some(t1), Some(t2), m)
+    (Some(t1), Some(t2), m);
   | None => (None, None, Unmarked)
-  }
-}
+  };
+};
 
 let matched_proj_typ = (prod_side: ProdSide.t, t: Htyp.t): (Htyp.t, Mark.t) => {
   let (t_fst, t_snd, m) = matched_product_typ(t);
   switch (prod_side) {
   | Fst => (t_fst, m)
   | Snd => (t_snd, m)
-  }
-}
+  };
+};
 
 let matched_proj_typ_opt =
-  (prod_side: ProdSide.t, t: option(Htyp.t)): (option(Htyp.t), Mark.t) => {
+    (prod_side: ProdSide.t, t: option(Htyp.t)): (option(Htyp.t), Mark.t) => {
   switch (t) {
   | Some(t) =>
     let (t, m) = matched_proj_typ(prod_side, t);
-    (Some(t), m)
+    (Some(t), m);
   | None => (None, Unmarked)
-  }
-}
+  };
+};
 
 let rec is_type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
   switch (t1, t2) {
@@ -152,15 +152,16 @@ let arrow_unless =
 };
 
 let product_unless =
-    (t1: option(Htyp.t), t2: option(Htyp.t), unless: option(Htyp.t)): option(Htyp.t) => {
+    (t1: option(Htyp.t), t2: option(Htyp.t), unless: option(Htyp.t))
+    : option(Htyp.t) => {
   switch (unless, t1, t2) {
   | (None, None, None)
   | (None, Some(_), None)
   | (None, None, Some(_)) => None
   | (None, Some(t1), Some(t2)) => Some(Product(t1, t2))
   | (Some(_), _, _) => None
-  }
-}
+  };
+};
 
 exception Unimplemented;
 exception Unreachable;

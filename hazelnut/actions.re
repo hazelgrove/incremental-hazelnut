@@ -262,7 +262,7 @@ let rec _capture_name_body =
       _capture_name_body(lower_b.child, name, syn, binder),
     )
   | Proj(_, lower, _) => _capture_name_body(lower.child, name, syn, binder)
-  }
+  };
 };
 
 let remove_from_binder_set =
@@ -316,8 +316,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Pair(e1, e2, _) =>
     delete_lower(e1);
     delete_lower(e2);
-  | Proj(_, e, _) =>
-    delete_lower(e);
+  | Proj(_, e, _) => delete_lower(e)
   };
 }
 
@@ -441,7 +440,7 @@ let _string_of_child: Child.t => string =
 let _string_of_prod_side: ProdSide.t => string =
   fun
   | Fst => "fst"
-  | Snd => "snd"
+  | Snd => "snd";
 
 let _string_of_action: Iaction.t => string =
   fun
@@ -456,7 +455,8 @@ let _string_of_action: Iaction.t => string =
   | WrapAp(c) => "WrapAp(" ++ _string_of_child(c) ++ ")"
   | WrapPair(c) => "WrapPair(" ++ _string_of_child(c) ++ ")"
   | WrapProduct(c) => "WrapProduct(" ++ _string_of_child(c) ++ ")"
-  | WrapProj(prod_side) => "WrapProj(" ++ _string_of_prod_side(prod_side) ++ ")"
+  | WrapProj(prod_side) =>
+    "WrapProj(" ++ _string_of_prod_side(prod_side) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
   | Unwrap(c) => "Unwrap(" ++ _string_of_child(c) ++ ")";
@@ -782,7 +782,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     return_cursor(CursorExp(new_upper));
 
   | (CursorExp(e), WrapPair(child)) =>
-     let make_product_with_children = (parent, interval, e1, e2, q, child) => {
+    let make_product_with_children = (parent, interval, e1, e2, q, child) => {
       let new_lower_left: Iexp.lower = {
         upper: dummy_upper(),
         ana: None,
@@ -799,7 +799,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_lower: InQueue.default_lower(),
         deleted_lower: false,
       };
-      let new_mid: Iexp.middle = Pair(new_lower_left, new_lower_right, ref(Mark.Unmarked));
+      let new_mid: Iexp.middle =
+        Pair(new_lower_left, new_lower_right, ref(Mark.Unmarked));
       let new_upper: Iexp.upper = {
         parent,
         syn: None,
@@ -819,8 +820,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         switch (child) {
         | Child.One => Update.NewAna(Lower(new_lower_left))
         | Child.Two => Update.NewAna(Lower(new_lower_right))
-        | Child.Three => raise(Unreachable);
-        }
+        | Child.Three => raise(Unreachable)
+        },
       ];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(new_upper));
@@ -847,7 +848,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       in_queue_lower: InQueue.default_lower(),
       deleted_lower: false,
     };
-    let new_middle: Iexp.middle = Proj(prod_side, new_lower, ref(Mark.Unmarked));
+    let new_middle: Iexp.middle =
+      Proj(prod_side, new_lower, ref(Mark.Unmarked));
     let new_upper: Iexp.upper = {
       parent,
       syn: e.syn,
@@ -865,7 +867,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       Update.NewAna(Lower(new_lower)),
     ];
     UpdateQueue.update_push_list(update_list, q);
-    return_cursor(CursorExp(new_upper))
+    return_cursor(CursorExp(new_upper));
 
   | (CursorExp(e), WrapAsc) =>
     let new_lower: Iexp.lower = {
