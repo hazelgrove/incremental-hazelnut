@@ -16,6 +16,11 @@ module Tree = {
     | Leaf
     | Node(t('a), info('a), t('a));
 
+  let unnode: t('a) => (t('a), info('a), t('a)) =
+    fun
+    | Leaf => failwith("unnode")
+    | Node(l, v, r) => (l, v, r);
+
   let rec assert_order_invariant: t('a) => unit =
     fun
     | Leaf => ()
@@ -218,6 +223,38 @@ module Tree = {
         } else {
           node(l, v, r);
         };
+      };
+
+  let rec find_tightest: ((Order.t, Order.t), t('a)) => option(info('a)) =
+    ((left, right): (Order.t, Order.t)) =>
+      fun
+      | Leaf => None
+      // if all the right endpoints are too low, return None
+      | Node(_, v, _) when !lt(right, v.max_right) => None
+      // if v's left endpoint is too high, recurse left
+      | Node(l, v, _) when !gt(left, v.left) =>
+        find_tightest((left, right), l)
+      // otherwise
+      // v.left < left < right < v.max_right
+      | Node(l, v, r) => {
+          // first check the right subtree, which contains the tightest intervals
+          switch (find_tightest((left, right), r)) {
+          | Some(v) => Some(v)
+          // if that fails, check v
+          | None when lt(right, v.right) => Some(v)
+          // if that fails, recurse left
+          | None => find_tightest((left, right), l)
+          };
+        };
+
+  let splay_tightest:
+    ((Order.t, Order.t), t('a)) => option((info('a), t('a))) =
+    (left, right) =>
+      switch (find_tightest(left, right)) {
+      | None => None
+      | Some(i) =>
+        let (l, v, r) = splay(i.left, unnode(right));
+        Some((i, node(l, v, r)));
       };
 
   // precondition: left < right

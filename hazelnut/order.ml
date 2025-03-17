@@ -16,7 +16,7 @@ open Sexplib0
 
 module Order = struct
     let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
-    let label_bits = Sys.word_size - 2 (*use only the positive range*)
+    let label_bits = Sys.word_size - 5 (*use only the positive range*)
     
     (*let label_bits = 128 - 2 use only the positive range *)
     let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)
@@ -32,17 +32,12 @@ module Order = struct
         mutable back : t;
     }
     (** Bottom layer bidirectional linked-list of the total-order data structure that provides fine-grained ordering. *)
-    and t = { (* 5 words (not including parent and closure of invalidator) *)
+    and t = { (* 5 words (not including parent) *)
         mutable label : int;
         mutable parent : parent;
         mutable next : t;
         mutable prev : t;
-        mutable invalidator : t -> unit;
     }
-
-    (**/**) (* helper functions *)
-    let nop _ = ()
-    (**/**)
 
     (**/**) (* sentinel values *)
     let rec null_parent = {
@@ -56,7 +51,6 @@ module Order = struct
         parent=null_parent;
         prev=null;
         next=null;
-        invalidator=nop;
     }
     
     let trim_string s = if (String.length s > 15) then (String.cat (String.sub s 0 ((String.length s) - 15)) "-") else s
@@ -72,16 +66,13 @@ module Order = struct
     let is_valid ts = ts.label > 0 && ts.parent.parent_label >= 0
 
     (**/**) (* helper functions *)
-    let neg = (lor) min_int
+    (*let neg = (lor) min_int*)
     let pos = (land) (lnot min_int)
-    let invalidate ts =
+    (*let invalidate ts =
         ts.label <- neg ts.label;
-        ts.invalidator ts;
-        (* help GC mark phase by cutting the object graph *)
-        ts.invalidator <- nop;
         ts.prev <- null;
-        ts.next <- null
-    let invalidate_parent parent =
+        ts.next <- null*)
+    (*let invalidate_parent parent =
         parent.parent_label <- neg parent.parent_label;
         let rec invalidate_ts ts = if ts != null then begin
             let next = ts.next in
@@ -93,7 +84,7 @@ module Order = struct
         parent.parent_prev <- null_parent;
         parent.parent_next <- null_parent;
         parent.front <- null;
-        parent.back <- null
+        parent.back <- null*)
     (**/**)
 
     (** Compare two total-order elements. *)
@@ -114,12 +105,12 @@ module Order = struct
         let parent = ts.parent in
         let ts' = if ts.next != null then begin
             let next = ts.next in
-            let ts' = { label=(ts.label + next.label) lsr 1; parent; prev=ts; next; invalidator=nop } in
+            let ts' = { label=(ts.label + next.label) lsr 1; parent; prev=ts; next; } in
             next.prev <- ts';
             ts.next <- ts';
             ts'
         end else begin
-            let ts' = { label=(ts.label + max_label) lsr 1; parent; prev=ts; next=null; invalidator=nop } in
+            let ts' = { label=(ts.label + max_label) lsr 1; parent; prev=ts; next=null; } in
             ts.next <- ts';
              (* SUSPICIOUS MODIFICATION *)
             parent.back <- ts';
@@ -169,6 +160,7 @@ module Order = struct
                     if parent.parent_label == parent'.parent_label then begin
                         (* identify a region around the parent that satisfies the rebalancing threshold *)
                         let rec expand lower upper count mask tau =
+                            assert(mask > 0);
                             let lo_label = lower.parent_label land (lnot mask) in
                             let hi_label = lower.parent_label lor mask in
                             let rec expand_lower lower count = if lower.parent_prev != null_parent then
@@ -201,7 +193,7 @@ module Order = struct
                                 ( lower, upper, lo_label, (mask + 1) / count )
                         in
                         let lower, upper, label, delta = expand parent parent' 2 1 (1. /. threshold) in
-
+                        assert(delta != 0);
                         (* evenly redistribute the parents in the region *)
                         let rec rebalance parent label =
                             parent.parent_label <- label;
@@ -231,19 +223,21 @@ module Order = struct
             };
             prev=null;
             next=null;
-            invalidator=nop;
         } in
         add_next(first_ts) 
     end
 
     let add_prev ts = begin 
-        let ts_prev = if ts.prev != null then ts.prev else ts.parent.parent_prev.back in 
+        let ts_prev = if ts.prev != null then ts.prev else (
+            assert(ts.parent.parent_prev != null_parent);
+            ts.parent.parent_prev.back 
+         ) in 
         add_next ts_prev
     end
 
     (** Splice two elements [ts] and [ts'] in a total-order such that, [ts] is immediately followed by [ts'], removing all elements between them;
         optionally, if [inclusive] is [true], [ts] and [ts'] will also be removed. *)
-    let splice ?(inclusive=false) ts ts' =
+    (*let splice ?(inclusive=false) ts ts' =
         if compare ts ts' > 0 then invalid_arg "TotalOrder.splice";
 
         if ts.parent != ts'.parent then begin
@@ -326,15 +320,6 @@ module Order = struct
             in
             if not (is_initial ts) then remove ts;
             if ts' != ts then remove ts'
-        end
+        end*)
 
-    (** Set an invalidator function for the given total-order element. *)
-    let set_invalidator ts invalidator =
-        if not (is_valid ts) then invalid_arg "TotalOrder.set_invalidator";
-        ts.invalidator <- invalidator
-
-    (** Reset the invalidator function for the given total-order element. *)
-    let reset_invalidator ts =
-        if not (is_valid ts) then invalid_arg "TotalOrder.reset_invalidator";
-        ts.invalidator <- nop
 end

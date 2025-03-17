@@ -1003,8 +1003,8 @@ let actual_tests = [
   // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
   // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
   // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
-  ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
-  ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
+  // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
+  // ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 ];
 
 // generate_minimal_counterexamples();

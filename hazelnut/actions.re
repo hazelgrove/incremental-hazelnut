@@ -150,13 +150,14 @@ let look_up_binder =
     // print_endline(
     //   "finding container for: " ++ _string_of_interval(e.interval),
     // );
-    switch (Tree.find_tightest_container(e.interval, x_binder_set)) {
+    switch (Tree.splay_tightest(e.interval, x_binder_set)) {
     | None => free
-    | Some(upper) =>
+    | Some((upper, splayed)) =>
+      Hashtbl.replace(binder_set, x, splayed);
       // print_endline(
       //   "found container: " ++ _string_of_interval(upper.interval),
       // );
-      switch (upper.middle) {
+      switch (upper.entry.middle) {
       | Lam(bind, t, _, _, body, _) when Bind.Var(x) == bind.contents => (
           Lower(body),
           t.contents,
