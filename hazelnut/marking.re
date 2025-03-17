@@ -11,6 +11,9 @@ type bareExp =
   | Lam(Bind.t, Htyp.t, bareExp)
   | Ap(bareExp, bareExp)
   | Asc(bareExp, Htyp.t)
+  | Nil
+  | Cons
+  | ListRec(Htyp.t)
   | EHole;
 
 type markedExp =
@@ -20,6 +23,9 @@ type markedExp =
   | Lam(Bind.t, Htyp.t, Mark.t, Mark.t, markedExp)
   | Ap(markedExp, Mark.t, markedExp)
   | Asc(markedExp, Htyp.t)
+  | Nil
+  | Cons
+  | ListRec(Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
 
