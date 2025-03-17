@@ -17,7 +17,8 @@ open Sexplib0
 module Order = struct
     let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
     let label_bits = Sys.word_size - 2 (*use only the positive range*)
-    (*let label_bits = 31 - 2 (*use only the positive range *)*)
+    
+    (*let label_bits = 128 - 2 use only the positive range *)
     let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)
     let gap_size = max_label / label_bits (* gap between elements after rebalancing *)
     let end_label = max_label - gap_size

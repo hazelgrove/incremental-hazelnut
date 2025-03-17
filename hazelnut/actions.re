@@ -147,15 +147,15 @@ let look_up_binder =
   switch (Hashtbl.find_opt(binder_set, x)) {
   | None => free
   | Some(x_binder_set) =>
-    print_endline(
-      "finding container for: " ++ _string_of_interval(e.interval),
-    );
+    // print_endline(
+    //   "finding container for: " ++ _string_of_interval(e.interval),
+    // );
     switch (Tree.find_tightest_container(e.interval, x_binder_set)) {
     | None => free
     | Some(upper) =>
-      print_endline(
-        "found container: " ++ _string_of_interval(upper.interval),
-      );
+      // print_endline(
+      //   "found container: " ++ _string_of_interval(upper.interval),
+      // );
       switch (upper.middle) {
       | Lam(bind, t, _, _, body, _) when Bind.Var(x) == bind.contents => (
           Lower(body),
@@ -163,8 +163,8 @@ let look_up_binder =
           Unmarked,
         )
       | _ => failwith("invalid binder lookup")
-      };
-    };
+      }
+    }
   };
 };
 
@@ -280,7 +280,7 @@ let remove_from_binder_set =
 };
 
 let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
-  print_endline("adding binder at: " ++ _string_of_interval(e.interval));
+  // print_endline("adding binder at: " ++ _string_of_interval(e.interval));
   switch (Hashtbl.find_opt(binder_set, x)) {
   | None =>
     let new_set =
@@ -468,7 +468,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   let c = state.persistent.c;
   let no_movement: Istate.t = state;
 
-  print_endline("ACT: " ++ _string_of_action(a));
+  // print_endline("ACT: " ++ _string_of_action(a));
 
   let return_cursor = (c: Icursor.t): Istate.t => {
     ephemeral: state.ephemeral,
@@ -632,10 +632,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
       };
-      switch (parent) {
-      | Root(_) => print_endline("isnerting to root")
-      | _ => print_endline("inserting ound")
-      };
+      // switch (parent) {
+      // | Root(_) => print_endline("isnerting to root")
+      // | _ => print_endline("inserting ound")
+      // };
       delete_upper(e);
       replace(e, e');
       bind_to_binder(e', parent);

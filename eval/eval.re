@@ -72,13 +72,11 @@ let wraps =
   wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap @ wrap;
 
 let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
-let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
-let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
 // let wraps = wraps @ wraps @ wraps @ wraps;
 
 let actions: list(Iaction.t) = [Iaction.InsertVar("x")] @ wraps;
 
-let actions = List.concat(random_action_segments(10000));
+// let actions = List.concat(random_action_segments(10000));
 
 let handle = (name, f) => {
   let acc = ref(initial_state());
@@ -88,17 +86,18 @@ let handle = (name, f) => {
       act => {
         let (t, e) = f(apply_action(acc^, act));
         acc := e;
-        t;
+        (act, t);
       },
     );
   let () =
     List.iteri(
       timed,
-      (i, t) => {
+      (i, (act, t)) => {
         open Yojson.Basic;
         let json =
           `Assoc([
             ("name", `String(name)),
+            ("action", `String(string_of_action(act))),
             ("iter", `Int(i)),
             ("time", `Int(t)),
           ]);

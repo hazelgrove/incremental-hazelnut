@@ -7,7 +7,6 @@ open Hazelnut_lib.Actions;
 open Hazelnut_lib.Update;
 open Hazelnut_lib.Pexp;
 open Hazelnut_lib.Marking;
-open Hazelnut_lib.Counterexample;
 
 [@deriving (sexp, fields)]
 type state = {
@@ -51,9 +50,22 @@ let _ = Hazelnut_lib.Order.Order.create();
 
 // let rec test_actionses_rec = (actionses: list(list(Iaction.t)), s) => {
 //   switch (actionses) {
-//   | [] => ()
+//   | [] =>
+//     all_update_steps(s);
+//     switch (marked_correctly(s.ephemeral.root.root_child)) {
+//     | Some(e') =>
+//       print_endline("failed test");
+//       print_endline("ERROR: see:");
+//       print_endline(
+//         string_of_pexp(pexp_of_iexp(s.ephemeral.root.root_child, s)),
+//       );
+//       print_endline("should see:");
+//       print_endline(string_of_pexp(pexp_of_iexp(e', s)));
+//       failwith("failed test");
+//     | None => ()
+//     };
 //   | [actions, ...actionses] =>
-//     let s' = apply_actions_and_test(actions, s);
+//     let s' = apply_actions(actions, s);
 //     test_actionses_rec(actionses, s');
 //   };
 // };
@@ -69,6 +81,82 @@ let _ = Hazelnut_lib.Order.Order.create();
 // test_actionses(random_action_segments(10000000));
 // print_endline("testin done app 10M");
 
+let minimized_6: list(Iaction.t) = [
+  WrapAp(Two),
+  WrapAp(Two),
+  WrapAp(Two),
+  WrapPlus(Two),
+  WrapPlus(Two),
+  WrapAp(Two),
+  WrapAp(Two),
+  WrapPlus(Two),
+  WrapAp(One),
+  WrapPlus(One),
+  WrapAp(Two),
+  WrapAp(One),
+  WrapAsc,
+  WrapAsc,
+  WrapPlus(One),
+  WrapAsc,
+  WrapPlus(One),
+  WrapPlus(One),
+  WrapLam,
+  WrapPlus(Two),
+  WrapAp(One),
+  WrapAp(One),
+  WrapPlus(One),
+  WrapAp(Two),
+  WrapAp(Two),
+  WrapAp(Two),
+  WrapLam,
+  WrapPlus(One),
+  WrapLam,
+  WrapLam,
+  WrapPlus(Two),
+  WrapAp(One),
+  WrapAp(One),
+  WrapLam,
+  WrapAsc,
+  WrapAp(Two),
+  WrapLam,
+  WrapLam,
+  WrapAp(One),
+  WrapPlus(One),
+  WrapAp(One),
+  WrapPlus(One),
+  WrapPlus(One),
+  WrapAp(One),
+  WrapAp(One),
+  WrapPlus(One),
+  WrapPlus(One),
+  WrapAp(Two),
+  WrapAp(One),
+  Unwrap(Two),
+  WrapAp(Two),
+  WrapPlus(One),
+  Unwrap(One),
+  MoveDown(Two),
+  WrapLam,
+  MoveUp,
+  WrapAp(One),
+  MoveDown(One),
+  MoveDown(Two),
+  WrapLam,
+  MoveDown(Three),
+  WrapAsc,
+  MoveUp,
+  MoveUp,
+  MoveUp,
+  MoveDown(Two),
+  WrapAp(One),
+  WrapLam,
+  MoveUp,
+  MoveDown(One),
+  MoveDown(Two),
+  MoveUp,
+  Unwrap(Two),
+];
+
 module Model = {
   [@deriving (sexp, fields)]
   type t = {state};
@@ -77,7 +165,7 @@ module Model = {
 
   let init = (): t => {
     let s = initial_state();
-    let initial_istate = apply_actions(minimized_5, s);
+    let initial_istate = apply_actions(minimized_6, s);
     all_update_steps(initial_istate);
     switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
     | Some(_) => failwith("marked incorrectly (init app)")
