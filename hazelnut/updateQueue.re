@@ -8,7 +8,8 @@ module Update = {
     | NewSyn(Iexp.upper)
     | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
-    | NewAsc(Iexp.upper);
+    | NewAsc(Iexp.upper)
+    | NewListRec(Iexp.upper);
 
   let priority =
     fun
