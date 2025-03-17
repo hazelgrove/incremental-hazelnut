@@ -384,6 +384,9 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
+  | (z, InsertNil) => z
+  | (z, InsertCons) => z
+  | (z, InsertListRec) => z
   | (z, WrapPlus(_)) => z
   | (z, WrapAp(_)) => z
   | (z, WrapLam) => z
