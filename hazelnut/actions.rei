@@ -20,6 +20,9 @@ module Iaction: {
     | InsertNumType
     | InsertNumLit(int)
     | InsertVar(string)
+    | InsertNil
+    | InsertCons
+    | InsertListRec
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapLam
