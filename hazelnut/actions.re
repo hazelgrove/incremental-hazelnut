@@ -31,6 +31,7 @@ module Iaction = {
     | Delete
     | WrapArrow(Child.t)
     | InsertNumType
+    | InsertList
     | InsertNumLit(int)
     | InsertVar(string)
     | InsertNil
@@ -167,7 +168,7 @@ let look_up_binder =
           Unmarked,
         )
       | _ => failwith("invalid binder lookup")
-      }
+      };
     }
   };
 };
@@ -266,6 +267,7 @@ let rec _capture_name_body =
       _capture_name_body(lower_b.child, name, syn, binder),
     )
   | Proj(_, lower, _) => _capture_name_body(lower.child, name, syn, binder)
+  | _ => failwith("unimplemented")
   };
 };
 
@@ -305,7 +307,10 @@ let rec delete_lower = (e: Iexp.lower) => {
 and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   switch (e) {
   | EHole
-  | NumLit(_) => ()
+  | NumLit(_)
+  | Nil
+  | Cons
+  | ListRec(_) => ()
   | Var(x, _, binder) =>
     let var_set = var_set_of_binder(x, binder.contents);
     Iexp.remove_bound_var(upper, var_set);
@@ -371,6 +376,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (RProduct(t1, Cursor(t2)), MoveUp) => Cursor(Product(t1, t2))
   | (Cursor(Hole), MoveDown(_)) => z
   | (Cursor(Num), MoveDown(_)) => z
+  | (Cursor(List), MoveDown(_)) => z
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
   | (Cursor(Arrow(t1, t2)), MoveDown(Two)) => RArrow(t1, Cursor(t2))
   | (Cursor(Arrow(_)), MoveDown(Three)) => z
@@ -380,6 +386,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (Cursor(_), Delete) => Cursor(Hole)
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
   | (Cursor(_), InsertNumType) => z
+  | (Cursor(Hole), InsertList) => Cursor(List)
+  | (Cursor(_), InsertList) => z
   | (Cursor(t), WrapArrow(One)) => Cursor(Arrow(t, Hole))
   | (Cursor(t), WrapArrow(Two)) => Cursor(Arrow(Hole, t))
   | (Cursor(_), WrapArrow(Three)) => z
@@ -388,6 +396,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (Cursor(_), WrapProduct(Three)) => z
   | (Cursor(Hole), Unwrap(_)) => z
   | (Cursor(Num), Unwrap(_)) => z
+  | (Cursor(List), Unwrap(_)) => z
   | (Cursor(Arrow(t, _)), Unwrap(One))
   | (Cursor(Arrow(_, t)), Unwrap(Two)) => Cursor(t)
   | (Cursor(Arrow(_)), Unwrap(Three)) => z
@@ -398,6 +407,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (LArrow(z, t), MoveDown(_))
   | (LArrow(z, t), Delete)
   | (LArrow(z, t), InsertNumType)
+  | (LArrow(z, t), InsertList)
   | (LArrow(z, t), WrapArrow(_))
   | (LArrow(z, t), WrapProduct(_))
   | (LArrow(z, t), Unwrap(_)) => LArrow(apply_action_typ(z, a), t)
@@ -405,6 +415,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
   | (RArrow(t, z), InsertNumType)
+  | (RArrow(t, z), InsertList)
   | (RArrow(t, z), WrapArrow(_))
   | (RArrow(t, z), WrapProduct(_))
   | (RArrow(t, z), Unwrap(_)) => RArrow(t, apply_action_typ(z, a))
@@ -412,6 +423,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (LProduct(z, t), MoveDown(_))
   | (LProduct(z, t), Delete)
   | (LProduct(z, t), InsertNumType)
+  | (LProduct(z, t), InsertList)
   | (LProduct(z, t), WrapArrow(_))
   | (LProduct(z, t), WrapProduct(_))
   | (LProduct(z, t), Unwrap(_)) => LProduct(apply_action_typ(z, a), t)
@@ -419,6 +431,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (RProduct(t, z), MoveDown(_))
   | (RProduct(t, z), Delete)
   | (RProduct(t, z), InsertNumType)
+  | (RProduct(t, z), InsertList)
   | (RProduct(t, z), WrapArrow(_))
   | (RProduct(t, z), WrapProduct(_))
   | (RProduct(t, z), Unwrap(_)) => RProduct(t, apply_action_typ(z, a))
@@ -456,6 +469,10 @@ let _string_of_action: Iaction.t => string =
   | Delete => "Delete"
   | WrapArrow(c) => "WrapArrow(" ++ _string_of_child(c) ++ ")"
   | InsertNumType => "InsertNumType"
+  | InsertList => "InserList"
+  | InsertNil => "InsertNil"
+  | InsertCons => "InsertCons"
+  | InsertListRec => "InsertListRec"
   | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ _string_of_child(c) ++ ")"
@@ -553,6 +570,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       t.contents = t';
       UpdateQueue.update_push(NewAsc(e), q);
       return_cursor(CursorTyp(e, z'));
+    | ListRec(t) =>
+      let z' = apply_action_typ(z, a);
+      let t' = erase_typ(z');
+      t.contents = t';
+      UpdateQueue.update_push(NewListRec(e), q);
+      return_cursor(CursorTyp(e, z'));
     | _ => failwith("CursorTyp on node with no type")
     }
   | (CursorExp(e), MoveUp) =>
@@ -564,7 +587,9 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     switch (e.middle) {
     | Var(_, _, _)
     | NumLit(_)
-    | EHole => no_movement
+    | EHole
+    | Nil
+    | Cons => no_movement
     | Plus(e1, e2)
     | Pair(e1, e2, _)
     | Ap(e1, _, e2) =>
@@ -591,6 +616,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Two => no_movement
       | Three => no_movement
       }
+    | ListRec(t) =>
+      switch (child) {
+      | One => return_cursor(CursorTyp(e, Cursor(t.contents)))
+      | Two
+      | Three => no_movement
+      }
     }
   | (CursorExp(e), Delete) =>
     let e': Iexp.upper = {
@@ -607,7 +638,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(e'));
   | (CursorExp(_), InsertNumType)
-  | (CursorExp(_), WrapArrow(_)) => no_movement
+  | (CursorExp(_), WrapArrow(_))
+  | (CursorExp(_), InsertList)
   | (CursorExp(_), WrapProduct(_)) => no_movement
   | (CursorExp(e), InsertNumLit(x)) =>
     switch (e.middle) {
@@ -616,6 +648,66 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         parent: e.parent,
         syn: Some(Num),
         middle: NumLit(x),
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+      delete_upper(e);
+      replace(e, e');
+      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(e'));
+    | _ => no_movement
+    }
+  | (CursorExp(e), InsertNil) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn: Some(List),
+        middle: Nil,
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+      delete_upper(e);
+      replace(e, e');
+      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(e'));
+    | _ => no_movement
+    }
+  | (CursorExp(e), InsertCons) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn: Some(Arrow(Num, Arrow(List, List))),
+        middle: Cons,
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+      delete_upper(e);
+      replace(e, e');
+      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(e'));
+    | _ => no_movement
+    }
+  | (CursorExp(e), InsertListRec) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn:
+          Some(
+            Arrow(
+              Hole,
+              Arrow(Arrow(Num, Arrow(Hole, Hole)), Arrow(List, Hole)),
+            ),
+          ),
+        middle: ListRec(ref(Htyp.Hole)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -909,7 +1001,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     switch (e.middle) {
     | EHole => no_movement
     | Var(_, _, _)
-    | NumLit(_) => apply_action(state, Delete)
+    | NumLit(_)
+    | Nil
+    | Cons
+    | ListRec(_) => apply_action(state, Delete)
     | Lam(bind, _, _, _, body_lower, bound_vars) =>
       let body = body_lower.child;
       let parent = e.parent;

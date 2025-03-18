@@ -9,10 +9,20 @@ type stepped =
   | Stepped;
 
 let update_step = (state: Istate.t): stepped => {
-  // print_endline(
-  //   string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
-  //   ++ " updates.",
-  // );
+  print_endline(
+    string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
+    ++ " updates.",
+  );
+
+  // switch (List.nth(UpdateQueue.list_of_t(state.ephemeral.q), 0)) {
+  // | NewListRec(_) => print_endline("found0")
+  // | _ => ()
+  // };
+
+  // switch (List.nth(UpdateQueue.list_of_t(state.ephemeral.q), 1)) {
+  // | NewListRec(_) => print_endline("found1")
+  // | _ => ()
+  // };
 
   let apply_update = (update: Update.t, q): unit => {
     switch (update) {
@@ -128,6 +138,24 @@ let update_step = (state: Istate.t): stepped => {
         let update_list = [Update.NewAna(Lower(low)), Update.NewSyn(e)];
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewAsc on non-asc")
+      }
+    | NewListRec(e) =>
+      // print_endline("STEP: StepListRec");
+      switch (e.middle) {
+      | ListRec(t) =>
+        e.syn =
+          Some(
+            Arrow(
+              t.contents,
+              Arrow(
+                Arrow(Num, Arrow(t.contents, t.contents)),
+                Arrow(List, t.contents),
+              ),
+            ),
+          );
+        let update_list = [Update.NewSyn(e)];
+        UpdateQueue.update_push_list(update_list, q);
+      | _ => failwith("NewListRec on non ListRec")
       }
     };
   };

@@ -9,6 +9,7 @@ module InQueue = {
     mutable syn: bool,
     mutable ann: bool,
     mutable asc: bool,
+    mutable list_rec: bool,
   };
 
   [@deriving sexp]
@@ -19,7 +20,12 @@ module InQueue = {
 
   let default_lower = (): lower => {ana: false};
   let default_root = (): root => {ana: false};
-  let default_upper = (): upper => {syn: false, asc: false, ann: false};
+  let default_upper = (): upper => {
+    syn: false,
+    asc: false,
+    ann: false,
+    list_rec: false,
+  };
 };
 
 module Iexp = {

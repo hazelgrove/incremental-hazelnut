@@ -27,6 +27,7 @@ let random_edit = (): list(Iaction.t) => {
     [WrapProduct(One)],
     [WrapProduct(Two)],
     [InsertNumType],
+    [InsertList],
     [InsertNumLit(0)],
     [InsertVar("x")],
     [InsertVar("y")],
@@ -41,6 +42,9 @@ let random_edit = (): list(Iaction.t) => {
     [WrapAsc],
     [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
     [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
+    [InsertNil],
+    [InsertCons],
+    [InsertListRec],
     [Unwrap(One)],
     [Unwrap(Two)],
   ];

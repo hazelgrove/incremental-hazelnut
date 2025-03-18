@@ -46,6 +46,9 @@ and erase_middle: Iexp.middle => bareExp =
   | Pair(e1, e2, _) => Pair(erase_lower(e1), erase_lower(e2))
   | Proj(prod_side, e, _) => Proj(prod_side, erase_lower(e))
   | Asc(e, t) => Asc(erase_lower(e), t.contents)
+  | Nil => Nil
+  | Cons => Cons
+  | ListRec(t) => ListRec(t.contents)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
   erase_middle(e.middle);
@@ -115,6 +118,12 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       (Proj(prod_side, e, m), t_side);
     }
   | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
+  | Nil => (Nil, List)
+  | Cons => (Cons, Arrow(Num, Arrow(List, List)))
+  | ListRec(t) => (
+      ListRec(t),
+      Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t))),
+    )
   | EHole => (EHole, Hole)
 
 and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
@@ -239,6 +248,13 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
     }
   | Asc(e, t) =>
     wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t)), Some(t))
+  | Nil => wrap_upper(Nil, Some(List))
+  | Cons => wrap_upper(Cons, Some(Arrow(Num, Arrow(List, List))))
+  | ListRec(t) =>
+    wrap_upper(
+      ListRec(ref(t)),
+      Some(Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t)))),
+    )
   | EHole => wrap_upper(EHole, Some(Hole))
 
 and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
@@ -300,6 +316,9 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
     //print_endine("comparing asc");
     equiv_lower(e1, e2) && t1 == t2
   | (EHole, EHole) => true
+  | (Nil, Nil) => true
+  | (Cons, Cons) => true
+  | (ListRec(t1), ListRec(t2)) => t1 == t2
   | _ => false
   };
 }

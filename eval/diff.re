@@ -398,9 +398,17 @@ and edits = (x: exp) => {
   };
 };
 
-let wrap_insert = [ReplaceUp(Lam(Hole, Hole, Hole), 2), Down(0), Replace(Var("x")), Up, Down(1), Replace(Int), Up]
+let wrap_insert = [
+  ReplaceUp(Lam(Hole, Hole, Hole), 2),
+  Down(0),
+  Replace(Var("x")),
+  Up,
+  Down(1),
+  Replace(Int),
+  Up,
+];
 let trace = edits(program);
-let wrap_delete = [ReplaceDown(2)]
+let wrap_delete = [ReplaceDown(2)];
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {

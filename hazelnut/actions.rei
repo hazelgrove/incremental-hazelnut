@@ -18,6 +18,7 @@ module Iaction: {
     | Delete
     | WrapArrow(Child.t)
     | InsertNumType
+    | InsertList
     | InsertNumLit(int)
     | InsertVar(string)
     | InsertNil

@@ -81,7 +81,7 @@ let _ = Hazelnut_lib.Order.Order.create();
 // test_actionses(random_action_segments(10000000));
 // print_endline("testin done app 10M");
 
-let minimized_6: list(Iaction.t) = [
+let _minimized_6: list(Iaction.t) = [
   WrapAp(Two),
   WrapAp(Two),
   WrapAp(Two),
@@ -165,12 +165,12 @@ module Model = {
 
   let init = (): t => {
     let s = initial_state();
-    let initial_istate = apply_actions(minimized_6, s);
-    all_update_steps(initial_istate);
-    switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
-    | Some(_) => failwith("marked incorrectly (init app)")
-    | None => print_endline("marked correctly (init app)")
-    };
+    let initial_istate = s; //apply_actions(minimized_6, s);
+    // all_update_steps(initial_istate);
+    // switch (marked_correctly(initial_istate.ephemeral.root.root_child)) {
+    // | Some(_) => failwith("marked incorrectly (init app)")
+    // | None => print_endline("marked correctly (init app)")
+    // };
     set({
       istate: initial_istate,
       // t: Hole,
@@ -384,6 +384,11 @@ let view =
             None,
           ),
           button(
+            "Construct List Type",
+            Action.HazelnutAction(InsertList),
+            None,
+          ),
+          button(
             "Construct Var",
             Action.HazelnutAction(InsertVar(state.var_input)),
             Some((Var, state.var_input)),
@@ -441,6 +446,13 @@ let view =
           button(
             "Wrap Plus (Right)",
             Action.HazelnutAction(WrapPlus(Two)),
+            None,
+          ),
+          button("Insert Nil", Action.HazelnutAction(InsertNil), None),
+          button("Insert Cons", Action.HazelnutAction(InsertCons), None),
+          button(
+            "Insert ListRec",
+            Action.HazelnutAction(InsertListRec),
             None,
           ),
         ]);

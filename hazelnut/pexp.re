@@ -10,7 +10,7 @@ let compare_string = String.compare;
 let compare_int = Int.compare;
 // let compare_float = Float.compare;
 
-let show_intervals = true;
+let show_intervals = false;
 
 let string_of_child: Child.t => string =
   fun
@@ -30,6 +30,10 @@ let string_of_action: Iaction.t => string =
   | Delete => "Delete"
   | WrapArrow(c) => "WrapArrow(" ++ string_of_child(c) ++ ")"
   | InsertNumType => "InsertNumType"
+  | InsertList => "InserList"
+  | InsertNil => "InsertNil"
+  | InsertCons => "InsertCons"
+  | InsertListRec => "InsertListRec"
   | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
@@ -51,6 +55,7 @@ module Pexp = {
     | New(t)
     | Arrow(t, t)
     | Num
+    | List
     | Var(string)
     | Lam(t, t, t)
     | Ap(t, t)
@@ -60,6 +65,9 @@ module Pexp = {
     | Product(t, t)
     | Fst(t)
     | Snd(t)
+    | Nil
+    | Cons
+    | ListRec(t)
     | Asc(t, t)
     | Hole
     | Interval(string, t, string)
@@ -71,6 +79,7 @@ let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Product(t1, t2) => Product(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Num => Num
+  | List => List
   | Hole => Hole;
 
 let pexp_of_htyp_opt: option(Htyp.t) => Pexp.t =
@@ -179,6 +188,12 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
       | _ => failwith("NewAsc on non ascription (pexp)")
       }
     | NewAsc(_) => d
+    | NewListRec(e') when e === e' =>
+      switch (unwrap_extras(d)) {
+      | (ListRec(t), rewrap) => rewrap(ListRec(New(t)))
+      | _ => failwith("NewListRec on non ListRec (pexp)")
+      }
+    | NewListRec(_) => d
     };
   };
   let with_new_types =
@@ -192,6 +207,7 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
 
 and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
   switch (e) {
+  | EHole => Hole
   | Var(x, m, _binders) => pexp_markif(m.contents, Free, Var(x))
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
@@ -242,7 +258,15 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | _ => pexp_of_htyp(t.contents)
       };
     Asc(pexp_of_iexp_lower(body, s), pt);
-  | EHole => Hole
+  | Nil => Nil
+  | Cons => Cons
+  | ListRec(t) =>
+    let pt =
+      switch (s.persistent.c) {
+      | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
+      | _ => pexp_of_htyp(t.contents)
+      };
+    ListRec(pt);
   };
 }
 
@@ -255,6 +279,7 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
     | NewSyn(_) => None
     | NewAnn(_) => None
     | NewAsc(_) => None
+    | NewListRec(_) => None
     };
   };
   switch (
@@ -275,6 +300,7 @@ let pexp_of_root = (s: Istate.t): Pexp.t => {
     | NewSyn(_) => false
     | NewAnn(_) => false
     | NewAsc(_) => false
+    | NewListRec(_) => false
     };
   };
   List.exists(filter_updates, UpdateQueue.list_of_t(s.ephemeral.q))
@@ -290,6 +316,7 @@ let rec prec: Pexp.t => int =
   | New(_) => 3
   | Arrow(_) => 1
   | Num => 0
+  | List => 0
   | Var(_) => 0
   | Lam(_) => 0
   | Ap(_) => 2
@@ -300,6 +327,9 @@ let rec prec: Pexp.t => int =
   | Snd(_) => 4
   | Product(_) => 3
   | Asc(_) => 4
+  | Nil => 0
+  | Cons => 0
+  | ListRec(_) => 4
   | Hole => 0
   | Interval(_) => 0
   | Mark(_, _) => 0;
@@ -319,6 +349,7 @@ let rec assoc: Pexp.t => Side.t =
   | New(_) => Left
   | Arrow(_) => Right
   | Num => Atom
+  | List => Atom
   | Var(_) => Atom
   | Lam(_) => Atom
   | Ap(_) => Left
@@ -329,6 +360,9 @@ let rec assoc: Pexp.t => Side.t =
   | Snd(_) => Left
   | Product(_) => Left
   | Asc(_) => Left
+  | Nil
+  | Cons => Atom
+  | ListRec(_) => Left
   | Hole => Atom
   | Interval(_) => Atom
   | Mark(_, _) => Atom;
@@ -344,6 +378,7 @@ let rec string_of_pexp: Pexp.t => string =
   | Arrow(t1, t2) as outer =>
     paren(t1, outer, Side.Left) ++ " → " ++ paren(t2, outer, Side.Right)
   | Num => "Num"
+  | List => "List"
   | Var(x) => x
   | Lam(x, a, e) =>
     "fun "
@@ -368,6 +403,9 @@ let rec string_of_pexp: Pexp.t => string =
   | Asc(e, t) as outer =>
     paren(e, outer, Side.Left) ++ ": " ++ paren(t, outer, Side.Right)
   | Hole => "?"
+  | Nil => "[]"
+  | Cons => "_::_"
+  | ListRec(t) => "ListRec[" ++ string_of_pexp(t) ++ "]"
   | Interval(n1, e, n2) =>
     "{" ++ n1 ++ "]" ++ string_of_pexp(e) ++ "[" ++ n2 ++ "}"
   | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"

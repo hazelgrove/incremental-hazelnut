@@ -16,7 +16,8 @@ module Update = {
     | NewSyn(e) => snd(e.interval)
     | NewAna(e) => fst(child_of_parent(e).interval)
     | NewAnn(e) => fst(e.interval)
-    | NewAsc(e) => fst(e.interval);
+    | NewAsc(e) => fst(e.interval)
+    | NewListRec(e) => fst(e.interval);
 
   // only called on updates with the same priority
   // NewAnn or NewAsc should always come first
@@ -76,6 +77,9 @@ module UpdateQueue = {
     | NewAsc(e) when !e.in_queue_upper.asc =>
       e.in_queue_upper.asc = true;
       push(u, q);
+    | NewListRec(e) when !e.in_queue_upper.list_rec =>
+      e.in_queue_upper.list_rec = true;
+      push(u, q);
     | _ => ()
     };
   };
@@ -111,6 +115,10 @@ module UpdateQueue = {
     | NewAsc(e) =>
       assert(e.in_queue_upper.asc);
       e.in_queue_upper.asc = false;
+      recurse_if_deleted(e.deleted_upper, u);
+    | NewListRec(e) =>
+      assert(e.in_queue_upper.list_rec);
+      e.in_queue_upper.list_rec = false;
       recurse_if_deleted(e.deleted_upper, u);
     };
   };
