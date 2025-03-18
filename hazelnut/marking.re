@@ -13,6 +13,9 @@ type bareExp =
   | Pair(bareExp, bareExp)
   | Proj(ProdSide.t, bareExp)
   | Asc(bareExp, Htyp.t)
+  | Nil
+  | Cons
+  | ListRec(Htyp.t)
   | EHole;
 
 type markedExp =
@@ -24,6 +27,9 @@ type markedExp =
   | Pair(markedExp, markedExp, Mark.t)
   | Proj(ProdSide.t, markedExp, Mark.t)
   | Asc(markedExp, Htyp.t)
+  | Nil
+  | Cons
+  | ListRec(Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
 

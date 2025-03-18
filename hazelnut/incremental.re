@@ -49,6 +49,9 @@ module Iexp = {
     | Pair(lower, lower, ref(Mark.t))
     | Proj(ProdSide.t, lower, ref(Mark.t))
     | Asc(lower, ref(Htyp.t))
+    | Nil
+    | Cons
+    | ListRec(ref(Htyp.t))
     | EHole
 
   and upper = {

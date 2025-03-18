@@ -4,6 +4,7 @@ module Htyp: {
     | Arrow(t, t)
     | Product(t, t)
     | Num
+    | List
     | Hole;
 };
 
