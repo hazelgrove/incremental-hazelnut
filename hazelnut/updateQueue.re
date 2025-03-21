@@ -9,7 +9,8 @@ module Update = {
     | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper)
-    | NewListRec(Iexp.upper);
+    | NewListRec(Iexp.upper)
+    | NewY(Iexp.upper);
 
   let priority =
     fun
@@ -17,7 +18,8 @@ module Update = {
     | NewAna(e) => fst(child_of_parent(e).interval)
     | NewAnn(e) => fst(e.interval)
     | NewAsc(e) => fst(e.interval)
-    | NewListRec(e) => fst(e.interval);
+    | NewListRec(e) => fst(e.interval)
+    | NewY(e) => fst(e.interval);
 
   // only called on updates with the same priority
   // NewAnn or NewAsc should always come first
@@ -80,6 +82,9 @@ module UpdateQueue = {
     | NewListRec(e) when !e.in_queue_upper.list_rec =>
       e.in_queue_upper.list_rec = true;
       push(u, q);
+    | NewY(e) when !e.in_queue_upper.y =>
+      e.in_queue_upper.y = true;
+      push(u, q);
     | _ => ()
     };
   };
@@ -119,6 +124,10 @@ module UpdateQueue = {
     | NewListRec(e) =>
       assert(e.in_queue_upper.list_rec);
       e.in_queue_upper.list_rec = false;
+      recurse_if_deleted(e.deleted_upper, u);
+    | NewY(e) =>
+      assert(e.in_queue_upper.y);
+      e.in_queue_upper.y = false;
       recurse_if_deleted(e.deleted_upper, u);
     };
   };

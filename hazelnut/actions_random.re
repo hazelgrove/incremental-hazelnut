@@ -45,6 +45,7 @@ let random_edit = (): list(Iaction.t) => {
     [InsertNil],
     [InsertCons],
     [InsertListRec],
+    [InsertY],
     [Unwrap(One)],
     [Unwrap(Two)],
   ];

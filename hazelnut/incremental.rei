@@ -8,6 +8,7 @@ module InQueue: {
     mutable ann: bool,
     mutable asc: bool,
     mutable list_rec: bool,
+    mutable y: bool,
   };
   type lower = {mutable ana: bool};
   type root = {mutable ana: bool};
@@ -47,6 +48,7 @@ module Iexp: {
     | Nil
     | Cons
     | ListRec(ref(Htyp.t))
+    | Y(ref(Htyp.t))
     | EHole
 
   and upper = {

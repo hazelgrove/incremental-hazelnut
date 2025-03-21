@@ -37,6 +37,7 @@ module Iaction = {
     | InsertNil
     | InsertCons
     | InsertListRec
+    | InsertY
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapPair(Child.t)
@@ -311,6 +312,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Nil
   | Cons
   | ListRec(_) => ()
+  | Y(_) => ()
   | Var(x, _, binder) =>
     let var_set = var_set_of_binder(x, binder.contents);
     Iexp.remove_bound_var(upper, var_set);
@@ -441,6 +443,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (z, InsertNil) => z
   | (z, InsertCons) => z
   | (z, InsertListRec) => z
+  | (z, InsertY) => z
   | (z, WrapPlus(_)) => z
   | (z, WrapAp(_)) => z
   | (z, WrapPair(_)) => z
@@ -473,6 +476,7 @@ let _string_of_action: Iaction.t => string =
   | InsertNil => "InsertNil"
   | InsertCons => "InsertCons"
   | InsertListRec => "InsertListRec"
+  | InsertY => "InsertY"
   | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ _string_of_child(c) ++ ")"
@@ -576,6 +580,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       t.contents = t';
       UpdateQueue.update_push(NewListRec(e), q);
       return_cursor(CursorTyp(e, z'));
+    | Y(t) =>
+      let z' = apply_action_typ(z, a);
+      let t' = erase_typ(z');
+      t.contents = t';
+      UpdateQueue.update_push(NewY(e), q);
+      return_cursor(CursorTyp(e, z'));
     | _ => failwith("CursorTyp on node with no type")
     }
   | (CursorExp(e), MoveUp) =>
@@ -617,6 +627,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Three => no_movement
       }
     | ListRec(t) =>
+      switch (child) {
+      | One => return_cursor(CursorTyp(e, Cursor(t.contents)))
+      | Two
+      | Three => no_movement
+      }
+    | Y(t) =>
       switch (child) {
       | One => return_cursor(CursorTyp(e, Cursor(t.contents)))
       | Two
@@ -708,6 +724,30 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
             ),
           ),
         middle: ListRec(ref(Htyp.Hole)),
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+      delete_upper(e);
+      replace(e, e');
+      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(e'));
+    | _ => no_movement
+    }
+  | (CursorExp(e), InsertY) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn:
+          Some(
+            Arrow(
+              Arrow(Arrow(Hole, Hole), Arrow(Hole, Hole)),
+              Arrow(Hole, Hole),
+            ),
+          ),
+        middle: Y(ref(Htyp.Hole)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -1004,7 +1044,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | NumLit(_)
     | Nil
     | Cons
-    | ListRec(_) => apply_action(state, Delete)
+    | ListRec(_)
+    | Y(_) => apply_action(state, Delete)
     | Lam(bind, _, _, _, body_lower, bound_vars) =>
       let body = body_lower.child;
       let parent = e.parent;

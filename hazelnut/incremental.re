@@ -10,6 +10,7 @@ module InQueue = {
     mutable ann: bool,
     mutable asc: bool,
     mutable list_rec: bool,
+    mutable y: bool,
   };
 
   [@deriving sexp]
@@ -25,6 +26,7 @@ module InQueue = {
     asc: false,
     ann: false,
     list_rec: false,
+    y: false,
   };
 };
 
@@ -58,6 +60,7 @@ module Iexp = {
     | Nil
     | Cons
     | ListRec(ref(Htyp.t))
+    | Y(ref(Htyp.t))
     | EHole
 
   and upper = {

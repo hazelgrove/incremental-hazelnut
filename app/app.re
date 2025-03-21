@@ -455,6 +455,7 @@ let view =
             Action.HazelnutAction(InsertListRec),
             None,
           ),
+          button("Insert Y", Action.HazelnutAction(InsertY), None),
         ]);
 
       let unwrap_buttons =

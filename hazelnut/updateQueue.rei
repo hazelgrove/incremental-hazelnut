@@ -6,7 +6,8 @@ module Update: {
     | NewAna(Iexp.parent)
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper)
-    | NewListRec(Iexp.upper);
+    | NewListRec(Iexp.upper)
+    | NewY(Iexp.upper);
   let leq: (t, t) => bool;
 };
 

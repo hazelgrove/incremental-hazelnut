@@ -16,6 +16,7 @@ type bareExp =
   | Nil
   | Cons
   | ListRec(Htyp.t)
+  | Y(Htyp.t)
   | EHole;
 
 type markedExp =
@@ -30,6 +31,7 @@ type markedExp =
   | Nil
   | Cons
   | ListRec(Htyp.t)
+  | Y(Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
 
@@ -49,6 +51,7 @@ and erase_middle: Iexp.middle => bareExp =
   | Nil => Nil
   | Cons => Cons
   | ListRec(t) => ListRec(t.contents)
+  | Y(t) => Y(t.contents)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
   erase_middle(e.middle);
@@ -124,6 +127,7 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       ListRec(t),
       Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t))),
     )
+  | Y(t) => (Y(t), Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t)))
   | EHole => (EHole, Hole)
 
 and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
@@ -255,6 +259,11 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       ListRec(ref(t)),
       Some(Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t)))),
     )
+  | Y(t) =>
+    wrap_upper(
+      Y(ref(t)),
+      Some(Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t))),
+    )
   | EHole => wrap_upper(EHole, Some(Hole))
 
 and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
@@ -319,6 +328,7 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
   | (Nil, Nil) => true
   | (Cons, Cons) => true
   | (ListRec(t1), ListRec(t2)) => t1 == t2
+  | (Y(t1), Y(t2)) => t1 == t2
   | _ => false
   };
 }

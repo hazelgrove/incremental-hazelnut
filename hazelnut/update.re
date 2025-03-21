@@ -157,6 +157,24 @@ let update_step = (state: Istate.t): stepped => {
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewListRec on non ListRec")
       }
+    | NewY(e) =>
+      // print_endline("STEP: StepY");
+      switch (e.middle) {
+      | Y(t) =>
+        e.syn =
+          Some(
+            Arrow(
+              Arrow(
+                Arrow(t.contents, t.contents),
+                Arrow(t.contents, t.contents),
+              ),
+              Arrow(t.contents, t.contents),
+            ),
+          );
+        let update_list = [Update.NewSyn(e)];
+        UpdateQueue.update_push_list(update_list, q);
+      | _ => failwith("NewY on non Y")
+      }
     };
   };
 
