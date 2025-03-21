@@ -30,11 +30,15 @@ let string_of_action: Iaction.t => string =
   | Delete => "Delete"
   | WrapArrow(c) => "WrapArrow(" ++ string_of_child(c) ++ ")"
   | InsertNumType => "InsertNumType"
+  | InsertBoolType => "InsertBoolType"
+  | InsertUnitType => "InsertUnitType"
   | InsertList => "InserList"
   | InsertNil => "InsertNil"
   | InsertCons => "InsertCons"
   | InsertListRec => "InsertListRec"
   | InsertY => "InsertY"
+  | InsertLt => "InsertLt"
+  | InsertITE => "InsertITE"
   | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ string_of_child(c) ++ ")"
@@ -56,6 +60,8 @@ module Pexp = {
     | New(t)
     | Arrow(t, t)
     | Num
+    | Bool
+    | Unit
     | List
     | Var(string)
     | Lam(t, t, t)
@@ -68,6 +74,8 @@ module Pexp = {
     | Snd(t)
     | Nil
     | Cons
+    | Lt
+    | ITE(t)
     | ListRec(t)
     | Y(t)
     | Asc(t, t)
@@ -81,6 +89,8 @@ let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
   | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Product(t1, t2) => Product(pexp_of_htyp(t1), pexp_of_htyp(t2))
   | Num => Num
+  | Bool => Bool
+  | Unit => Unit
   | List => List
   | Hole => Hole;
 
@@ -275,6 +285,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | _ => pexp_of_htyp(t.contents)
       };
     ListRec(pt);
+<<<<<<< HEAD
   | Y(t) =>
     let pt =
       switch (s.persistent.c) {
@@ -282,6 +293,13 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | _ => pexp_of_htyp(t.contents)
       };
     Y(pt);
+  | ITE(t) =>
+    let pt =
+      switch (s.persistent.c) {
+      | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
+      | _ => pexp_of_htyp(t.contents)
+      };
+    ITE(pt);
   };
 }
 
@@ -333,6 +351,8 @@ let rec prec: Pexp.t => int =
   | New(_) => 3
   | Arrow(_) => 1
   | Num => 0
+  | Bool => 0
+  | Unit => 0
   | List => 0
   | Var(_) => 0
   | Lam(_) => 0
@@ -346,6 +366,8 @@ let rec prec: Pexp.t => int =
   | Asc(_) => 4
   | Nil => 0
   | Cons => 0
+  | Lt => 0
+  | ITE(_) => 4
   | ListRec(_) => 4
   | Y(_) => 4
   | Hole => 0
@@ -367,6 +389,8 @@ let rec assoc: Pexp.t => Side.t =
   | New(_) => Left
   | Arrow(_) => Right
   | Num => Atom
+  | Bool => Atom
+  | Unit => Atom
   | List => Atom
   | Var(_) => Atom
   | Lam(_) => Atom
@@ -380,6 +404,8 @@ let rec assoc: Pexp.t => Side.t =
   | Asc(_) => Left
   | Nil
   | Cons => Atom
+  | Lt => Atom
+  | ITE(_) => Left
   | ListRec(_) => Left
   | Y(_) => Left
   | Hole => Atom
@@ -397,6 +423,8 @@ let rec string_of_pexp: Pexp.t => string =
   | Arrow(t1, t2) as outer =>
     paren(t1, outer, Side.Left) ++ " → " ++ paren(t2, outer, Side.Right)
   | Num => "Num"
+  | Bool => "Bool"
+  | Unit => "Unit"
   | List => "List"
   | Var(x) => x
   | Lam(x, a, e) =>
@@ -424,6 +452,8 @@ let rec string_of_pexp: Pexp.t => string =
   | Hole => "?"
   | Nil => "[]"
   | Cons => "_::_"
+  | Lt => "<"
+  | ITE(t) => "ITE[" ++ string_of_pexp(t) ++ "]"
   | ListRec(t) => "ListRec[" ++ string_of_pexp(t) ++ "]"
   | Y(t) => "Y[" ++ string_of_pexp(t) ++ "]"
   | Interval(n1, e, n2) =>

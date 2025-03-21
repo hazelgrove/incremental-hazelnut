@@ -18,6 +18,10 @@ module Iaction: {
     | Delete
     | WrapArrow(Child.t)
     | InsertNumType
+    | InsertBoolType
+    | InsertUnitType
+    | InsertLt
+    | InsertITE
     | InsertList
     | InsertNumLit(int)
     | InsertVar(string)

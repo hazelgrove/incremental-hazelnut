@@ -31,6 +31,10 @@ module Iaction = {
     | Delete
     | WrapArrow(Child.t)
     | InsertNumType
+    | InsertBoolType
+    | InsertUnitType
+    | InsertLt
+    | InsertITE
     | InsertList
     | InsertNumLit(int)
     | InsertVar(string)
@@ -311,6 +315,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | NumLit(_)
   | Nil
   | Cons
+  | ITE(_)
   | ListRec(_) => ()
   | Y(_) => ()
   | Var(x, _, binder) =>
@@ -378,6 +383,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (RProduct(t1, Cursor(t2)), MoveUp) => Cursor(Product(t1, t2))
   | (Cursor(Hole), MoveDown(_)) => z
   | (Cursor(Num), MoveDown(_)) => z
+  | (Cursor(Bool), MoveDown(_)) => z
+  | (Cursor(Unit), MoveDown(_)) => z
   | (Cursor(List), MoveDown(_)) => z
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
   | (Cursor(Arrow(t1, t2)), MoveDown(Two)) => RArrow(t1, Cursor(t2))
@@ -387,7 +394,11 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (Cursor(Product(_)), MoveDown(Three)) => z
   | (Cursor(_), Delete) => Cursor(Hole)
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
-  | (Cursor(_), InsertNumType) => z
+  | (Cursor(Hole), InsertBoolType) => Cursor(Bool)
+  | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
+  | (Cursor(_), InsertNumType)
+  | (Cursor(_), InsertBoolType)
+  | (Cursor(_), InsertUnitType) => z
   | (Cursor(Hole), InsertList) => Cursor(List)
   | (Cursor(_), InsertList) => z
   | (Cursor(t), WrapArrow(One)) => Cursor(Arrow(t, Hole))
@@ -398,6 +409,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (Cursor(_), WrapProduct(Three)) => z
   | (Cursor(Hole), Unwrap(_)) => z
   | (Cursor(Num), Unwrap(_)) => z
+  | (Cursor(Bool), Unwrap(_)) => z
+  | (Cursor(Unit), Unwrap(_)) => z
   | (Cursor(List), Unwrap(_)) => z
   | (Cursor(Arrow(t, _)), Unwrap(One))
   | (Cursor(Arrow(_, t)), Unwrap(Two)) => Cursor(t)
@@ -409,6 +422,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (LArrow(z, t), MoveDown(_))
   | (LArrow(z, t), Delete)
   | (LArrow(z, t), InsertNumType)
+  | (LArrow(z, t), InsertBoolType)
+  | (LArrow(z, t), InsertUnitType)
   | (LArrow(z, t), InsertList)
   | (LArrow(z, t), WrapArrow(_))
   | (LArrow(z, t), WrapProduct(_))
@@ -417,6 +432,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
   | (RArrow(t, z), InsertNumType)
+  | (RArrow(t, z), InsertBoolType)
+  | (RArrow(t, z), InsertUnitType)
   | (RArrow(t, z), InsertList)
   | (RArrow(t, z), WrapArrow(_))
   | (RArrow(t, z), WrapProduct(_))
@@ -425,6 +442,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (LProduct(z, t), MoveDown(_))
   | (LProduct(z, t), Delete)
   | (LProduct(z, t), InsertNumType)
+  | (LProduct(z, t), InsertBoolType)
+  | (LProduct(z, t), InsertUnitType)
   | (LProduct(z, t), InsertList)
   | (LProduct(z, t), WrapArrow(_))
   | (LProduct(z, t), WrapProduct(_))
@@ -433,6 +452,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (RProduct(t, z), MoveDown(_))
   | (RProduct(t, z), Delete)
   | (RProduct(t, z), InsertNumType)
+  | (RProduct(t, z), InsertBoolType)
+  | (RProduct(t, z), InsertUnitType)
   | (RProduct(t, z), InsertList)
   | (RProduct(t, z), WrapArrow(_))
   | (RProduct(t, z), WrapProduct(_))
@@ -444,6 +465,8 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (z, InsertCons) => z
   | (z, InsertListRec) => z
   | (z, InsertY) => z
+  | (z, InsertLt) => z
+  | (z, InsertITE) => z
   | (z, WrapPlus(_)) => z
   | (z, WrapAp(_)) => z
   | (z, WrapPair(_)) => z
@@ -472,11 +495,15 @@ let _string_of_action: Iaction.t => string =
   | Delete => "Delete"
   | WrapArrow(c) => "WrapArrow(" ++ _string_of_child(c) ++ ")"
   | InsertNumType => "InsertNumType"
+  | InsertBoolType => "InsertBoolType"
+  | InsertUnitType => "InsertUnitType"
   | InsertList => "InserList"
   | InsertNil => "InsertNil"
   | InsertCons => "InsertCons"
   | InsertListRec => "InsertListRec"
   | InsertY => "InsertY"
+  | InsertLt => "InsertLt"
+  | InsertITE => "InsertITE"
   | InsertNumLit(x) => "InsertNumLit(" ++ string_of_int(x) ++ ")"
   | InsertVar(s) => "InsertVar(\"" ++ s ++ "\")"
   | WrapPlus(c) => "WrapPlus(" ++ _string_of_child(c) ++ ")"
@@ -638,6 +665,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Two
       | Three => no_movement
       }
+    | ITE(t) =>
+      switch (child) {
+      | One => return_cursor(CursorTyp(e, Cursor(t.contents)))
+      | Two
+      | Three => no_movement
+      }
     }
   | (CursorExp(e), Delete) =>
     let e': Iexp.upper = {
@@ -654,6 +687,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(e'));
   | (CursorExp(_), InsertNumType)
+  | (CursorExp(_), InsertBoolType)
+  | (CursorExp(_), InsertUnitType)
   | (CursorExp(_), WrapArrow(_))
   | (CursorExp(_), InsertList)
   | (CursorExp(_), WrapProduct(_)) => no_movement
@@ -735,6 +770,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       return_cursor(CursorExp(e'));
     | _ => no_movement
     }
+<<<<<<< HEAD
   | (CursorExp(e), InsertY) =>
     switch (e.middle) {
     | EHole =>
@@ -748,6 +784,46 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
             ),
           ),
         middle: Y(ref(Htyp.Hole)),
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+      delete_upper(e);
+      replace(e, e');
+      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(e'));
+  | (CursorExp(e), InsertLt) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn: Some(Arrow(Num, Arrow(Num, Bool))),
+        middle: ListRec(ref(Htyp.Hole)),
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+      delete_upper(e);
+      replace(e, e');
+      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(e'));
+    | _ => no_movement
+    }
+  | (CursorExp(e), InsertITE) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn:
+          Some(
+            Arrow(
+              Bool,
+              Arrow(Arrow(Unit, Hole), Arrow(Arrow(Unit, Hole), Hole)),
+            ),
+          ),
+        middle: ListRec(ref(Htyp.Hole)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -1045,6 +1121,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | Nil
     | Cons
     | ListRec(_)
+    | ITE(_)
     | Y(_) => apply_action(state, Delete)
     | Lam(bind, _, _, _, body_lower, bound_vars) =>
       let body = body_lower.child;

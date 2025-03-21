@@ -49,6 +49,7 @@ module Iexp: {
     | Cons
     | ListRec(ref(Htyp.t))
     | Y(ref(Htyp.t))
+    | ITE(ref(Htyp.t))
     | EHole
 
   and upper = {
