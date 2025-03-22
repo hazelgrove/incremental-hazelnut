@@ -268,7 +268,8 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
   | Y(t) =>
     wrap_upper(
       Y(ref(t)),
-      Some(Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t))),)
+      Some(Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t))),
+    )
   | ITE(t) =>
     wrap_upper(
       ListRec(ref(t)),

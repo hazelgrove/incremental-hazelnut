@@ -285,7 +285,6 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | _ => pexp_of_htyp(t.contents)
       };
     ListRec(pt);
-<<<<<<< HEAD
   | Y(t) =>
     let pt =
       switch (s.persistent.c) {

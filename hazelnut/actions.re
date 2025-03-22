@@ -770,7 +770,6 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       return_cursor(CursorExp(e'));
     | _ => no_movement
     }
-<<<<<<< HEAD
   | (CursorExp(e), InsertY) =>
     switch (e.middle) {
     | EHole =>
@@ -793,6 +792,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(e'));
+    | _ => no_movement
+    }
   | (CursorExp(e), InsertLt) =>
     switch (e.middle) {
     | EHole =>

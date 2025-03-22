@@ -518,7 +518,8 @@ let wrap_insert = [
   Up,
 ];
 let wrap_delete = [ReplaceDown(2)];
-let trace = wrap_insert @ wrap_insert @ edits(program) @ wrap_delete @ wrap_delete;
+let trace =
+  wrap_insert @ wrap_insert @ edits(program) @ wrap_delete @ wrap_delete;
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {
