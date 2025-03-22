@@ -944,8 +944,14 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let update_list = [
         Update.NewAna(new_upper.parent),
         Update.NewSyn(e1),
-        Update.NewAna(Lower(new_lower_left)),
+        Update.NewSyn(new_upper),
+        switch (child) {
+        | Child.One => Update.NewAna(Lower(new_lower_left))
+        | Child.Two => Update.NewAna(Lower(new_lower_right))
+        | Child.Three => raise(Unreachable)
+        },
       ];
+
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(new_upper));
     };
@@ -980,7 +986,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       );
     let new_upper: Iexp.upper = {
       parent: body.parent,
-      syn: body.syn,
+      syn: None,
       interval: interval_around(body),
       middle: new_mid,
       in_queue_upper: InQueue.default_upper(),
@@ -993,6 +999,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       Update.NewAna(new_upper.parent),
       NewAna(Lower(new_lower)),
       NewSyn(body),
+      NewSyn(new_upper),
     ];
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
@@ -1033,6 +1040,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         Update.NewAna(parent),
         Update.NewSyn(e1),
         Update.NewSyn(e2),
+        Update.NewSyn(new_upper),
         switch (child) {
         | Child.One => Update.NewAna(Lower(new_lower_left))
         | Child.Two => Update.NewAna(Lower(new_lower_right))
@@ -1068,7 +1076,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       Proj(prod_side, new_lower, ref(Mark.Unmarked));
     let new_upper: Iexp.upper = {
       parent,
-      syn: e.syn,
+      syn: None,
       interval,
       middle: new_middle,
       in_queue_upper: InQueue.default_upper(),
@@ -1081,6 +1089,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       Update.NewAna(parent),
       Update.NewSyn(e),
       Update.NewAna(Lower(new_lower)),
+      Update.NewSyn(new_upper),
     ];
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
