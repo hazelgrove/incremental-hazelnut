@@ -8,11 +8,33 @@ type stepped =
   | Settled
   | Stepped;
 
+let update_ana_dum =
+    (lower: Iexp.lower, t_new: option(Htyp.t)): list(Update.t) => {
+  lower.ana = t_new;
+  [Update.NewAna(Lower(lower))];
+};
+
+let _update_ana = (lower: Iexp.lower, t_new: option(Htyp.t)): list(Update.t) =>
+  if (t_new == lower.ana) {
+    [];
+  } else {
+    lower.ana = t_new;
+    [Update.NewAna(Lower(lower))];
+  };
+
+let update_syn = (upper: Iexp.upper, t_new: option(Htyp.t)): list(Update.t) =>
+  if (t_new == upper.syn) {
+    [];
+  } else {
+    upper.syn = t_new;
+    [Update.NewSyn(upper)];
+  };
+
 let update_step = (state: Istate.t): stepped => {
-  /*print_endline(
-    string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
-    ++ " updates.",
-  );*/
+  // print_endline(
+  //   string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
+  //   ++ " updates.",
+  // );
 
   // switch (List.nth(UpdateQueue.list_of_t(state.ephemeral.q), 0)) {
   // | NewListRec(_) => print_endline("found0")
@@ -37,34 +59,37 @@ let update_step = (state: Istate.t): stepped => {
         | Ap(e1, m, e2) when e1.child === e =>
           //print_endine("STEP: StepAp");
           let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
-          e2.ana = t_in;
-          parent.upper.syn = t_out;
+          let e2_update = update_ana_dum(e2, t_in);
+          let parent_update = update_syn(parent.upper, t_out);
           m.contents = m';
           e1.marked = Unmarked;
-          let update_list = [
-            Update.NewAna(Lower(e2)),
-            Update.NewSyn(parent.upper),
-          ];
+          let update_list = e2_update @ parent_update;
           UpdateQueue.update_push_list(update_list, q);
         | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
           //print_endine("STEP: StepSynFun");
-          parent.upper.syn =
-            arrow_unless(t.contents, body.child.syn, parent.ana);
+          let parent_update =
+            update_syn(
+              parent.upper,
+              arrow_unless(t.contents, body.child.syn, parent.ana),
+            );
           body.marked = Unmarked;
-          let update_list = [Update.NewSyn(parent.upper)];
+          let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
         | Pair(e1, e2, _) when Option.is_none(parent.ana) =>
-          parent.upper.syn =
-            product_unless(e1.child.syn, e2.child.syn, parent.ana);
+          let parent_update =
+            update_syn(
+              parent.upper,
+              product_unless(e1.child.syn, e2.child.syn, parent.ana),
+            );
           parent.marked = Unmarked; // Removes the mark from the originating child
-          let update_list = [Update.NewSyn(parent.upper)];
+          let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
         | Proj(prod_side, e, m) =>
           let (t_side_body, m_all_body) =
             matched_proj_typ_opt(prod_side, e.child.syn);
           m.contents = m_all_body;
-          parent.upper.syn = t_side_body;
-          let update_list = [Update.NewSyn(parent.upper)];
+          let parent_update = update_syn(parent.upper, t_side_body);
+          let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
@@ -91,13 +116,10 @@ let update_step = (state: Istate.t): stepped => {
         let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
         m_ana.contents = m_ana';
         m_ann.contents = m_ann';
-        body.ana = t_out;
+        let body_update = _update_ana(body, t_out);
         child.syn = arrow_unless(t_ann.contents, body.child.syn, ana);
         mark_parent(Unmarked);
-        let update_list = [
-          Update.NewAna(Lower(body)),
-          Update.NewSyn(child),
-        ];
+        let update_list = body_update @ [Update.NewSyn(child)];
         UpdateQueue.update_push_list(update_list, q);
       | Pair(e1, e2, m) =>
         let (t1, t2, m_ana') = matched_product_typ_opt(ana);
