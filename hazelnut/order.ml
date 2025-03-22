@@ -16,7 +16,7 @@ open Sexplib0
 
 module Order = struct
     let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
-    let label_bits = Sys.word_size - 5 (*use only the positive range*)
+    let label_bits = Sys.word_size - 2 (*use only the positive range*)
     
     (*let label_bits = 128 - 2 use only the positive range *)
     let max_label = 1 lsl (label_bits - 1) (* use only half the positive range to avoid needing to handle overflow *)
