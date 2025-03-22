@@ -9,6 +9,7 @@ import math
 import shutil
 from sklearn.cluster import KMeans
 
+PREPROCESS = False
 COUNTER = 0
 def count():
     global COUNTER
@@ -24,7 +25,11 @@ def shell(str):
 
 shell("mkdir -p log")
 shell("rm log/* || true")
-shell(f"dune exec eval {path}")
+
+if PREPROCESS:
+    shell(f"OCAML_LANDMARKS=format=json,output=profile.json dune exec eval {path}")
+else:
+    shell(f"dune exec eval {path}")
 
 class make_doc(dominate.document):
     def _add_to_ctx(self): pass # don't add to contexts
@@ -42,6 +47,9 @@ shell(f"rm -rf out/* || true")
 shell(f"mkdir -p {out_path}")
 
 doc = make_doc(title=out_path)
+
+if PREPROCESS:
+    h1("WARNING: PREPROCESS TURNED ON")
 
 data = {}
 for l in readlines_file(f"log/{path}"):

@@ -517,9 +517,12 @@ let wrap_insert = [
   Replace(Int),
   Up,
 ];
-let wrap_delete = [ReplaceDown(2)];
+let wrap_delete = [ReplaceDown(0)];
+let wrap_amount = 200;
 let trace =
-  wrap_insert @ wrap_insert @ wrap_insert @ edits(program) @ wrap_delete @ wrap_delete@ wrap_delete;
+  List.join(List.init(wrap_amount, f:(_) => { wrap_insert })) @ 
+  edits(program) @
+   List.join(List.init(wrap_amount, f:(_) => { wrap_delete }));
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {
@@ -688,6 +691,8 @@ let to_iaction = (act: action) => {
   | Down(0) => Iaction.MoveDown(One)
   | Down(1) => Iaction.MoveDown(Two)
   | Down(2) => Iaction.MoveDown(Three)
+  | ReplaceDown(0) => Iaction.Unwrap(One)
+  | ReplaceDown(1) => Iaction.Unwrap(Two)
   | ReplaceDown(2) => Iaction.Unwrap(Three)
   | _ =>
     pretty_print_action(act);

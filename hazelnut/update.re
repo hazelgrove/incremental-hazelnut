@@ -9,10 +9,10 @@ type stepped =
   | Stepped;
 
 let update_step = (state: Istate.t): stepped => {
-  print_endline(
+  /*print_endline(
     string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
     ++ " updates.",
-  );
+  );*/
 
   // switch (List.nth(UpdateQueue.list_of_t(state.ephemeral.q), 0)) {
   // | NewListRec(_) => print_endline("found0")
