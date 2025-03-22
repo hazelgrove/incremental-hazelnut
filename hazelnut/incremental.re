@@ -154,10 +154,3 @@ let dummy_upper = () => {
   let b = Order.add_next(a);
   exp_hole_upper((a, b));
 };
-
-let var_syn = (e: Iexp.upper, syn: Htyp.t) => {
-  switch (e.middle) {
-  | Var(_) => e.syn = Some(syn)
-  | _ => failwith("var_syn called on non-var")
-  };
-};

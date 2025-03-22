@@ -520,9 +520,25 @@ let wrap_insert = [
 let wrap_delete = [ReplaceDown(0)];
 let wrap_amount = 200;
 let trace =
-  List.join(List.init(wrap_amount, f:(_) => { wrap_insert })) @ 
-  edits(program) @
-   List.join(List.init(wrap_amount, f:(_) => { wrap_delete }));
+  List.join(
+    List.init(wrap_amount, (f) =>
+      (
+        {
+          wrap_insert;
+        }: _
+      )
+    ),
+  )
+  @ edits(program)
+  @ List.join(
+      List.init(wrap_amount, (f) =>
+        (
+          {
+            wrap_delete;
+          }: _
+        )
+      ),
+    );
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {

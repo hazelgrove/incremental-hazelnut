@@ -84,7 +84,7 @@ module PQueue = (Elem: Comparable) => {
     float_to_top(q, Dynarray.length(q) - 1);
   };
 
-  let pop = (q: t): option(Elem.t) => {
+  let pop = (q: t): option(Elem.t) =>
     if (Dynarray.is_empty(q)) {
       None;
     } else {
@@ -93,7 +93,6 @@ module PQueue = (Elem: Comparable) => {
       sink_to_bottom(q, 0);
       Some(v);
     };
-  }
 
   let list_of_t = (q: t): list(Elem.t) => Dynarray.to_list(q);
 };

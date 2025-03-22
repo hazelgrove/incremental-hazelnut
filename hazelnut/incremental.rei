@@ -86,5 +86,3 @@ let child_of_parent: Iexp.parent => Iexp.upper;
 // let initial_interval: (Order.t, Order.t);
 let exp_hole_upper: ((Order.t, Order.t)) => Iexp.upper;
 let dummy_upper: unit => Iexp.upper;
-
-let var_syn: (Iexp.upper, Htyp.t) => unit;
