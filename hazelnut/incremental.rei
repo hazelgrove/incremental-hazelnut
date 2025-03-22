@@ -55,7 +55,7 @@ module Iexp: {
   and upper = {
     mutable parent,
     mutable syn: option(Htyp.t),
-    middle,
+    mutable middle,
     interval: (Order.t, Order.t),
     in_queue_upper: InQueue.upper,
     mutable deleted_upper: bool,

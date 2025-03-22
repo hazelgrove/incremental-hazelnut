@@ -60,10 +60,57 @@ let set_child_in_parent = (p: Iexp.parent, c: Iexp.upper): unit => {
   };
 };
 
+let set_upper_of_middle = (upper: Iexp.upper): (Iexp.middle => unit) =>
+  fun
+  | Var(_)
+  | NumLit(_)
+  | Nil
+  | Cons
+  | ListRec(_)
+  | Y(_)
+  | ITE(_)
+  | EHole => ()
+  | Proj(_, l, _) => {
+      l.upper = upper;
+    }
+  | Asc(l, _) => {
+      l.upper = upper;
+    }
+  | Lam(_, _, _, _, l, _) => {
+      l.upper = upper;
+    }
+  | Plus(l1, l2) => {
+      l1.upper = upper;
+      l2.upper = upper;
+    }
+  | Ap(l1, _, l2) => {
+      l1.upper = upper;
+      l2.upper = upper;
+    }
+  | Pair(l1, l2, _) => {
+      l1.upper = upper;
+      l2.upper = upper;
+    };
+
 let replace = (e: Iexp.upper, e': Iexp.upper): unit => {
   e'.parent = e.parent;
   set_child_in_parent(e.parent, e');
   e.parent = Deleted;
+};
+
+let _connect_upper_lower = (upper: Iexp.upper, lower: Iexp.lower): unit => {
+  upper.parent = Lower(lower);
+  lower.child = upper;
+};
+
+let _connect_lower_upper = (lower: Iexp.lower, upper: Iexp.upper): unit => {
+  lower.upper =
+    upper; //skip up
+};
+
+let splice_old = (new_lower: Iexp.lower, new_upper: Iexp.upper): unit => {
+  new_lower.upper = new_upper; //skip up
+  new_lower.child.parent = Lower(new_lower); //fix child
 };
 
 let splice = (new_lower: Iexp.lower, new_upper: Iexp.upper): unit => {
@@ -350,6 +397,17 @@ let interval_around = (e: Iexp.upper) => {
   assert(Order.lt(b, c));
   assert(Order.lt(c, d));
   (a, d);
+};
+
+let interval_within = (e: Iexp.upper) => {
+  let (a, d) = e.interval;
+  let b = Order.add_next(a);
+  let c = Order.add_prev(d);
+  // a < b < c < d
+  assert(Order.lt(a, b));
+  assert(Order.lt(b, c));
+  assert(Order.lt(c, d));
+  (b, c);
 };
 
 let interval_after = (e: Iexp.upper) => {
@@ -998,9 +1056,9 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     return_cursor(CursorExp(new_upper));
 
   | (CursorExp(e), WrapPair(child)) =>
-    let make_product_with_children = (parent, interval, e1, e2, q, child) => {
+    let make_product_with_children = (e1, e2, q, child) => {
       let new_lower_left: Iexp.lower = {
-        upper: dummy_upper(),
+        upper: e,
         ana: None,
         marked: Unmarked,
         child: e1,
@@ -1008,7 +1066,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         deleted_lower: false,
       };
       let new_lower_right: Iexp.lower = {
-        upper: dummy_upper(),
+        upper: e,
         ana: None,
         marked: Unmarked,
         child: e2,
@@ -1017,20 +1075,15 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       };
       let new_mid: Iexp.middle =
         Pair(new_lower_left, new_lower_right, ref(Mark.Unmarked));
-      let new_upper: Iexp.upper = {
-        parent,
-        syn: None,
-        interval,
-        middle: new_mid,
-        in_queue_upper: InQueue.default_upper(),
-        deleted_upper: false,
-      };
+      e.middle = new_mid;
 
-      splice(new_lower_left, new_upper);
-      splice(new_lower_right, new_upper);
+      e1.parent = Lower(new_lower_left);
+      e2.parent = Lower(new_lower_right);
+      splice_old(new_lower_left, e);
+      splice_old(new_lower_right, e);
 
       let update_list = [
-        Update.NewAna(parent),
+        Update.NewAna(e.parent),
         Update.NewSyn(e1),
         Update.NewSyn(e2),
         switch (child) {
@@ -1040,18 +1093,26 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         },
       ];
       UpdateQueue.update_push_list(update_list, q);
-      return_cursor(CursorExp(new_upper));
     };
-    let interval = interval_around(e);
+    let body_upper: Iexp.upper = {
+      parent: Deleted, // dummy parent
+      syn: e.syn,
+      middle: e.middle,
+      interval: interval_within(e),
+      in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
+    };
+    set_upper_of_middle(body_upper, body_upper.middle);
     switch (child) {
     | One =>
-      let hole = exp_hole_upper(interval_after(e));
-      make_product_with_children(e.parent, interval, e, hole, q, Child.One);
+      let hole = exp_hole_upper(interval_after(body_upper));
+      make_product_with_children(body_upper, hole, q, Child.One);
     | Two =>
-      let hole = exp_hole_upper(interval_before(e));
-      make_product_with_children(e.parent, interval, hole, e, q, Child.Two);
-    | Three => no_movement
+      let hole = exp_hole_upper(interval_before(body_upper));
+      make_product_with_children(hole, body_upper, q, Child.Two);
+    | Three => ()
     };
+    no_movement;
 
   | (CursorExp(e), WrapProj(prod_side)) =>
     let parent = e.parent;
