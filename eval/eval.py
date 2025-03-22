@@ -156,5 +156,5 @@ with doc:
         
 write_to(out_path + "index.html", str(doc))
 
-if shutil.which("xdg-open"):
-    subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
+# if shutil.which("xdg-open"):
+#     subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)

@@ -528,17 +528,32 @@ let trace =
         }: _
       )
     ),
-  )
-  @ edits(program)
-  @ List.join(
-      List.init(wrap_amount, (f) =>
-        (
-          {
-            wrap_delete;
-          }: _
-        )
-      ),
-    );
+  );
+// List.join(
+//   List.init(wrap_amount, (f) =>
+//     (
+//       {
+//         edits(program);
+//       }: _
+//     )
+//   ),
+// )
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program);
+// @ List.join(
+//     List.init(wrap_amount, (f) =>
+//       (
+//         {
+//           wrap_delete;
+//         }: _
+//       )
+//     ),
+//   );
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {
@@ -715,7 +730,8 @@ let to_iaction = (act: action) => {
     failwith("to_iaction");
   };
 };
-let actions: list(Iaction.t) = List.map(trace, to_iaction);
+let actions: list(Iaction.t) =
+  List.map(trace, to_iaction) @ List.concat(random_action_segments(10000));
 
 let handle = (name, f) => {
   let acc = ref(initial_state());

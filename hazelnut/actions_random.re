@@ -16,12 +16,12 @@ let random_motion = (): Iaction.t => {
 };
 
 let random_motions = () => {
-  List.init(Random.int(10), _ => random_motion());
+  List.init(Random.int(1), _ => random_motion());
 };
 
 let random_edit = (): list(Iaction.t) => {
   let edits: list(list(Iaction.t)) = [
-    [Delete],
+    // [Delete],
     [WrapArrow(One)],
     [WrapArrow(Two)],
     [WrapProduct(One)],
@@ -32,13 +32,13 @@ let random_edit = (): list(Iaction.t) => {
     [InsertVar("x")],
     [InsertVar("y")],
     [WrapPlus(One)],
-    [WrapPlus(Two)],
+    // [WrapPlus(Two)],
     [WrapPair(One)],
-    [WrapPair(Two)],
+    // [WrapPair(Two)],
     [WrapProj(Fst)],
     [WrapProj(Snd)],
     [WrapAp(One)],
-    [WrapAp(Two)],
+    // [WrapAp(Two)],
     [WrapAsc],
     [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
     [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
@@ -47,7 +47,7 @@ let random_edit = (): list(Iaction.t) => {
     [InsertListRec],
     [InsertY],
     [Unwrap(One)],
-    [Unwrap(Two)],
+    // [Unwrap(Two)],
   ];
   choose_random(edits);
 };

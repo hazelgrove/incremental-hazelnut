@@ -1,10 +1,22 @@
 (executables
  (names eval)
  (public_names eval)
- (libraries landmarks ocaml_intrinsics core unix core_unix.sys_unix core_unix.time_unix core_unix yojson hazelnut_lib pprint)
- (preprocess
-  (pps landmarks-ppx --auto ppx_deriving.show ppx_jane)))
+ (libraries
+  ; landmarks
+  ocaml_intrinsics
+  core
+  unix
+  core_unix.sys_unix
+  core_unix.time_unix
+  core_unix
+  yojson
+  hazelnut_lib
+  pprint)
+ ;  (preprocess
+ ;   (pps landmarks-ppx --auto ppx_deriving.show ppx_jane))
+ )
 
 (env
-  (dev
-    (flags (:standard -warn-error -A))))
+ (dev
+  (flags
+   (:standard -warn-error -A))))
