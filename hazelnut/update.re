@@ -20,25 +20,9 @@ let _update_syn_dum =
   [Update.NewSyn(upper)];
 };
 
-let update_ana = (lower: Iexp.lower, t_new: option(Htyp.t)): list(Update.t) =>
-  if (t_new == lower.ana) {
-    [];
-  } else {
-    lower.ana = t_new;
-    [Update.NewAna(Lower(lower))];
-  };
-
-let update_syn = (upper: Iexp.upper, t_new: option(Htyp.t)): list(Update.t) =>
-  if (t_new == upper.syn) {
-    [];
-  } else {
-    upper.syn = t_new;
-    [Update.NewSyn(upper)];
-  };
-
 let var_syn = (e: Iexp.upper, syn: Htyp.t): list(Update.t) => {
   switch (e.middle) {
-  | Var(_) => update_syn(e, Some(syn))
+  | Var(_) => UpdateQueue.update_syn(e, Some(syn))
   | _ => failwith("var_syn called on non-var")
   };
 };
@@ -72,8 +56,8 @@ let update_step = (state: Istate.t): stepped => {
         | Ap(e1, m, e2) when e1.child === e =>
           //print_endine("STEP: StepAp");
           let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
-          let e2_update = update_ana(e2, t_in);
-          let parent_update = update_syn(parent.upper, t_out);
+          let e2_update = UpdateQueue.update_ana(e2, t_in);
+          let parent_update = UpdateQueue.update_syn(parent.upper, t_out);
           m.contents = m';
           e1.marked = Unmarked;
           let update_list = e2_update @ parent_update;
@@ -81,7 +65,7 @@ let update_step = (state: Istate.t): stepped => {
         | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
           //print_endine("STEP: StepSynFun");
           let parent_update =
-            update_syn(
+            UpdateQueue.update_syn(
               parent.upper,
               arrow_unless(t.contents, body.child.syn, parent.ana),
             );
@@ -90,7 +74,7 @@ let update_step = (state: Istate.t): stepped => {
           UpdateQueue.update_push_list(update_list, q);
         | Pair(e1, e2, _) when Option.is_none(parent.ana) =>
           let parent_update =
-            update_syn(
+            UpdateQueue.update_syn(
               parent.upper,
               product_unless(e1.child.syn, e2.child.syn, parent.ana),
             );
@@ -101,7 +85,8 @@ let update_step = (state: Istate.t): stepped => {
           let (t_side_body, m_all_body) =
             matched_proj_typ_opt(prod_side, e.child.syn);
           m.contents = m_all_body;
-          let parent_update = update_syn(parent.upper, t_side_body);
+          let parent_update =
+            UpdateQueue.update_syn(parent.upper, t_side_body);
           let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
@@ -129,9 +114,9 @@ let update_step = (state: Istate.t): stepped => {
         let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
         m_ana.contents = m_ana';
         m_ann.contents = m_ann';
-        let body_update = update_ana(body, t_out);
+        let body_update = UpdateQueue.update_ana(body, t_out);
         let syn_update =
-          update_syn(
+          UpdateQueue.update_syn(
             child,
             arrow_unless(t_ann.contents, body.child.syn, ana),
           );
@@ -141,10 +126,13 @@ let update_step = (state: Istate.t): stepped => {
       | Pair(e1, e2, m) =>
         let (t1, t2, m_ana') = matched_product_typ_opt(ana);
         m.contents = m_ana';
-        let e1_update = update_ana(e1, t1);
-        let e2_update = update_ana(e2, t2);
+        let e1_update = UpdateQueue.update_ana(e1, t1);
+        let e2_update = UpdateQueue.update_ana(e2, t2);
         let syn_update =
-          update_syn(child, product_unless(e1.child.syn, e2.child.syn, ana));
+          UpdateQueue.update_syn(
+            child,
+            product_unless(e1.child.syn, e2.child.syn, ana),
+          );
         let update_list = e1_update @ e2_update @ syn_update;
         UpdateQueue.update_push_list(update_list, q);
       | _ =>
@@ -167,8 +155,8 @@ let update_step = (state: Istate.t): stepped => {
       //print_endine("STEP: StepAsc");
       switch (e.middle) {
       | Asc(low, asc) =>
-        let syn_update = update_syn(e, Some(asc.contents));
-        let ana_update = update_ana(low, Some(asc.contents));
+        let syn_update = UpdateQueue.update_syn(e, Some(asc.contents));
+        let ana_update = UpdateQueue.update_ana(low, Some(asc.contents));
         let update_list = ana_update @ syn_update;
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewAsc on non-asc")
@@ -187,7 +175,7 @@ let update_step = (state: Istate.t): stepped => {
               ),
             ),
           );
-        let syn_update = update_syn(e, syn_type);
+        let syn_update = UpdateQueue.update_syn(e, syn_type);
         let update_list = syn_update;
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewListRec on non ListRec")
@@ -206,7 +194,7 @@ let update_step = (state: Istate.t): stepped => {
               Arrow(t.contents, t.contents),
             ),
           );
-        let syn_update = update_syn(e, syn_type);
+        let syn_update = UpdateQueue.update_syn(e, syn_type);
         let update_list = syn_update;
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewY on non Y")

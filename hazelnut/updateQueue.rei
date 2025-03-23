@@ -21,4 +21,7 @@ module UpdateQueue: {
   let update_push_list: (list(Update.t), t) => unit;
 
   let update_pop: t => option(Update.t);
+
+  let update_ana: (Iexp.lower, option(Hazelnut.Htyp.t)) => list(Update.t);
+  let update_syn: (Iexp.upper, option(Hazelnut.Htyp.t)) => list(Update.t);
 };

@@ -1,6 +1,7 @@
 open Incremental;
 open Monad_lib.Monad;
 open Queue;
+open Hazelnut;
 
 module Update = {
   [@deriving sexp]
@@ -131,4 +132,21 @@ module UpdateQueue = {
       recurse_if_deleted(e.deleted_upper, u);
     };
   };
+  let update_ana =
+      (lower: Iexp.lower, t_new: option(Htyp.t)): list(Update.t) =>
+    if (t_new == lower.ana) {
+      [];
+    } else {
+      lower.ana = t_new;
+      [Update.NewAna(Lower(lower))];
+    };
+
+  let update_syn =
+      (upper: Iexp.upper, t_new: option(Htyp.t)): list(Update.t) =>
+    if (t_new == upper.syn) {
+      [];
+    } else {
+      upper.syn = t_new;
+      [Update.NewSyn(upper)];
+    };
 };

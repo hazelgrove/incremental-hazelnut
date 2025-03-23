@@ -144,17 +144,25 @@ with doc:
     with table(border="1", cls="sortable"):
         header = ["name", "iter", "time", "action"]
         tr(*[th(h, style="position:sticky;top:0px;") for h in header])
+
+        
+        data = []
         for l in readlines_file(f"log/{path}"):
             j = json.loads(l)
-            processed = {}
-            processed["name"] = j["name"]
-            processed["iter"] = j["iter"]
-            processed["time"] = j["time"]
-            processed["action"] = j["action"]
+            if j["name"] == "incr":
+                data.append({
+                    "name": j["name"],
+                    "iter": j["iter"],
+                    "time": j["time"],
+                    "action": j["action"]
+                })
+        
+        data.sort(key=lambda x: (x["name"], -x["time"]))
+        
+        for processed in data:
             tr(*[td(processed[h]) for h in header])
-
         
 write_to(out_path + "index.html", str(doc))
 
-if shutil.which("xdg-open"):
-    subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
+# if shutil.which("xdg-open"):
+#     subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)

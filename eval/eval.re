@@ -518,7 +518,7 @@ let wrap_insert = [
   Up,
 ];
 let wrap_delete = [ReplaceDown(0)];
-let wrap_amount = 200;
+let wrap_amount = 5000;
 let trace =
   List.join(
     List.init(wrap_amount, (f) =>
@@ -537,7 +537,8 @@ let trace =
 //       }: _
 //     )
 //   ),
-// )
+// );
+// );
 // @ edits(program)
 // @ edits(program)
 // @ edits(program)
@@ -730,8 +731,7 @@ let to_iaction = (act: action) => {
     failwith("to_iaction");
   };
 };
-let actions: list(Iaction.t) =
-  List.map(trace, to_iaction) @ List.concat(random_action_segments(10000));
+let actions: list(Iaction.t) = List.map(trace, to_iaction); // @ List.concat(random_action_segments(10000));
 
 let handle = (name, f) => {
   let acc = ref(initial_state());
