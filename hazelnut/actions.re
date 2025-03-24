@@ -41,6 +41,7 @@ module Iaction = {
     | InsertNil
     | InsertCons
     | InsertListRec
+    | InsertListMatch
     | InsertY
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
@@ -464,6 +465,7 @@ let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   | (z, InsertNil) => z
   | (z, InsertCons) => z
   | (z, InsertListRec) => z
+  | (z, InsertListMatch) => z
   | (z, InsertY) => z
   | (z, InsertLt) => z
   | (z, InsertITE) => z
@@ -501,6 +503,7 @@ let _string_of_action: Iaction.t => string =
   | InsertNil => "InsertNil"
   | InsertCons => "InsertCons"
   | InsertListRec => "InsertListRec"
+  | InsertListMatch => "InsertListMatch"
   | InsertY => "InsertY"
   | InsertLt => "InsertLt"
   | InsertITE => "InsertITE"
@@ -770,6 +773,33 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       return_cursor(CursorExp(e'));
     | _ => no_movement
     }
+    | (CursorExp(e), InsertListMatch) =>
+    switch (e.middle) {
+    | EHole =>
+      let e': Iexp.upper = {
+        parent: e.parent,
+        syn:
+          Some(
+            Arrow(
+              List,
+              Arrow(
+              Hole,
+              Arrow(Arrow(Num, Arrow(List, Hole)), Hole)),
+            ),
+          ),
+        middle: ListRec(ref(Htyp.Hole)),
+        interval: e.interval,
+        in_queue_upper: InQueue.default_upper(),
+        deleted_upper: false,
+      };
+      delete_upper(e);
+      replace(e, e');
+      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(e'));
+    | _ => no_movement
+    }
+
   | (CursorExp(e), InsertY) =>
     switch (e.middle) {
     | EHole =>
@@ -778,8 +808,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         syn:
           Some(
             Arrow(
-              Arrow(Arrow(Hole, Hole), Arrow(Hole, Hole)),
               Arrow(Hole, Hole),
+              Hole,
             ),
           ),
         middle: Y(ref(Htyp.Hole)),

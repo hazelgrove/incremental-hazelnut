@@ -28,6 +28,7 @@ module Iaction: {
     | InsertNil
     | InsertCons
     | InsertListRec
+    | InsertListMatch
     | InsertY
     | WrapPlus(Child.t)
     | WrapAp(Child.t)

@@ -36,6 +36,7 @@ let string_of_action: Iaction.t => string =
   | InsertNil => "InsertNil"
   | InsertCons => "InsertCons"
   | InsertListRec => "InsertListRec"
+  | InsertListMatch => "InsertListMatch"
   | InsertY => "InsertY"
   | InsertLt => "InsertLt"
   | InsertITE => "InsertITE"

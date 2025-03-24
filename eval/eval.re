@@ -4,6 +4,7 @@ open Unix;
 open Core;
 open PPrint;
 open Hazelnut_lib.Pexp;
+open Hazelnut_lib.Hazelnut;
 open Hazelnut_lib.Incremental;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Actions;
@@ -71,16 +72,12 @@ type exp =
   | Lt
   | Nil
   | Cons
-  | /** list, nil body, head, tail, cons body */
-    ListMatch(
-      exp,
-      exp,
-      exp,
-      exp,
-      exp,
-    )
+  | /** List -> 'a -> (Num -> List -> 'a) -> 'a */
+    ListMatch(exp)
   | /** 'a -> (Num -> 'a -> 'a) -> List -> 'a */
     ListRec(exp)
+  | /** (('a -> 'a) -> ('a -> 'a)) -> ('a -> 'a) */
+    Y(exp)
   | ITE(exp)
   | App(exp, exp);
 
@@ -103,7 +100,7 @@ let const = (x: exp) => Lam(Var("_"), Unit, x);
 let lam2 = (x: exp, xt: exp, y: exp, yt: exp, b: exp) =>
   Lam(x, xt, Lam(y, yt, b));
 
-let ite = (i, ty, t, e) => app3(ITE(i), ty, const(t), const(e));
+let ite = (ty, i, t, e) => app3(ITE(ty), i, const(t), const(e));
 
 let list_rec =
     (
@@ -120,27 +117,63 @@ let list_rec =
     lam2(cons_x_name, Int, cons_xs_name, t, cons_case),
     list,
   );
+
+let list_match =
+    (
+      t: exp,
+      list: exp,
+      base_case: exp,
+      cons_x_name: exp,
+      cons_xs_name: exp,
+      cons_case: exp,
+    ) =>
+  app3(
+    ListMatch(t),
+    list,
+    base_case,
+    lam2(cons_x_name, Int, cons_xs_name, List, cons_case),
+  );
+
+let y = (t: exp, self: exp, impl: exp) => App(Y(t), Lam(self, t, impl));
 let cons = (x: exp, xs: exp) => app2(Cons, x, xs);
+
+let let_ = (lhs, ty, rhs, body) => App(Lam(lhs, ty, body), rhs)
+
 let merge =
-  lam2(
-    Var("xs"),
-    List,
-    Var("ys"),
-    List,
-    list_rec(
+  y(
+    Arrow(List, Arrow(List, List)),
+    Var("merge"),
+    lam2(
+      Var("xs"),
       List,
       Var("ys"),
-      Var("x"),
-      Var("xs"),
-      list_rec(
+      List,
+      list_match(
         List,
-        cons(Var("x"), Var("xs")),
-        Var("y"),
+        Var("xs"),
         Var("ys"),
-        Var("ys"),
-        Var("ys"),
+        Var("x"),
+        Var("xs"),
+        list_match(
+          List,
+          Var("ys"),
+          cons(Var("x"), Var("xs")),
+          Var("y"),
+          Var("ys"),
+          ite(
+            List,
+            app2(Lt, Var("x"), Var("y")),
+            cons(
+              Var("x"),
+              app2(Var("merge"), Var("xs"), cons(Var("y"), Var("ys"))),
+            ),
+            cons(
+              Var("y"),
+              app2(Var("merge"), cons(Var("x"), Var("xs")), Var("ys")),
+            ),
+          ),
+        ),
       ),
-      Var("xs"),
     ),
   );
 /**fun (xs:[Int], ys:[Int]) ->
@@ -173,30 +206,49 @@ let split =
       let (ys, zs) = split(xs) in
       (x::zs, ys)
     end */
-let mergesort =
-  Lam(
-    Var("xs"),
-    List,
-    ListMatch(
+let mergesort = (merge, split) =>
+  y(
+    Arrow(List, List),
+    Var("mergesort"),
+    Lam(
       Var("xs"),
-      Nil,
-      Var("x"),
-      Var("xs"),
-      ListMatch(
+      List,
+      list_match(
+        List,
         Var("xs"),
         Nil,
-        Var("_"),
-        Var("_"),
-        Let(
-          Var("yszs"),
-          App(Var("split"), Var("xs")),
-          Let(
-            Var("ys"),
-            App(Var("mergesort"), Zro(Var("yszs"))),
-            Let(
-              Var("zs"),
-              App(Var("mergesort"), Fst(Var("yszs"))),
-              App(Var("merge"), Tup(Var("ys"), Var("zs"))),
+        Var("x"),
+        Var("xs"),
+        list_match(
+          List,
+          Var("xs"),
+          cons(Var("xs"), Nil),
+          Var("_"),
+          Var("_"),
+          let_(
+            Var("yszs"),
+            Tup(List, List),
+            App(split, Var("xs")),
+            let_(
+              Var("ys"),
+              List,
+              Zro(Var("yszs")),
+              let_(
+                Var("zs"),
+                List,
+                Fst(Var("yszs")),
+                let_(
+                  Var("ys"),
+                  List,
+                  App(Var("mergesort"), Var("ys")),
+                  let_(
+                    Var("zs"),
+                    List,
+                    App(Var("mergesort"), Var("zs")),
+                    App(merge, Tup(Var("ys"), Var("zs"))),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -214,55 +266,6 @@ let mergesort =
       let zs = mergesort(zs) in
       merge(ys, zs)
     end */
-let map_lists = Hole;
-/** map_lists : (((Int, Int) -> Int), [Int,Int]) -> [Int] =
-  fun (f, l) ->
-    case l
-      | [] => []
-      | x::xs => f(x) :: map_lists(f, xs)
-    end */
-
-let lefts = Hole;
-/**lefts = map_lists(fun (x, _) -> x, _) */
-let rights = Hole;
-/**rights = map_lists(fun (_,x) -> x, _)  */
-let zip = Hole;
-/**zip : ([Int],[Int]) -> [(Int, Int)] =
-  fun (xs, ys) ->
-    case xs
-      | [] => []
-      | x::xs =>
-      case ys
-        | [] => []
-        | y::ys => (x,y)::zip(xs, ys)
-      end
-    end */
-let sum = Hole;
-/**sum : [Int] -> Int =
-  fun xs ->
-    case xs
-      | [] => 0
-      | x::xs => x + sum(xs)
-     */
-let input_width = Hole;
-/** input_width = 1 */
-let parse = Hole;
-/**parse : String -> [(Int, Int)] =
-  fun s ->
-    if string_length(s) >= input_width * 2 + 3 then
-      (int_of_string(string_sub(s,0,input_width)), int_of_string(string_sub(s,input_width+3,input_width)))
-      ::
-      (parse(string_sub(s, input_width * 2 + 5, string_length(s) - (input_width * 2 + 5))))
-    else
-      [] */
-let input = Hole;
-/**3   4\n4   3\n2   5\n1   3\n3   9\n3   3  */
-let parsed = Hole;
-/**parse(input ++ \n) */
-let l = Hole;
-/** parsed |> lefts |> mergesort*/
-let r = Hole;
-/** parsed |> rights |> mergesort*/
 
 let program =
   Let(
@@ -273,67 +276,39 @@ let program =
       split,
       Let(
         Var("mergesort"),
-        mergesort,
-        Let(
-          Var("lefts"),
-          lefts,
-          Let(
-            Var("rights"),
-            rights,
-            Let(
-              Var("zip"),
-              zip,
-              Let(
-                Var("sum"),
-                sum,
-                Let(
-                  Var("input_width"),
-                  input_width,
-                  Let(
-                    Var("parse"),
-                    parse,
-                    Let(
-                      Var("input"),
-                      input,
-                      Let(
-                        Var("parsed"),
-                        parsed,
-                        Let(Var("l"), l, Let(Var("r"), r, Hole)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        mergesort(Var("merge"), Var("split")),
+        Var("mergesort"),
       ),
     ),
   );
-/**(l,r)
-|> zip
-|> map_lists(fun x,y -> abs(x-y), _)
-|> sum */
 
-let program =
-  Let(
-    Var("merge"),
+let rec overlapping_mergesort = (n: int, bound) => {
+  let_(
+    Var("merge" ++ string_of_int(n)),
+    Arrow(List, Arrow(List, List)),
     merge,
-    Let(
-      Var("split"),
+    let_(
+      Var("split" ++ string_of_int(n)),
+      Arrow(List, Tup(List, List)),
       split,
-      Let(Var("mergesort"), mergesort, Var("mergesort")),
+      let_(
+        Var("mergesort"),
+        Arrow(List, List),
+        mergesort(
+          Var("merge" ++ string_of_int(Random.int(n + 1))),
+          Var("split" ++ string_of_int(Random.int(n + 1))),
+        ),
+        if (n >= bound) {
+          Var("mergesort");
+        } else {
+          overlapping_mergesort(n + 1, bound);
+        },
+      ),
     ),
   );
+};
 
-let program =
-  Let(
-    Var("merge"),
-    merge,
-    Let(Var("split"), split, Tup(Var("merge"), Var("split"))),
-  );
-
-let program = merge;
+let program = overlapping_mergesort(0, 10);
 
 let rec case_name = (x: exp): string =>
   switch (x) {
@@ -341,7 +316,7 @@ let rec case_name = (x: exp): string =>
   | Var(v) => "Var"
   | App(f, xs) => "App"
   | Let(lhs, rhs, body) => "Let"
-  | ListMatch(l, nil_case, head, tail, cons_case) => "ListMatch"
+  | ListMatch(_) => "ListMatch"
   | Tup(x, y) => "Tup"
   | Lit(i) => "Lit"
   | Lam(arg_name, arg_type, body) => "Lam"
@@ -357,6 +332,7 @@ let rec case_name = (x: exp): string =>
   | Arrow(_, _) => "Arrow"
   | Unit => "Unit"
   | ListRec(_) => "ListRec"
+  | Y(_) => "Y"
   };
 
 let rec pprint = (x: exp): PPrint.document =>
@@ -371,21 +347,8 @@ let rec pprint = (x: exp): PPrint.document =>
     ^^ pprint(rhs)
     ^^ string(" in")
     ^^ group(break(1) ^^ pprint(body))
-  | ListMatch(l, nil_case, head, tail, cons_case) =>
-    string("case ")
-    ^^ pprint(l)
-    ^^ group(
-         break(1)
-         ^^ string("| [] => ")
-         ^^ pprint(nil_case)
-         ^^ break(1)
-         ^^ string("| ")
-         ^^ pprint(head)
-         ^^ string(" :: ")
-         ^^ pprint(tail)
-         ^^ string(" => ")
-         ^^ pprint(cons_case),
-       )
+  | ListMatch(ty) =>
+    string("ListMatch @") ^^ pprint(ty)
   | Tup(x, y) =>
     string("(") ^^ pprint(x) ^^ string(", ") ^^ pprint(y) ^^ string(")")
   | Arrow(x, y) =>
@@ -409,6 +372,7 @@ let rec pprint = (x: exp): PPrint.document =>
   | ListRec(ty) => string("ListRec @") ^^ pprint(ty)
   | Lt => string("Lt")
   | Unit => string("Unit")
+  | Y(ty) => string("Y @") ^^ pprint(ty)
   | _ =>
     print_endline(case_name(x));
     failwith("pprint");
@@ -452,15 +416,11 @@ let rec subedits = (x: exp, loc: int) => {
 }
 and edits = (x: exp) => {
   switch (x) {
-  | ListMatch(l, nil_case, head, tail, cons_case) =>
-    [Replace(ListMatch(Hole, Hole, Hole, Hole, Hole))]
+  | ListMatch(x) =>
+    [Replace(ListMatch(Hole))]
     @ List.join(
         shuffle([
-          subedits(l, 0),
-          subedits(nil_case, 1),
-          subedits(head, 2),
-          subedits(tail, 3),
-          subedits(cons_case, 4),
+          subedits(x, 0),
         ]),
       )
   | Let(lhs, rhs, body) =>
@@ -495,6 +455,7 @@ and edits = (x: exp) => {
     @ List.join(shuffle([subedits(l, 0), subedits(r, 1)]))
   | Zro(x) => [Replace(Zro(Hole))] @ subedits(x, 0)
   | Fst(x) => [Replace(Fst(Hole))] @ subedits(x, 0)
+  | Y(x) => [Replace(Y(Hole))] @ subedits(x, 0)
   | Nil
   | Unit
   | Lt
@@ -519,7 +480,7 @@ let wrap_insert = [
 ];
 let wrap_delete = [ReplaceDown(0)];
 let wrap_amount = 5000;
-let trace =
+/*let trace =
   List.join(
     List.init(wrap_amount, (f) =>
       (
@@ -528,7 +489,7 @@ let trace =
         }: _
       )
     ),
-  );
+  );*/
 // List.join(
 //   List.init(wrap_amount, (f) =>
 //     (
@@ -555,6 +516,8 @@ let trace =
 //       )
 //     ),
 //   );
+
+let trace = edits(program)
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {
@@ -590,17 +553,9 @@ let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
     } else {
       failwith("bad");
     }
-  | ListMatch(l, nil_case, head, tail, cons_case) =>
+  | ListMatch(ty) =>
     if (i == 0) {
-      (l, [(x => ListMatch(x, nil_case, head, tail, cons_case)), ...ctx]);
-    } else if (i == 1) {
-      (nil_case, [(x => ListMatch(l, x, head, tail, cons_case)), ...ctx]);
-    } else if (i == 2) {
-      (head, [(x => ListMatch(l, nil_case, x, tail, cons_case)), ...ctx]);
-    } else if (i == 3) {
-      (tail, [(x => ListMatch(l, nil_case, head, x, cons_case)), ...ctx]);
-    } else if (i == 4) {
-      (cons_case, [(x => ListMatch(l, nil_case, head, tail, x)), ...ctx]);
+      (ty, [(x => ListMatch(ty)), ...ctx]);
     } else {
       failwith("bad");
     }
@@ -713,13 +668,24 @@ let to_iaction = (act: action) => {
   switch (act) {
   | Up => Iaction.MoveUp
   | ReplaceUp(Lam(Hole, Hole, Hole), 2) => Iaction.WrapLam
+  | Replace(Arrow(Hole, Hole)) => Iaction.WrapArrow(One)
+  | Replace(Prod(Hole, Hole)) => Iaction.WrapProduct(One)
+  | Replace(Tup(Hole, Hole)) => Iaction.WrapPair(One)
   | Replace(Lam(Hole, Hole, Hole)) => Iaction.WrapLam
   | Replace(App(Hole, Hole)) => Iaction.WrapAp(One)
+  | Replace(Zro(Hole)) => Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Fst)
+  | Replace(Fst(Hole)) => Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Snd)
   | Replace(ListRec(Hole)) => Iaction.InsertListRec
+  | Replace(Y(Hole)) => Iaction.InsertY
+  | Replace(ITE(Hole)) => Iaction.InsertITE
+  | Replace(ListMatch(Hole)) => Iaction.InsertListMatch
+  | Replace(Nil) => Iaction.InsertNil
+  | Replace(Lt) => Iaction.InsertLt
   | Replace(Cons) => Iaction.InsertCons
   | Replace(Var(x)) => Iaction.InsertVar(x)
   | Replace(Int) => Iaction.InsertNumType
   | Replace(List) => Iaction.InsertList
+  | Replace(Unit) => Iaction.InsertUnitType
   | Down(0) => Iaction.MoveDown(One)
   | Down(1) => Iaction.MoveDown(Two)
   | Down(2) => Iaction.MoveDown(Three)

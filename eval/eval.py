@@ -9,7 +9,7 @@ import math
 import shutil
 from sklearn.cluster import KMeans
 
-PREPROCESS = False
+PROFILE = True
 COUNTER = 0
 def count():
     global COUNTER
@@ -26,7 +26,8 @@ def shell(str):
 shell("mkdir -p log")
 shell("rm log/* || true")
 
-if PREPROCESS:
+if PROFILE:
+    shell("rm profile.json || true")
     shell(f"OCAML_LANDMARKS=format=json,output=profile.json dune exec eval {path}")
 else:
     shell(f"dune exec eval {path}")
@@ -48,12 +49,17 @@ shell(f"mkdir -p {out_path}")
 
 doc = make_doc(title=out_path)
 
-if PREPROCESS:
-    h1("WARNING: PREPROCESS TURNED ON")
+if PROFILE:
+    h1("WARNING: PROFILE TURNED ON")
+
+def should_skip(j):
+    return j["action"].startswith("Move")
 
 data = {}
 for l in readlines_file(f"log/{path}"):
     j = json.loads(l)
+    if should_skip(j):
+        continue
     name = j["name"]
     iter = j["iter"]
     time = j["time"]
@@ -149,13 +155,14 @@ with doc:
         data = []
         for l in readlines_file(f"log/{path}"):
             j = json.loads(l)
-            if j["name"] == "incr":
-                data.append({
-                    "name": j["name"],
-                    "iter": j["iter"],
-                    "time": j["time"],
-                    "action": j["action"]
-                })
+            if should_skip(j):
+                continue
+            data.append({
+                "name": j["name"],
+                "iter": j["iter"],
+                "time": j["time"],
+                "action": j["action"]
+            })
         
         data.sort(key=lambda x: (x["name"], -x["time"]))
         
@@ -164,5 +171,5 @@ with doc:
         
 write_to(out_path + "index.html", str(doc))
 
-# if shutil.which("xdg-open"):
-#     subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
+if shutil.which("xdg-open"):
+    subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)

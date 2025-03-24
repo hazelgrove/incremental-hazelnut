@@ -2,7 +2,7 @@
  (names eval)
  (public_names eval)
  (libraries
-  ; landmarks
+  landmarks
   ocaml_intrinsics
   core
   unix
@@ -12,8 +12,8 @@
   yojson
   hazelnut_lib
   pprint)
- ;  (preprocess
- ;   (pps landmarks-ppx --auto ppx_deriving.show ppx_jane))
+  (preprocess
+   (pps landmarks-ppx --auto ppx_deriving.show ppx_jane))
  )
 
 (env
