@@ -16,49 +16,87 @@ let random_motion = (): Iaction.t => {
 };
 
 let random_motions = () => {
-  List.init(Random.int(1), _ => random_motion());
+  List.init(Random.int(2), _ => random_motion());
 };
 
-let random_edit = (): list(Iaction.t) => {
-  let edits: list(list(Iaction.t)) = [
-    [Delete],
-    [WrapArrow(One)],
-    [WrapArrow(Two)],
-    [WrapProduct(One)],
-    [WrapProduct(Two)],
-    [InsertNumType],
-    [InsertList],
-    [InsertNumLit(0)],
-    [InsertVar("x")],
-    [InsertVar("y")],
-    [WrapPlus(One)],
-    [WrapPlus(Two)],
-    [WrapPair(One)],
-    [WrapPair(Two)],
-    [WrapProj(Fst)],
-    [WrapProj(Snd)],
-    [WrapAp(One)],
-    [WrapAp(Two)],
-    [WrapAsc],
-    [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
-    [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
-    [InsertNil],
-    [InsertCons],
-    [InsertListRec],
-    [InsertY],
-    [Unwrap(One)],
-    [Unwrap(Two)],
-  ];
+let random_edit = (no_delete: bool): list(Iaction.t) => {
+  let edits: list(list(Iaction.t)) =
+    if (no_delete) {
+      [
+        // [Delete],
+        [WrapArrow(One)],
+        // [WrapArrow(Two)],
+        [WrapProduct(One)],
+        // [WrapProduct(Two)],
+        [InsertNumType],
+        [InsertList],
+        [InsertNumLit(0)],
+        [InsertVar("x")],
+        [InsertVar("y")],
+        [WrapPlus(One)],
+        // [WrapPlus(Two)],
+        [WrapPair(One)],
+        // [WrapPair(Two)],
+        [WrapProj(Fst)],
+        [WrapProj(Snd)],
+        [WrapAp(One)],
+        // [WrapAp(Two)],
+        [WrapAsc],
+        [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
+        [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
+        [InsertNil],
+        [InsertCons],
+        [InsertListRec],
+        [InsertY],
+        [Unwrap(One)],
+        // [Unwrap(Two)],
+      ];
+    } else {
+      [
+        [Delete],
+        [WrapArrow(One)],
+        [WrapArrow(Two)],
+        [WrapProduct(One)],
+        [WrapProduct(Two)],
+        [InsertNumType],
+        [InsertList],
+        [InsertNumLit(0)],
+        [InsertVar("x")],
+        [InsertVar("y")],
+        [WrapPlus(One)],
+        [WrapPlus(Two)],
+        [WrapPair(One)],
+        [WrapPair(Two)],
+        [WrapProj(Fst)],
+        [WrapProj(Snd)],
+        [WrapAp(One)],
+        [WrapAp(Two)],
+        [WrapAsc],
+        [WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
+        [WrapLam, MoveDown(One), InsertVar("y"), MoveUp],
+        [InsertNil],
+        [InsertCons],
+        [InsertListRec],
+        [InsertY],
+        [Unwrap(One)],
+        [Unwrap(Two)],
+      ];
+    };
   choose_random(edits);
 };
 
-let random_action_segment = () => {
+let random_action_segment = (no_delete: bool) => {
   Random.self_init();
-  random_motions() @ random_edit();
+  random_motions() @ random_edit(no_delete);
 };
 
-let random_action_segments = n => {
-  let l = List.init(n, _ => random_action_segment());
+let random_action_segments = (n: int) => {
+  let l = List.init(n, _ => random_action_segment(false));
+  l;
+};
+
+let random_action_segments_no_delete = (n: int) => {
+  let l = List.init(n, _ => random_action_segment(true));
   l;
 };
 

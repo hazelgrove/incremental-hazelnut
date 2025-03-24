@@ -77,7 +77,13 @@ for m in data.values():
 header = ["name", "iter", "edit_time", "tyck_time", "action"]
 
 with doc:
-    def compare(times):
+    def compare(times1, times2):
+        xs1 = [times1[i][0] for i in range(len(times1))]
+        ys1 = [times1[i][1] for i in range(len(times1))]
+        xs2 = [times2[i][0] for i in range(len(times2))]
+        ys2 = [times2[i][1] for i in range(len(times2))]
+
+        times = times1 + times2
         xs = [times[i][0] for i in range(len(times))]
         ys = [times[i][1] for i in range(len(times))]
         speedup = [math.log(xs[i]/ys[i]) for i in range(len(xs))]
@@ -97,7 +103,8 @@ with doc:
         def scatterplot():
             min_value = min(min(*xs), min(*ys))
             max_value = max(max(*xs), max(*ys))
-            ax1.scatter(xs, ys, color="#1f77b4", alpha=0.3, edgecolor="none")
+            ax1.scatter(xs2, ys2, color="#ff1764", alpha=0.2, edgecolor="none")
+            ax1.scatter(xs1, ys1, color="#3f37f4", alpha=0.2, edgecolor="none")
             ax1.plot([min_value, max_value], [min_value, max_value], color="black")
             ax1.set_xscale('log')
             ax1.set_yscale('log')
@@ -109,14 +116,14 @@ with doc:
         scatterplot()
 
         def cdf():
-            cdf_x = sorted([times[i][1]/times[i][0] for i in range(len(times))])
+            cdf_x = sorted([math.log(times[i][1]/times[i][0]) for i in range(len(times))])
             cdf_y = [(i + 1)/len(cdf_x) for i in range(len(cdf_x))]
 
             pct_slowdown = np.interp(1.0, cdf_x, cdf_y)
             ax2.plot(cdf_x, cdf_y)
             ax2.axvline(x=1,c='black',linewidth=0.5)
             ax2.annotate('{:.0f}%'.format(pct_slowdown * 100), xy=(1, pct_slowdown), xytext=(-50, 0), textcoords='offset points', bbox = dict(boxstyle="round", fc="0.8"), arrowprops = dict(arrowstyle="->"))
-            x_range = math.exp(max(abs(math.log(max(cdf_x))), abs(math.log(min(cdf_x)))))
+            x_range = math.exp(max(abs(max(cdf_x)), abs(min(cdf_x))))
     
         cdf()
 
@@ -154,9 +161,10 @@ with doc:
 
         span(f"arithmean={sum(xs)/sum(ys):.2f}")
             
-    compare([(x[0], y[0]) for (x, y) in times])
-    compare([(x[1], y[1]) for (x, y) in times])
-    compare([(x[0] + x[1], y[0] + y[1]) for (x, y) in times])
+    compare([], [(x[0], y[0]) for (x, y) in times])
+    compare([(x[1], y[1]) for (x, y) in times], [])
+    # compare([(x[0] + x[1], y[0] + y[1]) for (x, y) in times], [])
+    compare([(x[1], y[1]) for (x, y) in times], [(x[0], y[0]) for (x, y) in times])
 
     data = []
     for l in readlines_file(f"log/{path}"):
@@ -183,5 +191,5 @@ with doc:
         
 write_to(out_path + "index.html", str(doc))
 
-if shutil.which("xdg-open"):
-    subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
+# if shutil.which("xdg-open"):
+#     subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
