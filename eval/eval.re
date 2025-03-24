@@ -41,20 +41,6 @@ let timed = (f: unit => 'a) => {
   (after - before, result);
 };
 
-let incr_tyck = (es: Istate.t): (int, Istate.t) => {
-  timed(() => {
-    all_update_steps(es);
-    es;
-  });
-};
-
-let baseline_tyck = (es: Istate.t): (int, Istate.t) => {
-  let bare_e = erase_upper(es.ephemeral.root.root_child);
-  let (t, _) = timed(() => {performance_mark(bare_e)});
-  all_update_steps(es);
-  (t, es);
-};
-
 type exp =
   | [@deriving sexp] Hole
   | Lit(int)
@@ -137,7 +123,7 @@ let list_match =
 let y = (t: exp, self: exp, impl: exp) => App(Y(t), Lam(self, t, impl));
 let cons = (x: exp, xs: exp) => app2(Cons, x, xs);
 
-let let_ = (lhs, ty, rhs, body) => App(Lam(lhs, ty, body), rhs)
+let let_ = (lhs, ty, rhs, body) => App(Lam(lhs, ty, body), rhs);
 
 let merge =
   y(
@@ -347,8 +333,7 @@ let rec pprint = (x: exp): PPrint.document =>
     ^^ pprint(rhs)
     ^^ string(" in")
     ^^ group(break(1) ^^ pprint(body))
-  | ListMatch(ty) =>
-    string("ListMatch @") ^^ pprint(ty)
+  | ListMatch(ty) => string("ListMatch @") ^^ pprint(ty)
   | Tup(x, y) =>
     string("(") ^^ pprint(x) ^^ string(", ") ^^ pprint(y) ^^ string(")")
   | Arrow(x, y) =>
@@ -417,12 +402,7 @@ let rec subedits = (x: exp, loc: int) => {
 and edits = (x: exp) => {
   switch (x) {
   | ListMatch(x) =>
-    [Replace(ListMatch(Hole))]
-    @ List.join(
-        shuffle([
-          subedits(x, 0),
-        ]),
-      )
+    [Replace(ListMatch(Hole))] @ List.join(shuffle([subedits(x, 0)]))
   | Let(lhs, rhs, body) =>
     [Replace(Let(Hole, Hole, Hole))]
     @ List.join(
@@ -517,7 +497,7 @@ let wrap_amount = 5000;
 //     ),
 //   );
 
-let trace = edits(program)
+let trace = edits(program);
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {
@@ -603,6 +583,12 @@ let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
     } else {
       failwith("bad");
     }
+  | Y(x) =>
+    if (i == 0) {
+      (x, [(x => Y(x)), ...ctx]);
+    } else {
+      failwith("bad");
+    }
   | _ =>
     pretty_print(x);
     failwith("godown");
@@ -618,7 +604,7 @@ let rec uppest = (x: exp, ctx: context) =>
   | [] => x
   | [c, ...ctx] => uppest(c(x), ctx)
   };
-let step_trace = (x: exp, ctx: context, act: action): (exp, context) => {
+let step_trace = ((x: exp, ctx: context), act: action): (exp, context) => {
   switch (act) {
   | Down(i) => go_down(x, ctx, i)
   | Up => go_up(x, ctx)
@@ -633,7 +619,7 @@ let rec apply_traces = (x: exp, ctx: context, act) => {
   switch (act) {
   | [] => x
   | [act, ...acts] =>
-    let (x, ctx) = step_trace(x, ctx, act);
+    let (x, ctx) = step_trace((x, ctx), act);
     apply_traces(x, ctx, acts);
   };
 };
@@ -673,8 +659,10 @@ let to_iaction = (act: action) => {
   | Replace(Tup(Hole, Hole)) => Iaction.WrapPair(One)
   | Replace(Lam(Hole, Hole, Hole)) => Iaction.WrapLam
   | Replace(App(Hole, Hole)) => Iaction.WrapAp(One)
-  | Replace(Zro(Hole)) => Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Fst)
-  | Replace(Fst(Hole)) => Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Snd)
+  | Replace(Zro(Hole)) =>
+    Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Fst)
+  | Replace(Fst(Hole)) =>
+    Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Snd)
   | Replace(ListRec(Hole)) => Iaction.InsertListRec
   | Replace(Y(Hole)) => Iaction.InsertY
   | Replace(ITE(Hole)) => Iaction.InsertITE
@@ -697,30 +685,73 @@ let to_iaction = (act: action) => {
     failwith("to_iaction");
   };
 };
-let actions: list(Iaction.t) = List.map(trace, to_iaction); // @ List.concat(random_action_segments(10000));
 
-let handle = (name, f) => {
-  let acc = ref(initial_state());
+type eval_state = {
+  istate: Istate.t,
+  estate: (exp, context),
+};
+
+let incr_edit = (es: eval_state, act: action): (int, eval_state) => {
+  let ia = to_iaction(act);
+  let (t, is) = timed(() => apply_action(es.istate, ia));
+  let (_, es) = timed(() => step_trace(es.estate, act));
+  (t, {istate: is, estate: es});
+};
+
+let incr_tyck = (es: eval_state, act:action): (int, eval_state) => {
+  timed(() => {
+    all_update_steps(es.istate);
+    es;
+  });
+};
+
+let baseline_edit = (es: eval_state, act: action): (int, eval_state) => {
+  let ia = to_iaction(act);
+  let (_, is) = timed(() => apply_action(es.istate, ia));
+  let (t, es) = timed(() => step_trace(es.estate, act));
+  (t, {istate: is, estate: es});
+};
+
+let baseline_tyck = (es: eval_state, act:action): (int, eval_state) => {
+  let bare_e = erase_upper(es.istate.ephemeral.root.root_child);
+  let (t, _) = switch (act) {
+  | Up | Down(_) => timed(() => ())
+  | _ => timed(() => {performance_mark(bare_e)})
+  };
+  all_update_steps(es.istate);
+  (t, es);
+};
+
+let init_eval_state = () => {istate: initial_state(), estate: (Hole, [])};
+let handle =
+    (
+      name,
+      edit: (eval_state, action) => (int, eval_state),
+      tyck: (eval_state, action) => (int, eval_state),
+    ) => {
+  let acc = ref(init_eval_state());
   let timed =
     List.map(
-      actions,
+      trace,
       act => {
-        let (t, e) = f(apply_action(acc^, act));
-        acc := e;
-        (act, t);
+        let (t, new_acc) = edit(acc^, act);
+        let (t', new_acc') = tyck(new_acc, act);
+        acc := new_acc';
+        (act, (t, t'));
       },
     );
   let () =
     List.iteri(
       timed,
-      (i, (act, t)) => {
+      (i, (act, (t, t'))) => {
         open Yojson.Basic;
         let json =
           `Assoc([
             ("name", `String(name)),
-            ("action", `String(string_of_action(act))),
+            ("action", `String(string_of_action(to_iaction(act)))),
             ("iter", `Int(i)),
-            ("time", `Int(t)),
+            ("edit_time", `Int(t)),
+            ("tyck_time", `Int(t')),
           ]);
         Yojson.to_channel(c, json);
         Stdio.Out_channel.newline(c);
@@ -729,7 +760,7 @@ let handle = (name, f) => {
   ();
 };
 
-let () = handle("baseline", baseline_tyck);
-let () = handle("incr", incr_tyck);
+//let () = handle("baseline", baseline_edit, baseline_tyck);
+let () = handle("incr", incr_edit, incr_tyck);
 
 let () = Stdio.Out_channel.close(c);

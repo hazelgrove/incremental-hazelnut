@@ -773,7 +773,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       return_cursor(CursorExp(e'));
     | _ => no_movement
     }
-    | (CursorExp(e), InsertListMatch) =>
+  | (CursorExp(e), InsertListMatch) =>
     switch (e.middle) {
     | EHole =>
       let e': Iexp.upper = {
@@ -782,9 +782,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
           Some(
             Arrow(
               List,
-              Arrow(
-              Hole,
-              Arrow(Arrow(Num, Arrow(List, Hole)), Hole)),
+              Arrow(Hole, Arrow(Arrow(Num, Arrow(List, Hole)), Hole)),
             ),
           ),
         middle: ListRec(ref(Htyp.Hole)),
@@ -805,13 +803,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | EHole =>
       let e': Iexp.upper = {
         parent: e.parent,
-        syn:
-          Some(
-            Arrow(
-              Arrow(Hole, Hole),
-              Hole,
-            ),
-          ),
+        syn: Some(Arrow(Arrow(Hole, Hole), Hole)),
         middle: Y(ref(Htyp.Hole)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
