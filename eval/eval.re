@@ -294,7 +294,7 @@ let rec overlapping_mergesort = (n: int, bound) => {
   );
 };
 
-let program = overlapping_mergesort(0, 10);
+let program = overlapping_mergesort(0, 100);
 
 let rec case_name = (x: exp): string =>
   switch (x) {
@@ -760,7 +760,7 @@ let handle =
   ();
 };
 
-//let () = handle("baseline", baseline_edit, baseline_tyck);
+let () = handle("baseline", baseline_edit, baseline_tyck);
 let () = handle("incr", incr_edit, incr_tyck);
 
 let () = Stdio.Out_channel.close(c);

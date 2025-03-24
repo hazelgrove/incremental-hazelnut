@@ -9,7 +9,7 @@ import math
 import shutil
 from sklearn.cluster import KMeans
 
-PROFILE = True
+PROFILE = False
 COUNTER = 0
 def count():
     global COUNTER
