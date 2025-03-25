@@ -103,13 +103,13 @@ with doc:
         def scatterplot():
             min_value = min(min(*xs), min(*ys))
             max_value = max(max(*xs), max(*ys))
-            ax1.scatter(xs2, ys2, color="#ff1764", alpha=0.2, edgecolor="none")
-            ax1.scatter(xs1, ys1, color="#3f37f4", alpha=0.2, edgecolor="none")
+            ax1.scatter(xs2, ys2, color="#d01050", alpha=0.2, edgecolor="none")
+            ax1.scatter(xs1, ys1, color="#3525d0", alpha=0.2, edgecolor="none")
             ax1.plot([min_value, max_value], [min_value, max_value], color="black")
             ax1.set_xscale('log')
             ax1.set_yscale('log')
-            ax1.set_xlabel("Fromscratch Time")
-            ax1.set_ylabel("Incremental Time")
+            ax1.set_xlabel("Computation cycles (from-scratch)")
+            ax1.set_ylabel("Computation cycles (MALCOM)")
             #ax1.set_xlim(min_value / 2, max_value * 2)
             #ax1.set_ylim(min_value / 2, max_value * 2)
 

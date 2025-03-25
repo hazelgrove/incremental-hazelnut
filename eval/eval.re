@@ -294,7 +294,7 @@ let rec overlapping_mergesort = (n: int, bound) => {
   );
 };
 
-let program = n => overlapping_mergesort(0, n);
+let program = overlapping_mergesort(0, 200);
 
 let rec case_name = (x: exp): string =>
   switch (x) {
@@ -497,6 +497,8 @@ let wrap_amount = 5000;
 //     ),
 //   );
 
+let trace = edits(program);
+
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {
   | Let(lhs, rhs, body) =>
@@ -684,85 +686,50 @@ let to_iaction = (act: action) => {
   };
 };
 
-// let to_action = (act: Iaction.t) => {
-//   switch (act) {
-//   | Iaction.MoveUp => Up
-//   | Iaction.WrapLam => ReplaceUp(Lam(Hole, Hole, Hole), 2)
-//   | Iaction.WrapArrow(One) => Replace(Arrow(Hole, Hole))
-//   | Iaction.WrapProduct(One) => Replace(Prod(Hole, Hole))
-//   | Iaction.WrapPair(One) => Replace(Tup(Hole, Hole))
-//   | Iaction.WrapLam => Replace(Lam(Hole, Hole, Hole))
-//   | Iaction.WrapAp(One) => Replace(App(Hole, Hole))
-//   | Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Fst) => Replace(Zro(Hole))
-//   | Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Snd) => Replace(Fst(Hole))
-//   | Iaction.InsertListRec => Replace(ListRec(Hole))
-//   | Iaction.InsertY => Replace(Y(Hole))
-//   | Iaction.InsertITE => Replace(ITE(Hole))
-//   | Iaction.InsertListMatch => Replace(ListMatch(Hole))
-//   | Iaction.InsertNil => Replace(Nil)
-//   | Iaction.InsertLt => Replace(Lt)
-//   | Iaction.InsertCons => Replace(Cons)
-//   | Iaction.InsertVar(x) => Replace(Var(x))
-//   | Iaction.InsertNumType => Replace(Int)
-//   | Iaction.InsertList => Replace(List)
-//   | Iaction.InsertUnitType => Replace(Unit)
-//   | Iaction.MoveDown(One) => Down(0)
-//   | Iaction.MoveDown(Two) => Down(1)
-//   | Iaction.MoveDown(Three) => Down(2)
-//   | Iaction.Unwrap(One) => ReplaceDown(0)
-//   | Iaction.Unwrap(Two) => ReplaceDown(1)
-//   | Iaction.Unwrap(Three) => ReplaceDown(2)
-//   | _ =>
-//     failwith("to_action");
-//   };
-// };
-
 type eval_state = {
   istate: Istate.t,
   estate: (exp, context),
 };
 
-let incr_edit = (es: eval_state, act: Iaction.t): (int, eval_state) => {
-  let (t, is) = timed(() => apply_action(es.istate, act));
+let incr_edit = (es: eval_state, act: action): (int, eval_state) => {
+  let ia = to_iaction(act);
+  let (t, is) = timed(() => apply_action(es.istate, ia));
   let (_, es) = timed(() => step_trace(es.estate, act));
   (t, {istate: is, estate: es});
 };
 
-let incr_tyck = (es: eval_state, act: Iaction.t): (int, eval_state) => {
+let incr_tyck = (es: eval_state, act: action): (int, eval_state) => {
   timed(() => {
     all_update_steps(es.istate);
     es;
   });
 };
 
-let baseline_edit = (es: eval_state, act: Iaction.t): (int, eval_state) => {
-  let (_, is) = timed(() => apply_action(es.istate, act));
+let baseline_edit = (es: eval_state, act: action): (int, eval_state) => {
+  let ia = to_iaction(act);
+  let (_, is) = timed(() => apply_action(es.istate, ia));
   let (t, es) = timed(() => step_trace(es.estate, act));
   (t, {istate: is, estate: es});
 };
 
-let baseline_tyck = (es: eval_state, act: Iaction.t): (int, eval_state) => {
+let baseline_tyck = (es: eval_state, act: action): (int, eval_state) => {
   let bare_e = erase_upper(es.istate.ephemeral.root.root_child);
   let (t, _) =
     switch (act) {
-    | MoveUp
-    | MoveDown(_) => timed(() => ())
+    | Up
+    | Down(_) => timed(() => ())
     | _ => timed(() => {performance_mark(bare_e)})
     };
   all_update_steps(es.istate);
   (t, es);
 };
 
-let trace =
-  List.map(edits(program(1)), ~f=to_iaction)
-  @ List.concat(random_action_segments_no_delete(50));
-
 let init_eval_state = () => {istate: initial_state(), estate: (Hole, [])};
 let handle =
     (
       name,
-      edit: (eval_state, Iaction.t) => (int, eval_state),
-      tyck: (eval_state, Iaction.t) => (int, eval_state),
+      edit: (eval_state, action) => (int, eval_state),
+      tyck: (eval_state, action) => (int, eval_state),
     ) => {
   let acc = ref(init_eval_state());
   let timed =
