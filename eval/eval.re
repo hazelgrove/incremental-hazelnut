@@ -12,6 +12,9 @@ open Hazelnut_lib.Actions_random;
 open Hazelnut_lib.Update;
 open Hazelnut_lib.Marking;
 open Ocaml_intrinsics;
+open Gc
+
+let _ = Gc.set { ...Gc.get(), space_overhead: 1200 };
 
 let random_element = x => List.nth_exn(x, Random.int(List.length(x)));
 
@@ -963,6 +966,8 @@ let should_skip = act =>
   switch (act) {
   | SDown(_)
   | SUp => true
+  | Down(_)
+  | Up => true
   | _ => false
   };
 let init_eval_state = () => {istate: initial_state(), estate: (Hole, [])};
