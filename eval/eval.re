@@ -13,6 +13,8 @@ open Hazelnut_lib.Update;
 open Hazelnut_lib.Marking;
 open Ocaml_intrinsics;
 
+let random_element = x => List.nth_exn(x, Random.int(List.length(x)));
+
 let () = assert(Array.length(Sys.argv) == 2);
 
 let file_path = "log/" ++ Sys.argv[1];
@@ -72,10 +74,15 @@ type hexp = exp;
 
 type action =
   | Down(int)
+  // S for silent
+  | SDown(int)
   | Up
+  | SUp
+  | Delete
   | Replace(hexp)
   | ReplaceDown(int)
-  | ReplaceUp(hexp, int);
+  | ReplaceUp(hexp, int)
+  | AssertRoot;
 
 let app2 = (f: exp, a: exp, b: exp) => App(App(f, a), b);
 
@@ -294,8 +301,6 @@ let rec overlapping_mergesort = (n: int, bound) => {
   );
 };
 
-let program = overlapping_mergesort(0, 200);
-
 let rec case_name = (x: exp): string =>
   switch (x) {
   | Hole => "Hole"
@@ -365,10 +370,14 @@ let rec pprint = (x: exp): PPrint.document =>
 
 let rec pprint_action = (x: action): PPrint.document =>
   switch (x) {
-  | Up => string("Up")
   | Down(i) => string("Down " ++ string_of_int(i))
+  | SDown(i) => string("SDown " ++ string_of_int(i))
+  | Up => string("Up")
+  | SUp => string("SUp")
   | Replace(x) => string("Replace ") ^^ pprint(x)
   | ReplaceDown(i) => string("ReplaceDown " ++ string_of_int(i))
+  | Delete => string("Delete")
+  | AssertRoot => string("AssertRoot")
   | ReplaceUp(x, i) =>
     string("ReplaceUp ") ^^ pprint(x) ^^ string(" " ++ string_of_int(i))
   };
@@ -388,116 +397,60 @@ let pretty_print_action = x => {
   print_endline("");
 };
 
-type context = list(exp => exp);
-
-let shuffle = d => {
-  let nd = List.map(d, c => (Random.bits(), c));
-  let sond = List.sort(nd, (x, y) => compare(fst(x), fst(y)));
-  List.map(sond, snd);
+type splitted =
+  | Binder(string)
+  | Type(exp)
+  | Term(exp);
+type anal_t = {
+  path: List.t(int),
+  ctx: List.t(string),
+  term: splitted,
 };
-
-let rec subedits = (x: exp, loc: int) => {
-  [Down(loc)] @ edits(x) @ [Up];
-}
-and edits = (x: exp) => {
+let anal_here = x => {path: [], ctx: [], term: x};
+let extend_anal = (loc, ctx, anal) => {
+  path: [loc] @ anal.path,
+  ctx: ctx @ anal.ctx,
+  term: anal.term,
+};
+let rec analysis = (x: exp) => {
   switch (x) {
-  | ListMatch(x) =>
-    [Replace(ListMatch(Hole))] @ List.join(shuffle([subedits(x, 0)]))
-  | Let(lhs, rhs, body) =>
-    [Replace(Let(Hole, Hole, Hole))]
-    @ List.join(
-        shuffle([subedits(lhs, 0), subedits(rhs, 1), subedits(body, 2)]),
-      )
-  | Lam(arg_name, arg_type, body) =>
-    [Replace(Lam(Hole, Hole, Hole))]
-    @ List.join(
-        shuffle([
-          subedits(arg_name, 0),
-          subedits(arg_type, 1),
-          subedits(body, 2),
-        ]),
-      )
-  | ITE(ty) =>
-    [Replace(ITE(Hole))] @ List.join(shuffle([subedits(ty, 0)]))
-  | ListRec(ty) =>
-    [Replace(ListRec(Hole))] @ List.join(shuffle([subedits(ty, 0)]))
-  | App(f, xs) =>
-    [Replace(App(Hole, Hole))]
-    @ List.join(shuffle([subedits(f, 0), subedits(xs, 1)]))
-  | Arrow(x, y) =>
-    [Replace(Arrow(Hole, Hole))]
-    @ List.join(shuffle([subedits(x, 0), subedits(y, 1)]))
-  | Tup(l, r) =>
-    [Replace(Tup(Hole, Hole))]
-    @ List.join(shuffle([subedits(l, 0), subedits(r, 1)]))
-  | Prod(l, r) =>
-    [Replace(Prod(Hole, Hole))]
-    @ List.join(shuffle([subedits(l, 0), subedits(r, 1)]))
-  | Zro(x) => [Replace(Zro(Hole))] @ subedits(x, 0)
-  | Fst(x) => [Replace(Fst(Hole))] @ subedits(x, 0)
-  | Y(x) => [Replace(Y(Hole))] @ subedits(x, 0)
   | Nil
-  | Unit
-  | Lt
   | Cons
+  | Lt
+  | Var(_) => [anal_here(Term(x))]
+  | Int
   | List
-  | Var(_)
-  | Int => [Replace(x)]
+  | Unit => [anal_here(Type(x))]
+  | Fst(a)
+  | Zro(a)
+  | Y(a)
+  | ListMatch(a)
+  | ListRec(a)
+  | ITE(a) =>
+    [anal_here(Term(x))] @ List.map(analysis(a), extend_anal(0, []))
+  | Tup(a, b)
+  | App(a, b) =>
+    [anal_here(Term(x))]
+    @ List.map(analysis(a), extend_anal(0, []))
+    @ List.map(analysis(b), extend_anal(1, []))
+  | Prod(a, b)
+  | Arrow(a, b) =>
+    [anal_here(Type(x))]
+    @ List.map(analysis(a), extend_anal(0, []))
+    @ List.map(analysis(b), extend_anal(1, []))
+  | Lam(Var(a), b, c) =>
+    [anal_here(Term(x)), extend_anal(0, [], anal_here(Binder(a)))]
+    @ List.map(analysis(b), extend_anal(1, []))
+    @ List.map(analysis(c), extend_anal(2, [a]))
   | _ =>
     pretty_print(x);
-    failwith("edits");
+    failwith("analysis");
   };
 };
+let program = overlapping_mergesort(0, 100);
+let anal = analysis(program);
 
-let wrap_insert = [
-  ReplaceUp(Lam(Hole, Hole, Hole), 2),
-  Down(0),
-  Replace(Var("x")),
-  Up,
-  Down(1),
-  Replace(Int),
-  Up,
-];
-let wrap_delete = [ReplaceDown(0)];
-let wrap_amount = 5000;
-/*let trace =
-  List.join(
-    List.init(wrap_amount, (f) =>
-      (
-        {
-          wrap_insert;
-        }: _
-      )
-    ),
-  );*/
-// List.join(
-//   List.init(wrap_amount, (f) =>
-//     (
-//       {
-//         edits(program);
-//       }: _
-//     )
-//   ),
-// );
-// );
-// @ edits(program)
-// @ edits(program)
-// @ edits(program)
-// @ edits(program)
-// @ edits(program)
-// @ edits(program)
-// @ edits(program);
-// @ List.join(
-//     List.init(wrap_amount, (f) =>
-//       (
-//         {
-//           wrap_delete;
-//         }: _
-//       )
-//     ),
-//   );
-
-let trace = edits(program);
+type context = list(exp => exp);
 
 let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
   switch (x) {
@@ -591,38 +544,298 @@ let go_down = (x: exp, ctx: context, i: int): (exp, context) =>
     }
   | _ =>
     pretty_print(x);
-    failwith("godown");
+    failwith("go_down");
   };
+let replace_down = (x: exp, ctx: context, i: int): (exp, context) => {
+  let (x', _) = go_down(x, ctx, i);
+  (x', ctx);
+};
 
 let go_up = (x: exp, ctx: context): (exp, context) =>
   switch (ctx) {
   | [c, ...ctx] => (c(x), ctx)
   };
 
+let replace_up = (h: exp, x: exp, ctx: context, i): (exp, context) => {
+  let (_, [ctx']) = go_down(h, [], i);
+  (ctx'(x), ctx);
+};
 let rec uppest = (x: exp, ctx: context) =>
   switch (ctx) {
   | [] => x
   | [c, ...ctx] => uppest(c(x), ctx)
   };
+
 let step_trace = ((x: exp, ctx: context), act: action): (exp, context) => {
   switch (act) {
-  | Down(i) => go_down(x, ctx, i)
-  | Up => go_up(x, ctx)
+  | Down(i)
+  | SDown(i) => go_down(x, ctx, i)
+  | Up
+  | SUp => go_up(x, ctx)
+  | ReplaceDown(i) => replace_down(x, ctx, i)
+  | ReplaceUp(h, i) => replace_up(h, x, ctx, i)
   | Replace(x) => (x, ctx)
+  | Delete => (Hole, ctx)
+  | AssertRoot =>
+    assert(List.is_empty(ctx));
+    (x, ctx);
   };
 };
 
-let rec apply_traces = (x: exp, ctx: context, act) => {
+let rec apply_traces = ((x: exp, ctx: context), act) => {
   if (false && List.length(ctx) % 10 == 0) {
     pretty_print(uppest(x, ctx));
   };
   switch (act) {
-  | [] => x
+  | [] => (x, ctx)
   | [act, ...acts] =>
     let (x, ctx) = step_trace((x, ctx), act);
-    apply_traces(x, ctx, acts);
+    apply_traces((x, ctx), acts);
   };
 };
+
+let anal_touch = (anal: anal_t) => {
+  let ret =
+    List.map(anal.path, i => SDown(i))
+    @ (
+      switch (anal.term) {
+      | Binder(x) => [
+          Delete,
+          Replace(Var(random_element([x] @ anal.ctx))),
+          Delete,
+          Replace(Var(x)),
+        ]
+      | Type(x) =>
+        switch (x) {
+        | List
+        | Int
+        | Unit => [Delete, Replace(Unit), Delete, Replace(x)]
+        | Prod(_, _)
+        | Arrow(_, _) => [ReplaceUp(Prod(Hole, Hole), 0), ReplaceDown(0)]
+        | _ =>
+          pretty_print(x);
+          failwith("anal type");
+        }
+      | Term(x) =>
+        switch (x) {
+        | Cons
+        | Nil
+        | Lt
+        | Var(_) => [
+            Delete,
+            Replace(
+              random_element([Lit(0)] @ List.map(anal.ctx, v => Var(v))),
+            ),
+            Delete,
+            Replace(x),
+          ]
+        | ListMatch(_)
+        | ListRec(_)
+        | Y(_)
+        | ITE(_)
+        | App(_, _)
+        | Lam(_, _, _)
+        | Tup(_, _) => [ReplaceUp(Tup(Hole, Hole), 0), ReplaceDown(0)]
+        | Zro(_) => [ReplaceDown(0), ReplaceUp(Zro(Hole), 0)]
+        | Fst(_) => [ReplaceDown(0), ReplaceUp(Fst(Hole), 0)]
+        | _ =>
+          pretty_print(x);
+          failwith("anal term");
+        }
+      }
+    )
+    @ List.map(anal.path, _ => SUp)
+    @ [AssertRoot];
+  let (_, []) = apply_traces((program, []), ret);
+  ret;
+};
+
+let shuffle = d => {
+  let nd = List.map(d, c => (Random.bits(), c));
+  let sond = List.sort(nd, (x, y) => compare(fst(x), fst(y)));
+  List.map(sond, snd);
+};
+
+let rec subedits = (x: exp, loc: int) => {
+  [Down(loc)] @ edits(x) @ [Up];
+}
+and edits = (x: exp) => {
+  switch (x) {
+  | ListMatch(x) =>
+    [Replace(ListMatch(Hole))] @ List.join(shuffle([subedits(x, 0)]))
+  | Let(lhs, rhs, body) =>
+    [Replace(Let(Hole, Hole, Hole))]
+    @ List.join(
+        shuffle([subedits(lhs, 0), subedits(rhs, 1), subedits(body, 2)]),
+      )
+  | Lam(arg_name, arg_type, body) =>
+    [Replace(Lam(Hole, Hole, Hole))]
+    @ List.join(
+        shuffle([
+          subedits(arg_name, 0),
+          subedits(arg_type, 1),
+          subedits(body, 2),
+        ]),
+      )
+  | ITE(ty) =>
+    [Replace(ITE(Hole))] @ List.join(shuffle([subedits(ty, 0)]))
+  | ListRec(ty) =>
+    [Replace(ListRec(Hole))] @ List.join(shuffle([subedits(ty, 0)]))
+  | App(f, xs) =>
+    [Replace(App(Hole, Hole))]
+    @ List.join(shuffle([subedits(f, 0), subedits(xs, 1)]))
+  | Arrow(x, y) =>
+    [Replace(Arrow(Hole, Hole))]
+    @ List.join(shuffle([subedits(x, 0), subedits(y, 1)]))
+  | Tup(l, r) =>
+    [Replace(Tup(Hole, Hole))]
+    @ List.join(shuffle([subedits(l, 0), subedits(r, 1)]))
+  | Prod(l, r) =>
+    [Replace(Prod(Hole, Hole))]
+    @ List.join(shuffle([subedits(l, 0), subedits(r, 1)]))
+  | Zro(x) => [Replace(Zro(Hole))] @ subedits(x, 0)
+  | Fst(x) => [Replace(Fst(Hole))] @ subedits(x, 0)
+  | Y(x) => [Replace(Y(Hole))] @ subedits(x, 0)
+  | Nil
+  | Unit
+  | Lt
+  | Cons
+  | List
+  | Var(_)
+  | Int => [Replace(x)]
+  | _ =>
+    pretty_print(x);
+    failwith("edits");
+  };
+};
+
+let rec atomic_type = (x: exp) => {
+  switch (x) {
+  | App(_, _)
+  | Lam(_, _, _)
+  | Arrow(_, _)
+  | Var(_)
+  | Prod(_, _)
+  | Tup(_, _)
+  | Nil
+  | Cons
+  | Zro(_)
+  | Fst(_)
+  | ListRec(_)
+  | ListMatch(_)
+  | Y(_) => false
+  | Int
+  | List => true
+  | _ =>
+    pretty_print(x);
+    failwith("atomic_type");
+  };
+};
+
+let rec atomic_term = (x: exp) => {
+  switch (x) {
+  | App(_, _)
+  | Lam(_, _, _)
+  | Arrow(_, _)
+  | Prod(_, _)
+  | Tup(_, _)
+  | Zro(_)
+  | Fst(_)
+  | ListRec(_)
+  | ListMatch(_)
+  | Y(_) => false
+  | Nil
+  | Cons
+  | Var(_) => true
+  | _ =>
+    pretty_print(x);
+    failwith("atomic_term");
+  };
+};
+
+let rec children = (x: exp) => {
+  switch (x) {
+  | ListRec(a)
+  | ListMatch(a)
+  | Zro(a)
+  | Y(a) => [(0, a)]
+  | Tup(a, b)
+  | Prod(a, b)
+  | App(a, b)
+  | Arrow(a, b) => [(0, a), (1, b)]
+  | Lam(_, t, b) => [(1, t), (2, b)]
+  | _ =>
+    pretty_print(x);
+    failwith("children");
+  };
+};
+let rec touch = (x: exp) =>
+  if (atomic_type(x)) {
+    [Delete, Replace(Unit), Delete, Replace(x)];
+  } else if (atomic_term(x)) {
+    [Delete, Replace(Lit(0)), Delete, Replace(x)];
+  } else {
+    let c = children(x);
+    let (i, x) = List.nth_exn(c, Random.int(List.length(c)));
+    [Down(i)] @ touch(x) @ [Up];
+  };
+
+let wrap_insert = [
+  ReplaceUp(Lam(Hole, Hole, Hole), 2),
+  Down(0),
+  Replace(Var("x")),
+  Up,
+  Down(1),
+  Replace(Int),
+  Up,
+];
+let wrap_delete = [ReplaceDown(0)];
+let wrap_amount = 5000;
+/*let trace =
+  List.join(
+    List.init(wrap_amount, (f) =>
+      (
+        {
+          wrap_insert;
+        }: _
+      )
+    ),
+  );*/
+// List.join(
+//   List.init(wrap_amount, (f) =>
+//     (
+//       {
+//         edits(program);
+//       }: _
+//     )
+//   ),
+// );
+// );
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program)
+// @ edits(program);
+// @ List.join(
+//     List.init(wrap_amount, (f) =>
+//       (
+//         {
+//           wrap_delete;
+//         }: _
+//       )
+//     ),
+//   );
+
+let trace =
+  edits(program)
+  @ [AssertRoot]
+  @ List.join(
+      List.init(500, _ =>
+        anal_touch(List.nth_exn(anal, Random.int(List.length(anal))))
+      ),
+    );
 
 // apply_traces(Hole, [], trace);
 
@@ -652,34 +865,51 @@ let wraps = wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps @ wraps;
 
 let to_iaction = (act: action) => {
   switch (act) {
-  | Up => Iaction.MoveUp
-  | ReplaceUp(Lam(Hole, Hole, Hole), 2) => Iaction.WrapLam
-  | Replace(Arrow(Hole, Hole)) => Iaction.WrapArrow(One)
-  | Replace(Prod(Hole, Hole)) => Iaction.WrapProduct(One)
-  | Replace(Tup(Hole, Hole)) => Iaction.WrapPair(One)
-  | Replace(Lam(Hole, Hole, Hole)) => Iaction.WrapLam
-  | Replace(App(Hole, Hole)) => Iaction.WrapAp(One)
-  | Replace(Zro(Hole)) =>
-    Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Fst)
-  | Replace(Fst(Hole)) =>
-    Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Snd)
-  | Replace(ListRec(Hole)) => Iaction.InsertListRec
-  | Replace(Y(Hole)) => Iaction.InsertY
-  | Replace(ITE(Hole)) => Iaction.InsertITE
-  | Replace(ListMatch(Hole)) => Iaction.InsertListMatch
-  | Replace(Nil) => Iaction.InsertNil
-  | Replace(Lt) => Iaction.InsertLt
-  | Replace(Cons) => Iaction.InsertCons
-  | Replace(Var(x)) => Iaction.InsertVar(x)
-  | Replace(Int) => Iaction.InsertNumType
-  | Replace(List) => Iaction.InsertList
-  | Replace(Unit) => Iaction.InsertUnitType
-  | Down(0) => Iaction.MoveDown(One)
-  | Down(1) => Iaction.MoveDown(Two)
-  | Down(2) => Iaction.MoveDown(Three)
-  | ReplaceDown(0) => Iaction.Unwrap(One)
-  | ReplaceDown(1) => Iaction.Unwrap(Two)
-  | ReplaceDown(2) => Iaction.Unwrap(Three)
+  | Up
+  | SUp => [Iaction.MoveUp]
+  | Down(0)
+  | SDown(0) => [Iaction.MoveDown(One)]
+  | Down(1)
+  | SDown(1) => [Iaction.MoveDown(Two)]
+  | Down(2)
+  | SDown(2) => [Iaction.MoveDown(Three)]
+  | ReplaceUp(Lam(Hole, Hole, Hole), 2) => [Iaction.WrapLam]
+  | ReplaceUp(Tup(Hole, Hole), 0) => [Iaction.WrapPair(One)]
+  | ReplaceUp(Prod(Hole, Hole), 0) => [Iaction.WrapProduct(One)]
+  | ReplaceUp(Zro(Hole), 0) => [
+      Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Fst),
+    ]
+  | ReplaceUp(Fst(Hole), 0) => [
+      Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Snd),
+    ]
+  | Replace(Arrow(Hole, Hole)) => [Iaction.WrapArrow(One)]
+  | Replace(Prod(Hole, Hole)) => [Iaction.WrapProduct(One)]
+  | Replace(Tup(Hole, Hole)) => [Iaction.WrapPair(One)]
+  | Replace(Lam(Hole, Hole, Hole)) => [Iaction.WrapLam]
+  | Replace(App(Hole, Hole)) => [Iaction.WrapAp(One)]
+  | Replace(Zro(Hole)) => [
+      Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Fst),
+    ]
+  | Replace(Fst(Hole)) => [
+      Iaction.WrapProj(Hazelnut_lib.Hazelnut.ProdSide.Snd),
+    ]
+  | Replace(ListRec(Hole)) => [Iaction.InsertListRec]
+  | Replace(Y(Hole)) => [Iaction.InsertY]
+  | Replace(ITE(Hole)) => [Iaction.InsertITE]
+  | Replace(ListMatch(Hole)) => [Iaction.InsertListMatch]
+  | Replace(Nil) => [Iaction.InsertNil]
+  | Replace(Lt) => [Iaction.InsertLt]
+  | Replace(Cons) => [Iaction.InsertCons]
+  | Replace(Var(x)) => [Iaction.InsertVar(x)]
+  | Replace(Lit(x)) => [Iaction.InsertNumLit(x)]
+  | Replace(Int) => [Iaction.InsertNumType]
+  | Replace(List) => [Iaction.InsertList]
+  | Replace(Unit) => [Iaction.InsertUnitType]
+  | ReplaceDown(0) => [Iaction.Unwrap(One)]
+  | ReplaceDown(1) => [Iaction.Unwrap(Two)]
+  | ReplaceDown(2) => [Iaction.Unwrap(Three)]
+  | Delete => [Iaction.Delete]
+  | AssertRoot => []
   | _ =>
     pretty_print_action(act);
     failwith("to_iaction");
@@ -691,9 +921,14 @@ type eval_state = {
   estate: (exp, context),
 };
 
+let rec apply_actions = (is, ia) =>
+  switch (ia) {
+  | [] => is
+  | [ia, ...iax] => apply_actions(apply_action(is, ia), iax)
+  };
 let incr_edit = (es: eval_state, act: action): (int, eval_state) => {
   let ia = to_iaction(act);
-  let (t, is) = timed(() => apply_action(es.istate, ia));
+  let (t, is) = timed(() => apply_actions(es.istate, ia));
   let (_, es) = timed(() => step_trace(es.estate, act));
   (t, {istate: is, estate: es});
 };
@@ -707,7 +942,7 @@ let incr_tyck = (es: eval_state, act: action): (int, eval_state) => {
 
 let baseline_edit = (es: eval_state, act: action): (int, eval_state) => {
   let ia = to_iaction(act);
-  let (_, is) = timed(() => apply_action(es.istate, ia));
+  let (_, is) = timed(() => apply_actions(es.istate, ia));
   let (t, es) = timed(() => step_trace(es.estate, act));
   (t, {istate: is, estate: es});
 };
@@ -724,6 +959,12 @@ let baseline_tyck = (es: eval_state, act: action): (int, eval_state) => {
   (t, es);
 };
 
+let should_skip = act =>
+  switch (act) {
+  | SDown(_)
+  | SUp => true
+  | _ => false
+  };
 let init_eval_state = () => {istate: initial_state(), estate: (Hole, [])};
 let handle =
     (
@@ -750,10 +991,11 @@ let handle =
         let json =
           `Assoc([
             ("name", `String(name)),
-            ("action", `String(string_of_action(to_iaction(act)))),
+            ("action", `String("todo: fix")),
             ("iter", `Int(i)),
             ("edit_time", `Int(t)),
             ("tyck_time", `Int(t')),
+            ("should_skip", `Bool(should_skip(act))),
           ]);
         Yojson.to_channel(c, json);
         Stdio.Out_channel.newline(c);

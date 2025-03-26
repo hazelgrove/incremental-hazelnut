@@ -53,7 +53,7 @@ if PROFILE:
     h1("WARNING: PROFILE TURNED ON")
 
 def should_skip(j):
-    return False
+    return j["should_skip"]
     return j["action"].startswith("Move")
 
 data = {}
@@ -183,13 +183,14 @@ with doc:
         
     data.sort(key=lambda x: (x["name"], -x["tyck_time"]))
 
-    with table(border="1", cls="sortable"):
-        tr(*[th(h, style="position:sticky;top:0px;") for h in header])
+    if False:
+        with table(border="1", cls="sortable"):
+            tr(*[th(h, style="position:sticky;top:0px;") for h in header])
     
-        for processed in data:
-            tr(*[td(processed[h]) for h in header])
+            for processed in data:
+                tr(*[td(processed[h]) for h in header])
         
 write_to(out_path + "index.html", str(doc))
 
-# if shutil.which("xdg-open"):
-#     subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
+if shutil.which("xdg-open"):
+    subprocess.run(f"xdg-open {out_path}/index.html", shell=True, check=True)
