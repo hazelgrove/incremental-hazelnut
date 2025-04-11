@@ -1,8 +1,25 @@
 open Sexplib.Std;
 
+module Bind = {
+  [@deriving (sexp)]
+  type t =
+    | Hole
+    | Var(string);
+
+  let compare = (a, b) => {
+    switch (a, b) {
+    | (Hole, _)
+    | (_, Hole) => 0
+    | (Var(a), Var(b)) => String.compare(a, b)
+    }
+  };
+};
+
 module Htyp = {
   [@deriving (sexp, compare)]
   type t =
+    | TypVar(Bind.t)
+    | ForAll(Bind.t, t)
     | Arrow(t, t)
     | Product(t, t)
     | Num
@@ -27,13 +44,6 @@ module ProdSide = {
   type t =
     | Fst
     | Snd;
-};
-
-module Bind = {
-  [@deriving sexp]
-  type t =
-    | Hole
-    | Var(string);
 };
 
 module MarkMessage = {

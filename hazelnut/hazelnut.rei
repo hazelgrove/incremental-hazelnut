@@ -1,6 +1,17 @@
+module Bind: {
+  [@deriving sexp]
+  type t =
+    | Hole
+    | Var(string);
+
+  let compare: (t, t) => int; 
+};
+
 module Htyp: {
   [@deriving (sexp, compare)]
   type t =
+    | TypVar(Bind.t)
+    | ForAll(Bind.t, t)
     | Arrow(t, t)
     | Product(t, t)
     | Num
@@ -25,13 +36,6 @@ module ProdSide: {
   type t =
     | Fst
     | Snd;
-};
-
-module Bind: {
-  [@deriving sexp]
-  type t =
-    | Hole
-    | Var(string);
 };
 
 module MarkMessage: {
