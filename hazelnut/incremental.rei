@@ -18,20 +18,6 @@ module InQueue: {
   let default_upper: unit => upper;
 };
 
-module Ityp: {
-  [@deriving (sexp)]
-  type t =
-    | TypVar(Bind.t)
-    | ForAll(Bind.t, t)
-    | Arrow(t, t)
-    | Product(t, t)
-    | Num
-    | Bool
-    | Unit
-    | List
-    | Hole;
-};
-
 module Iexp: {
   [@deriving sexp]
   type lower = {
