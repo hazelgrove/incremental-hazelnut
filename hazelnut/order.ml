@@ -14,7 +14,7 @@ open Sexplib0
         https://github.com/matthewhammer/ceal/blob/4b933a8/src/lib/runtime/totalorder.c
 *)
 
-module Order = struct
+(*module Order = struct
     let threshold = 1.4 (* rebalancing region threshold (inverse density) *)
     let label_bits = Sys.word_size - 2 (*use only the positive range*)
     
@@ -321,7 +321,7 @@ module Order = struct
             if not (is_initial ts) then remove ts;
             if ts' != ts then remove ts'
         end*)
-end
+end*)
 
 (* Implementing order maintenance as an imperative red black tree. 
  * Alas, it cant be functional as the order maintenance API is imperative.
@@ -337,7 +337,7 @@ end
  *   where the black node is a 'real' node, 
  *   and the red node merely extend the width of the parent black node by one.
  *)
- (*
+
 module Order = struct
   type color = Red | Black
   type is_right_child = bool
@@ -434,4 +434,4 @@ module Order = struct
         t.left <- Some(c);
         balance_node c
     | Some(t) -> insert_rightmost t
-end*)
+end
