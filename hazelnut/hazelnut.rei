@@ -7,10 +7,17 @@ module Bind: {
   let compare: (t, t) => int; 
 };
 
+module Mark: {
+  [@deriving (sexp, compare)]
+  type t =
+    | Unmarked
+    | Marked;
+};
+
 module Htyp: {
   [@deriving (sexp, compare)]
   type t =
-    | TypVar(Bind.t)
+    | TypVar(Bind.t, Mark.t)
     | ForAll(Bind.t, t)
     | Arrow(t, t)
     | Product(t, t)
@@ -48,13 +55,6 @@ module MarkMessage: {
     | NonProdProj
     | LamAnnIncon
     | Inconsistent;
-};
-
-module Mark: {
-  [@deriving (sexp, compare)]
-  type t =
-    | Unmarked
-    | Marked;
 };
 
 exception Unimplemented;

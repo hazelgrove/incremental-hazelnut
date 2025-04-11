@@ -15,10 +15,17 @@ module Bind = {
   };
 };
 
+module Mark = {
+  [@deriving (sexp, compare)]
+  type t =
+    | Unmarked
+    | Marked;
+};
+
 module Htyp = {
   [@deriving (sexp, compare)]
   type t =
-    | TypVar(Bind.t)
+    | TypVar(Bind.t, Mark.t)
     | ForAll(Bind.t, t)
     | Arrow(t, t)
     | Product(t, t)
@@ -56,13 +63,6 @@ module MarkMessage = {
     | NonProdProj
     | LamAnnIncon
     | Inconsistent;
-};
-
-module Mark = {
-  [@deriving (sexp, compare)]
-  type t =
-    | Unmarked
-    | Marked;
 };
 
 let rec erase_typ = (t: Ztyp.t): Htyp.t => {
