@@ -12,9 +12,9 @@ open Hazelnut_lib.Actions_random;
 open Hazelnut_lib.Update;
 open Hazelnut_lib.Marking;
 open Ocaml_intrinsics;
-open Gc
+open Gc;
 
-let _ = Gc.set { ...Gc.get(), space_overhead: 1200 };
+let _ = Gc.set({...Gc.get(), space_overhead: 1200});
 
 let random_element = x => List.nth_exn(x, Random.int(List.length(x)));
 

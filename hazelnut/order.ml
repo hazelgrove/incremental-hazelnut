@@ -321,5 +321,117 @@ module Order = struct
             if not (is_initial ts) then remove ts;
             if ts' != ts then remove ts'
         end*)
-
 end
+
+(* Implementing order maintenance as an imperative red black tree. 
+ * Alas, it cant be functional as the order maintenance API is imperative.
+ * This suffer a log(n) overhead, and require lots of pointer chasing,
+ *   So it is much slower then the doubly linked list order maintenance. 
+ * However, it is much simpler so it serve as a correctness check.
+ *
+ * Restating the invariant of red black tree:
+ * 0 - a red node can only have black children.
+ * 1 - the left and right children of any node have the same black-height.
+ * 
+ * Essentially, a red black tree is a 2-3-4 tree, 
+ *   where the black node is a 'real' node, 
+ *   and the red node merely extend the width of the parent black node by one.
+ *)
+ (*
+module Order = struct
+  type color = Red | Black
+  type is_right_child = bool
+  type t = {
+    parent: (t * is_right_child) option;
+    mutable left: t option;
+    mutable right: t option;
+    color: color;
+  }
+  let sexp_of_t _ = Sexp.Atom("yadayada")
+  let t_of_sexp _ = failwith("t_of_sexp not implemented")
+
+  let create () = {
+    parent = None;
+    left = None;
+    right = None;
+    color = Black;
+  }
+
+  let rec rev_path_from_root (t: t): is_right_child list = match t.parent with
+  | None -> []
+  | Some(t, is_right_child) -> is_right_child :: rev_path_from_root t
+
+  let path_from_root t = List.rev (rev_path_from_root t)
+
+  (* compare on int is subtraction.*)
+  let rec compare_path x y = 
+    match (x, y) with
+    | ([], []) -> 0
+    | (false::_, [])
+    | ([], true::_)
+    | (false::_, true::_) -> -1
+    | (true::_, [])
+    | ([], false::_)
+    | (true::_, false::_) -> 1
+    | (false::x, false::y) 
+    | (true::x, true::y) -> compare_path x y
+
+  let compare x y = compare_path (path_from_root x) (path_from_root y)
+
+  let lt x y = compare x y < 0
+  let eq x y = compare x y == 0
+  let gt x y = compare x y > 0
+
+  let max x y = if lt x y then y else x
+
+  let rec get_root t = 
+    match t.parent with
+    | None -> t
+    | Some(t, _) -> get_root t
+
+  let balance_shallow t = 
+    match t.color with
+    | Black -> ()
+    | Red -> ()
+
+  let rec balance_path t p = 
+    (match p with
+    | [] -> ()
+    | false::p -> balance_path (Option.get (t.left)) p
+    | true::p -> balance_path (Option.get (t.right)) p);
+    balance_shallow t
+
+  let balance_node t = balance_path (get_root t) (path_from_root t); t
+
+  let rec insert_rightmost t = 
+    match t.right with
+    | None -> 
+        let c = { parent = Some(t, true); left = None; right = None; color = Red } in
+        t.right <- Some(c);
+        balance_node c
+    | Some(t) -> insert_rightmost t
+
+  let rec insert_leftmost t = 
+    match t.left with
+    | None -> 
+        let c = { parent = Some(t, false); left = None; right = None; color = Red } in
+        t.left <- Some(c);
+        balance_node c
+    | Some(t) -> insert_leftmost t
+
+  let add_next t = 
+    match t.right with
+    | None ->
+        let c = { parent = Some(t, true); left = None; right = None; color = Red } in
+        t.right <- Some(c); 
+        balance_node c
+    | Some(t) -> insert_leftmost t
+
+  let add_prev t = 
+    match t.left with
+    | None -> 
+        let c = { parent = Some(t, false); left = None; right = None; color = Red } in
+        t.left <- Some(c);
+        balance_node c
+    | Some(t) -> insert_rightmost t
+end*)

@@ -93,7 +93,7 @@ let random_action_segment_arg = (no_delete: bool) => {
 let random_action_segment = () => random_action_segment_arg(false);
 
 let random_action_segments = (n: int) => {
-  let l = List.init(n, _ => random_action_segment);
+  let l = List.init(n, _ => random_action_segment());
   l;
 };
 
