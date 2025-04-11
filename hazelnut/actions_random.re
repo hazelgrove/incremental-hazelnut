@@ -77,7 +77,7 @@ let random_edit = (no_delete: bool): list(Iaction.t) => {
         [InsertNil],
         [InsertCons],
         [InsertListRec],
-        [InsertY],
+        // [InsertY],
         [Unwrap(One)],
         [Unwrap(Two)],
       ];

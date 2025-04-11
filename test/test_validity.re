@@ -952,7 +952,7 @@ let boolean_test = actionses => {
   };
 };
 
-let test_indepedence = () => (); /*{ 
+let test_indepedence = () => (); /*{
   /**
   let actionses = random_action_segments(100000);
   let iterations = List.init(5, _ => boolean_test(actionses));
@@ -967,7 +967,7 @@ let multi_test_indepedence = () => {
   ();
 };
 
-let oneK_squared = () => () /* {
+let oneK_squared = () => (); /* {
   /**let _ =
     List.init(10, _ => test_actionses(random_action_segments(1000000)));
   ();*/
@@ -1003,10 +1003,10 @@ let actual_tests = [
   ("all", `Quick, test_actionses_all),
   // ("random 1K", `Quick, test_actionses(random_action_segments(1000))),
   // ("random 1K by 1K", `Quick, oneK_squared),
-  ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
+  // ("random 10K", `Quick, test_actionses(random_action_segments(10000))),
   // ("random 100K", `Quick, test_actionses(random_action_segments(100000))),
   // ("random 1M", `Quick, test_actionses(random_action_segments(1000000))),
-  // ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
+  ("random 10M", `Quick, test_actionses(random_action_segments(10000000))),
   ("always_fails", `Quick, () => assert(false)) // this is here so that the test libary doesn't stop checking just because everything passed once
 ];
 
