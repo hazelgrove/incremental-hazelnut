@@ -50,6 +50,16 @@ module Iexp: {
     | ListRec(ref(Htyp.t))
     | Y(ref(Htyp.t))
     | ITE(ref(Htyp.t))
+    | TypFun(
+        ref(Bind.t),
+        ref(Mark.t),
+        lower,
+        var_set,
+      )
+    | TypAp(
+        lower,
+        ref(Htyp.t),
+      )
     | EHole
 
   and upper = {
