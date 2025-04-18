@@ -1,3 +1,4 @@
+open Map;
 open Sexplib.Std;
 
 module Bind = {
@@ -8,8 +9,9 @@ module Bind = {
 
   let compare = (a, b) => {
     switch (a, b) {
-    | (Hole, _)
-    | (_, Hole) => 0
+    | (Hole, Hole) => 0
+    | (Hole, Var(_)) => -1
+    | (Var(_), Hole) => 1
     | (Var(a), Var(b)) => String.compare(a, b)
     }
   };
@@ -129,21 +131,42 @@ let matched_proj_typ_opt =
   };
 };
 
-let rec is_type_consistent = (t1: Htyp.t, t2: Htyp.t): bool => {
+module RenamingMap = Map.Make(String);
+
+let rec is_type_consistent = (ctx: RenamingMap.t(String.t), t1: Htyp.t, t2: Htyp.t): bool => {
   switch (t1, t2) {
   | (Hole, _)
   | (_, Hole) => true
+  | (Unit, Unit) => true
+  | (Bool, Bool) => true
+  | (List, List) => true
   | (Num, Num) => true
   | (Arrow(t11, t12), Arrow(t21, t22)) =>
-    is_type_consistent(t11, t21) && is_type_consistent(t12, t22)
+    is_type_consistent(ctx, t11, t21) && is_type_consistent(ctx, t12, t22)
   | (Product(t11, t12), Product(t21, t22)) =>
-    is_type_consistent(t11, t21) && is_type_consistent(t12, t22)
+    is_type_consistent(ctx, t11, t21) && is_type_consistent(ctx, t12, t22)
+  | (TypVar(Hole, Unmarked), TypVar(_, Unmarked)) 
+  | (TypVar(_,    Unmarked), TypVar(Hole, Unmarked)) => true
+  | (TypVar(Var(v1), Unmarked), TypVar(Var(v2), Unmarked)) =>
+    // Invariant: You never switch sides between t1 and t2
+    // when recursing.
+    switch (RenamingMap.find_opt(v1, ctx)) {
+    | Some(sub_v1) => v2 == sub_v1;
+    | None => false
+    }
+  | (ForAll(Hole, t1), ForAll(_, t2)) => is_type_consistent(ctx, t1, t2)
+  | (ForAll(Var(v), t1), ForAll(Hole, t2)) =>
+    let new_ctx = RenamingMap.remove(v, ctx);
+    is_type_consistent(new_ctx, t1, t2)
+  | (ForAll(Var(v1), t1), ForAll(Var(v2), t2)) =>
+    let new_ctx = RenamingMap.add(v1, v2, ctx);
+    is_type_consistent(new_ctx, t1, t2)
   | _ => false
   };
 };
 
 let type_consistent = (t1: Htyp.t, t2: Htyp.t): Mark.t => {
-  is_type_consistent(t1, t2) ? Unmarked : Marked;
+  is_type_consistent(RenamingMap.empty, t1, t2) ? Unmarked : Marked;
 };
 
 let type_consistent_opt = (t1: option(Htyp.t), t2: option(Htyp.t)): Mark.t => {
