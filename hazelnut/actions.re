@@ -50,6 +50,8 @@ module Iaction = {
     | WrapProj(ProdSide.t)
     | WrapLam
     | WrapAsc
+    | WrapTypAp
+    | WrapTypFun
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
