@@ -45,7 +45,8 @@ module Ztyp = {
     | LArrow(t, Htyp.t)
     | RArrow(Htyp.t, t)
     | LProduct(t, Htyp.t)
-    | RProduct(Htyp.t, t);
+    | RProduct(Htyp.t, t)
+    | ForAll(Bind.t, t);
 };
 
 module ProdSide = {
