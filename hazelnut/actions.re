@@ -43,6 +43,7 @@ module Iaction = {
     | InsertListRec
     | InsertListMatch
     | InsertY
+    | InsertTypVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapPair(Child.t)
