@@ -213,5 +213,14 @@ let product_unless =
   };
 };
 
+let forall_unless =
+    (alpha: Bind.t, body_t: option(Htyp.t), unless: option(Htyp.t)): option(Htyp.t) => {
+  switch (unless, alpha, body_t) {
+  | (Some(_), _, _ )
+  | (None, _, None) => None
+  | (None, alpha, Some(body_t)) => Some(ForAll(alpha, body_t))
+  }
+}
+
 exception Unimplemented;
 exception Unreachable;
