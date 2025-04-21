@@ -52,6 +52,7 @@ module Iaction = {
     | WrapAsc
     | WrapTypAp
     | WrapTypFun
+    | WrapForAll
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
