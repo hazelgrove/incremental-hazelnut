@@ -30,6 +30,7 @@ module Iaction: {
     | InsertListRec
     | InsertListMatch
     | InsertY
+    | InsertTypVar(string)
     | WrapPlus(Child.t)
     | WrapAp(Child.t)
     | WrapPair(Child.t)
@@ -37,6 +38,9 @@ module Iaction: {
     | WrapProj(ProdSide.t)
     | WrapLam
     | WrapAsc
+    | WrapTypAp
+    | WrapTypFun
+    | WrapForAll
     | Unwrap(Child.t); // The child argument is only relevant for the Ap case
 };
 
