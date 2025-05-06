@@ -1058,11 +1058,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       splice(new_lower_left, new_upper);
       splice(new_lower_right, new_upper);
 
+      // Add the four missing updates to this update list: 
       let update_list = [
-        Update.NewAna(parent),
-        Update.NewSyn(e1),
-        Update.NewSyn(e2),
-        Update.NewSyn(new_upper),
+        /** ? **/,
+        /** ? **/,
+        /** ? **/,
+        /** ? **/,
         switch (child) {
         | Child.One => Update.NewAna(Lower(new_lower_left))
         | Child.Two => Update.NewAna(Lower(new_lower_right))

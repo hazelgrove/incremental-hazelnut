@@ -82,12 +82,10 @@ let update_step = (state: Istate.t): stepped => {
           let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
         | Proj(prod_side, e, m) =>
-          let (t_side_body, m_all_body) =
-            matched_proj_typ_opt(prod_side, e.child.syn);
-          m.contents = m_all_body;
-          let parent_update =
-            UpdateQueue.update_syn(parent.upper, t_side_body);
-          let update_list = parent_update;
+          // Use the following helper functions to complete this case: 
+          // [matched_proj_typ_opt]
+          // [UpdateQueue.update_syn]
+          let update_list = /** ? **/;
           UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
@@ -124,16 +122,12 @@ let update_step = (state: Istate.t): stepped => {
         let update_list = body_update @ syn_update;
         UpdateQueue.update_push_list(update_list, q);
       | Pair(e1, e2, m) =>
-        let (t1, t2, m_ana') = matched_product_typ_opt(ana);
-        m.contents = m_ana';
-        let e1_update = UpdateQueue.update_ana(e1, t1);
-        let e2_update = UpdateQueue.update_ana(e2, t2);
-        let syn_update =
-          UpdateQueue.update_syn(
-            child,
-            product_unless(e1.child.syn, e2.child.syn, ana),
-          );
-        let update_list = e1_update @ e2_update @ syn_update;
+        // Use the following helper functions to complete this case:
+        // [matched_product_typ_opt]
+        // [UpdateQueue.update_ana]
+        // [UpdateQueue.update_syn]
+        // [product_unless]
+        let update_list = /** ? **/;
         UpdateQueue.update_push_list(update_list, q);
       | _ =>
         // This case must come after the above case. Relies on the term being subsumable.
