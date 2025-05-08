@@ -11,8 +11,15 @@ module Icursor: {
     | CursorBind(Iexp.upper);
 };
 
+module BinderKind: {
+  [@deriving (sexp, compare)]
+  type t =
+    | Lam
+    | TypFun;
+};
+
 module BinderSet: {
-  type t = Hashtbl.t(string, Tree.t(Iexp.upper));
+  type t = Hashtbl.t((string, BinderKind.t), Tree.t(Iexp.upper));
 };
 
 module Istate: {
