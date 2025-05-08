@@ -57,8 +57,8 @@ module Term = {
   type position = int;
 
   type edge = {
-    id: (Id.t, position),
-    source: Id.t,
+    id: Id.t,
+    source: (Id.t, position),
     destination: Id.t,
     sign: Patch.sign,
     meta: Patch.meta,

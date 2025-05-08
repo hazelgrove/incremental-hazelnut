@@ -7,7 +7,8 @@ open UpdateQueue;
 // open Sexplib0;
 
 module IdMap = {
-  type t = Hashtbl.t(Id.t, Term.t);
+  type term = Hashtbl.t(Id.t, Term.t);
+  type edge = Hashtbl.t(Id.t, Term.edge);
   // let sexp_of_t = _ => Sexp.Atom("unimplemented");
   // let t_of_sexp = _ => failwith("IdMap of sexp");
 };
@@ -23,7 +24,8 @@ module State = {
   type t = {
     cursor: Term.t,
     root: Term.t,
-    id_map: IdMap.t,
+    term_map: IdMap.term,
+    edge_map: IdMap.edge,
     queue: UpdateQueue.t,
     counter: Id.counter,
     binders: BinderSet.t,
@@ -33,13 +35,15 @@ module State = {
 let initial_state = (): State.t => {
   let initial_counter = Id.initial_counter();
   let initial_term = Term.initial(initial_counter);
-  let initial_id_map = Hashtbl.create(100);
+  let initial_term_map = Hashtbl.create(100);
+  let initial_edge_map = Hashtbl.create(100);
   let initial_queue = UpdateQueue.empty();
   let initial_binder = Hashtbl.create(100);
   {
     cursor: initial_term,
     root: initial_term,
-    id_map: initial_id_map,
+    term_map: initial_term_map,
+    edge_map: initial_edge_map,
     queue: initial_queue,
     counter: initial_counter,
     binders: initial_binder,

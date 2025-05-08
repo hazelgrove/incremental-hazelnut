@@ -4,8 +4,7 @@ module Patch = {
   type constructor =
     | Var(string)
     | Fun(string)
-    | Ap
-    | Hole;
+    | Ap;
 
   type node = (Id.t, constructor);
 
@@ -22,6 +21,7 @@ module Patch = {
     | NotAlexander;
 
   type t = {
+    id: Id.t,
     source: location,
     destination: node,
     sign,

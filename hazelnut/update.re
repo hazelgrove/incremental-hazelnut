@@ -58,7 +58,7 @@ let update_step = (state: State.t): stepped => {
           Arrow(first(pure_typ_children), second(pure_typ_children))
         }
       );
-      let update_list = [Update.NewTyp(Option.get(term.parent))];
+      let update_list = [Update.NewTyp(fst(Option.get(term.parent)))];
       UpdateQueue.update_push_list(update_list, queue);
     | Exp(constructor, exp_data) =>
       let propagate_in = {
@@ -81,8 +81,10 @@ let update_step = (state: State.t): stepped => {
   let apply_update = (update: Update.t, queue): unit => {
     switch (update) {
     | NewAna(term) => propagate_term(term, queue)
-    | NewSyn(child) => Option.iter(propagate_term(_, queue), child.parent)
-    | NewTyp(child) => Option.iter(propagate_term(_, queue), child.parent)
+    | NewSyn(child) =>
+      Option.iter(x => propagate_term(fst(x), queue), child.parent)
+    | NewTyp(child) =>
+      Option.iter(x => propagate_term(fst(x), queue), child.parent)
     };
   };
   switch (UpdateQueue.update_pop(state.queue)) {
