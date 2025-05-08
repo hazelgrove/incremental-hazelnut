@@ -75,6 +75,7 @@ let rec erase_typ = (t: Ztyp.t): Htyp.t => {
   | RArrow(t1, zt2) => Arrow(t1, erase_typ(zt2))
   | LProduct(zt1, t2) => Product(erase_typ(zt1), t2)
   | RProduct(t1, zt2) => Product(t1, erase_typ(zt2))
+  | ForAll(name, body_t) => ForAll(name, erase_typ(body_t))
   };
 };
 
