@@ -1,197 +1,79 @@
+open Typ;
 open Term;
 open UpdateQueue;
 open Tree;
 open State;
+open Statics;
 
 type stepped =
   | Settled
   | Stepped;
 
-// let _update_ana_dum =
-//     (lower: Iexp.lower, t_new: option(Htyp.t)): list(Update.t) => {
-//   lower.ana = t_new;
-//   [Update.NewAna(Lower(lower))];
-// };
-
-// let _update_syn_dum =
-//     (upper: Iexp.upper, t_new: option(Htyp.t)): list(Update.t) => {
-//   upper.syn = t_new;
-//   [Update.NewSyn(upper)];
-// };
-
-let var_syn = (e: Iexp.upper, syn: Htyp.t): list(Update.t) => {
-  switch (e.middle) {
-  | Var(_) => UpdateQueue.update_syn(e, Some(syn))
-  | _ => failwith("var_syn called on non-var")
+let typs_of_children = (children: list(Term.t)): list(Typ.t) => {
+  let typ_of_child = (child: Term.t): option(Typ.t) => {
+    switch (child.content) {
+    | Typ(_, typ_data) => typ_data.pure_typ
+    | Pat(_)
+    | Exp(_) => None
+    };
   };
+  List.filter_map(typ_of_child, children);
+};
+
+let syns_of_children = (children: list(Term.t)): list(option(Typ.t)) => {
+  let syn_of_child = (child: Term.t): option(option(Typ.t)) => {
+    switch (child.content) {
+    | Exp(_, exp_data) => Some(fst(exp_data.syn))
+    | Pat(_)
+    | Typ(_) => None
+    };
+  };
+  List.filter_map(syn_of_child, children);
+};
+let set_anas_of_children =
+    (anas: list(option(Typ.t)), children: list(Term.t)) => {
+  List.flatten(List.map2(UpdateQueue.update_ana, children, anas));
 };
 
 let update_step = (state: State.t): stepped => {
-  let apply_update = (update: Update.t, q): unit => {
-    switch (update) {
-    | NewSyn(child) =>
-      switch (child.parent) {
-      | None => ()
-      | Some(parent) =>
-        switch (parent.constructor) {
-        | Exp(Ap) when child === e1 =>
-          //print_endine("STEP: StepAp");
-          let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
-          let e2_update = UpdateQueue.update_ana(e2, t_in);
-          let parent_update = UpdateQueue.update_syn(parent.upper, t_out);
-          m.contents = m';
-          e1.marked = Unmarked;
-          let update_list = e2_update @ parent_update;
-          UpdateQueue.update_push_list(update_list, q);
-        | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
-          //print_endine("STEP: StepSynFun");
-          let parent_update =
-            UpdateQueue.update_syn(
-              parent.upper,
-              arrow_unless(t.contents, body.child.syn, parent.ana),
-            );
-          body.marked = Unmarked;
-          let update_list = parent_update;
-          UpdateQueue.update_push_list(update_list, q);
-        | Pair(e1, e2, _) when Option.is_none(parent.ana) =>
-          let parent_update =
-            UpdateQueue.update_syn(
-              parent.upper,
-              product_unless(e1.child.syn, e2.child.syn, parent.ana),
-            );
-          parent.marked = Unmarked; // Removes the mark from the originating child
-          let update_list = parent_update;
-          UpdateQueue.update_push_list(update_list, q);
-        | Proj(prod_side, e, m) =>
-          let (t_side_body, m_all_body) =
-            matched_proj_typ_opt(prod_side, e.child.syn);
-          m.contents = m_all_body;
-          let parent_update =
-            UpdateQueue.update_syn(parent.upper, t_side_body);
-          let update_list = parent_update;
-          UpdateQueue.update_push_list(update_list, q);
-        | _ when Option.is_some(parent.ana) =>
-          //print_endine("STEP: StepSynConsist");
-          parent.marked = type_consistent_opt(e.syn, parent.ana)
-        | _ => failwith("unrecognized update step")
-        }
-      }
-    | NewAna(parent) =>
-      let child = child_of_parent(parent);
-      let ana =
-        switch (parent) {
-        | Lower(lower) => lower.ana
-        | _ => None
-        };
-      let mark_parent = m =>
-        switch (parent) {
-        | Lower(lower) => lower.marked = m
-        | _ => ()
-        };
-      switch (child.middle) {
-      | Lam(_, t_ann, m_ana, m_ann, body, _) =>
-        //print_endine("STEP: StepAnaFun");
-        let (t_in, t_out, m_ana') = matched_arrow_typ_opt(ana);
-        let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
-        m_ana.contents = m_ana';
-        m_ann.contents = m_ann';
-        let body_update = UpdateQueue.update_ana(body, t_out);
-        let syn_update =
-          UpdateQueue.update_syn(
-            child,
-            arrow_unless(t_ann.contents, body.child.syn, ana),
-          );
-        mark_parent(Unmarked);
-        let update_list = body_update @ syn_update;
-        UpdateQueue.update_push_list(update_list, q);
-      | Pair(e1, e2, m) =>
-        let (t1, t2, m_ana') = matched_product_typ_opt(ana);
-        m.contents = m_ana';
-        let e1_update = UpdateQueue.update_ana(e1, t1);
-        let e2_update = UpdateQueue.update_ana(e2, t2);
-        let syn_update =
-          UpdateQueue.update_syn(
-            child,
-            product_unless(e1.child.syn, e2.child.syn, ana),
-          );
-        let update_list = e1_update @ e2_update @ syn_update;
-        UpdateQueue.update_push_list(update_list, q);
-      | _ =>
-        // This case must come after the above case. Relies on the term being subsumable.
-        //print_endine("STEP: StepAnaConsist");
-        mark_parent(type_consistent_opt(child.syn, ana))
+  let propagate_term = (term: Term.t, queue): unit => {
+    switch (term.content) {
+    | Typ(_)
+    | Pat(_) => failwith("unrecognized update step")
+    | Exp(constructor, exp_data) =>
+      let propagate_in = {
+        constructor,
+        typs: typs_of_children(term.children),
+        ana: fst(Term.get_ana(term)),
+        syns: syns_of_children(term.children),
       };
-    | NewAnn(e) =>
-      //print_endine("STEP: StepAnnFun");
-      switch (e.middle) {
-      | Lam(_, t, _, _, _, bound_vars) =>
-        let var_list = Tree.list_of_t(bound_vars.contents);
-        let update = var => var_syn(var, t.contents);
-        let updates = List.concat_map(update, var_list);
-        let update_list = [Update.NewAna(e.parent)] @ updates;
-        UpdateQueue.update_push_list(update_list, q);
-      | _ => failwith("NewAnn on non-lam")
-      }
-    | NewAsc(e) =>
-      //print_endine("STEP: StepAsc");
-      switch (e.middle) {
-      | Asc(low, asc) =>
-        let syn_update = UpdateQueue.update_syn(e, Some(asc.contents));
-        let ana_update = UpdateQueue.update_ana(low, Some(asc.contents));
-        let update_list = ana_update @ syn_update;
-        UpdateQueue.update_push_list(update_list, q);
-      | _ => failwith("NewAsc on non-asc")
-      }
-    | NewListRec(e) =>
-      // print_endline("STEP: StepListRec");
-      switch (e.middle) {
-      | ListRec(t) =>
-        let syn_type: option(Htyp.t) =
-          Some(
-            Arrow(
-              t.contents,
-              Arrow(
-                Arrow(Num, Arrow(t.contents, t.contents)),
-                Arrow(List, t.contents),
-              ),
-            ),
-          );
-        let syn_update = UpdateQueue.update_syn(e, syn_type);
-        let update_list = syn_update;
-        UpdateQueue.update_push_list(update_list, q);
-      | _ => failwith("NewListRec on non ListRec")
-      }
-    | NewY(e) =>
-      // print_endline("STEP: StepY");
-      switch (e.middle) {
-      | Y(t) =>
-        let syn_type: option(Htyp.t) =
-          Some(
-            Arrow(
-              Arrow(
-                Arrow(t.contents, t.contents),
-                Arrow(t.contents, t.contents),
-              ),
-              Arrow(t.contents, t.contents),
-            ),
-          );
-        let syn_update = UpdateQueue.update_syn(e, syn_type);
-        let update_list = syn_update;
-        UpdateQueue.update_push_list(update_list, q);
-      | _ => failwith("NewY on non Y")
-      }
+      let propagate_out = propagate(propagate_in);
+      let {syn, anas, marks, mark_consistent} = propagate_out;
+      let syn_update = UpdateQueue.update_syn(term, syn);
+      let ana_updates = set_anas_of_children(anas, term.children);
+      term.marks = marks;
+      exp_data.mark_consistent = mark_consistent;
+      let update_list = syn_update @ ana_updates;
+      UpdateQueue.update_push_list(update_list, queue);
+    };
+  };
+  let apply_update = (update: Update.t, queue): unit => {
+    switch (update) {
+    | NewSyn(child) => Option.iter(propagate_term(_, queue), child.parent)
+    | NewAna(term) => propagate_term(term, queue)
+    | NewTyp(term) => propagate_term(term, queue)
     };
   };
 
-  switch (UpdateQueue.update_pop(state.ephemeral.q)) {
+  switch (UpdateQueue.update_pop(state.queue)) {
   | None => Settled
   | Some(update) =>
-    apply_update(update, state.ephemeral.q);
+    apply_update(update, state.queue);
     Stepped;
   };
 };
 
-let rec all_update_steps = (s: Istate.t): unit =>
+let rec all_update_steps = (s: State.t): unit =>
   switch (update_step(s)) {
   | Settled => ()
   | Stepped => all_update_steps(s)

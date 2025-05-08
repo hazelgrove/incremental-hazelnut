@@ -3,15 +3,14 @@ open Typ;
 open Term;
 open Side_conditions;
 
-type propagation_in = {
-  c: Term.exp_constructor,
+type propagate_in = {
+  constructor: Term.exp_constructor,
   typs: list(Typ.t),
   ana: option(Typ.t),
   syns: list(option(Typ.t)),
-  syn: option(Typ.t),
 };
 
-type propagation_out = {
+type propagate_out = {
   syn: option(Typ.t),
   anas: list(option(Typ.t)),
   marks: list(Mark.t),
@@ -19,10 +18,10 @@ type propagation_out = {
 };
 
 // this could be more incremental, but it's tough in this general framework
-let propagate = (p: propagation_in): propagation_out => {
-  switch (p.c) {
+let propagate = (p: propagate_in): propagate_out => {
+  switch (p.constructor) {
   | Var(_) =>
-    let syn = p.syn;
+    let syn = Some(List.nth(p.typs, 0));
     let mark_consistent = consistent_opt(syn, p.ana);
     {syn, anas: [], marks: [], mark_consistent};
   | Fun(_) =>

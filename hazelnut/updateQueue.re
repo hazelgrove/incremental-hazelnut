@@ -38,13 +38,6 @@ module UpdateQueue = {
   let set_dirty_syn = (e: Term.t, b: bool) => {
     Term.set_syn(e, (fst(Term.get_syn(e)), b));
   };
-  let get_dirty_typ = (e: Term.t) => {
-    Option.get(e.typ_data).dirty;
-  };
-  let set_dirty_typ = (e: Term.t, b: bool) => {
-    let typ_data = Option.get(e.typ_data);
-    typ_data.dirty = b;
-  };
 
   // Only pushes updates onto the queue if the corresponding
   // queue membership bit is false (so no duplicates). Sets this bit to true.
@@ -58,8 +51,8 @@ module UpdateQueue = {
       set_dirty_ana(e, true);
       push(u, q);
     | NewAna(_) => ()
-    | NewTyp(e) when !get_dirty_typ(e) =>
-      set_dirty_typ(e, true);
+    | NewTyp(e) when !Term.get_typ_dirtiness(e) =>
+      Term.set_typ_dirtiness(e, true);
       push(u, q);
     | NewTyp(_) => ()
     };
@@ -90,8 +83,8 @@ module UpdateQueue = {
       set_dirty_ana(e, false);
       recurse_if_deleted(e.deleted, u);
     | NewTyp(e) =>
-      assert(get_dirty_typ(e));
-      set_dirty_typ(e, false);
+      assert(Term.get_typ_dirtiness(e));
+      Term.set_typ_dirtiness(e, false);
       recurse_if_deleted(e.deleted, u);
     };
   };
