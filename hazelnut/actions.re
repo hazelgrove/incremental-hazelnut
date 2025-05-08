@@ -2,7 +2,7 @@ open Sexplib.Std;
 open Hazelnut;
 open Order;
 open Tree;
-open Incremental;
+open Term;
 open State;
 open UpdateQueue;
 
@@ -30,36 +30,19 @@ module Iaction = {
     | MoveDown(Child.t)
     | Delete
     | WrapArrow(Child.t)
-    | InsertNumType
-    | InsertBoolType
-    | InsertUnitType
-    | InsertLt
-    | InsertITE
-    | InsertList
-    | InsertNumLit(int)
     | InsertVar(string)
-    | InsertNil
-    | InsertCons
-    | InsertListRec
-    | InsertListMatch
-    | InsertY
-    | WrapPlus(Child.t)
-    | WrapAp(Child.t)
-    | WrapPair(Child.t)
-    | WrapProduct(Child.t)
-    | WrapProj(ProdSide.t)
     | WrapLam
-    | WrapAsc
-    | Unwrap(Child.t); // The child argument is only relevant for the Ap case
+    | WrapAp(Child.t)
+    | Unwrap(Child.t);
 };
 
-let set_child_in_parent = (p: Iexp.parent, c: Iexp.upper): unit => {
-  switch (p) {
-  | Deleted => ()
-  | Root(r) => r.root_child = c
-  | Lower(r) => r.child = c
-  };
-};
+// let set_child_in_parent = (p: Iexp.parent, c: Iexp.upper): unit => {
+//   switch (p) {
+//   | Deleted => ()
+//   | Root(r) => r.root_child = c
+//   | Lower(r) => r.child = c
+//   };
+// };
 
 let replace = (e: Iexp.upper, e': Iexp.upper): unit => {
   e'.parent = e.parent;

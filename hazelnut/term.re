@@ -43,7 +43,7 @@ module Term = {
 
   type typ_data = {
     // ADT of self
-    pure_typ: option(Typ.t),
+    mutable pure_typ: Typ.t,
     // only for root of types, whether self is dirty
     mutable dirty: bool,
   };
@@ -121,3 +121,7 @@ module Term = {
     get_exp_data(e).ana = ana;
   };
 };
+
+let first: list('a) => 'a = List.nth(_, 0);
+let second: list('a) => 'a = List.nth(_, 1);
+let third: list('a) => 'a = List.nth(_, 2);

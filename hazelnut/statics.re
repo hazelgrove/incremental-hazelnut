@@ -3,14 +3,14 @@ open Typ;
 open Term;
 open Side_conditions;
 
-type propagate_in = {
+type propagate_exp_in = {
   constructor: Term.exp_constructor,
   typs: list(Typ.t),
   ana: option(Typ.t),
   syns: list(option(Typ.t)),
 };
 
-type propagate_out = {
+type propagate_exp_out = {
   syn: option(Typ.t),
   anas: list(option(Typ.t)),
   marks: list(Mark.t),
@@ -18,7 +18,7 @@ type propagate_out = {
 };
 
 // this could be more incremental, but it's tough in this general framework
-let propagate = (p: propagate_in): propagate_out => {
+let propagate_exp = (p: propagate_exp_in): propagate_exp_out => {
   switch (p.constructor) {
   | Var(_) =>
     let syn = Some(List.nth(p.typs, 0));

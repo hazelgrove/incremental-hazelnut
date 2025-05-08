@@ -12,13 +12,24 @@ type stepped =
 let typs_of_children = (children: list(Term.t)): list(Typ.t) => {
   let typ_of_child = (child: Term.t): option(Typ.t) => {
     switch (child.content) {
-    | Typ(_, typ_data) => typ_data.pure_typ
+    | Typ(_, typ_data) => Some(typ_data.pure_typ)
     | Pat(_)
     | Exp(_) => None
     };
   };
   List.filter_map(typ_of_child, children);
 };
+
+// let pure_typs_of_children = (children: list(Term.t)): list(Typ.t) => {
+//   let pure_typ_of_child = (child: Term.t): Typ.t => {
+//     switch (child.content) {
+//     | Typ(_, typ_data) => typ_data.pure_typ
+//     | Pat(_)
+//     | Exp(_) => failwith("unreachable")
+//     };
+//   };
+//   List.map(pure_typ_of_child, children);
+// };
 
 let syns_of_children = (children: list(Term.t)): list(option(Typ.t)) => {
   let syn_of_child = (child: Term.t): option(option(Typ.t)) => {
@@ -38,8 +49,17 @@ let set_anas_of_children =
 let update_step = (state: State.t): stepped => {
   let propagate_term = (term: Term.t, queue): unit => {
     switch (term.content) {
-    | Typ(_)
-    | Pat(_) => failwith("unrecognized update step")
+    | Typ(constructor, typ_data) =>
+      let pure_typ_children = typs_of_children(term.children);
+      typ_data.pure_typ = (
+        switch (constructor) {
+        | Hole => Hole
+        | Arrow =>
+          Arrow(first(pure_typ_children), second(pure_typ_children))
+        }
+      );
+      let update_list = [Update.NewTyp(Option.get(term.parent))];
+      UpdateQueue.update_push_list(update_list, queue);
     | Exp(constructor, exp_data) =>
       let propagate_in = {
         constructor,
@@ -47,7 +67,7 @@ let update_step = (state: State.t): stepped => {
         ana: fst(Term.get_ana(term)),
         syns: syns_of_children(term.children),
       };
-      let propagate_out = propagate(propagate_in);
+      let propagate_out = propagate_exp(propagate_in);
       let {syn, anas, marks, mark_consistent} = propagate_out;
       let syn_update = UpdateQueue.update_syn(term, syn);
       let ana_updates = set_anas_of_children(anas, term.children);
@@ -55,16 +75,16 @@ let update_step = (state: State.t): stepped => {
       exp_data.mark_consistent = mark_consistent;
       let update_list = syn_update @ ana_updates;
       UpdateQueue.update_push_list(update_list, queue);
+    | Pat(_) => failwith("unrecognized update step")
     };
   };
   let apply_update = (update: Update.t, queue): unit => {
     switch (update) {
-    | NewSyn(child) => Option.iter(propagate_term(_, queue), child.parent)
     | NewAna(term) => propagate_term(term, queue)
-    | NewTyp(term) => propagate_term(term, queue)
+    | NewSyn(child) => Option.iter(propagate_term(_, queue), child.parent)
+    | NewTyp(child) => Option.iter(propagate_term(_, queue), child.parent)
     };
   };
-
   switch (UpdateQueue.update_pop(state.queue)) {
   | None => Settled
   | Some(update) =>
