@@ -19,7 +19,7 @@ module Term = {
     | Fun(string) //, bound_var_set)
     | Ap
     | Hole
-    | Multihole
+    | Multihole(int) // number of children
     | Multiref(Id.t)
     | Uniref(Id.t);
 

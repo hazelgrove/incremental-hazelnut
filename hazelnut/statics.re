@@ -46,8 +46,18 @@ let propagate = (p: propagation_in): propagation_out => {
     let syn: option(Typ.t) = Some(Hole);
     let mark_consistent: Mark.t = Unmarked;
     {syn, anas: [], marks: [], mark_consistent};
-  | Multihole => failwith("unimplemented")
-  | Multiref(_) => failwith("unimplemented")
-  | Uniref(_) => failwith("unimplemented")
+  | Multihole(n) =>
+    let anas = List.init(n, _ => p.ana);
+    let syn: option(Typ.t) = Some(Hole);
+    let mark_consistent: Mark.t = Unmarked;
+    {syn, anas, marks: [], mark_consistent};
+  | Multiref(_) =>
+    let syn: option(Typ.t) = Some(Hole);
+    let mark_consistent: Mark.t = Unmarked;
+    {syn, anas: [], marks: [], mark_consistent};
+  | Uniref(_) =>
+    let syn: option(Typ.t) = Some(Hole);
+    let mark_consistent: Mark.t = Unmarked;
+    {syn, anas: [], marks: [], mark_consistent};
   };
 };
