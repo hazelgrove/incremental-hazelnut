@@ -153,28 +153,31 @@ let update_var =
 };
 
 // Finds the looks up [name] in the context of [e].
-// Returns the binding site (or root), the synthesized type, and whether [name] is free.
+// Returns:
+// - the binding site (or root)
+// - if the binding site is a lambda, then the annotated type
+// - whether the binder is free
 let look_up_binder =
-    (x: string, e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root)
+    (x: (string, BinderKind.t), e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root)
     : (Iexp.parent, Htyp.t, Mark.t) => {
   let free: (Iexp.parent, Htyp.t, Mark.t) = (Root(root), Hole, Marked);
   switch (Hashtbl.find_opt(binder_set, x)) {
   | None => free
   | Some(x_binder_set) =>
-    // print_endline(
-    //   "finding container for: " ++ _string_of_interval(e.interval),
-    // );
     switch (Tree.splay_tightest(e.interval, x_binder_set)) {
     | None => free
     | Some((upper, splayed)) =>
       Hashtbl.replace(binder_set, x, splayed);
-      // print_endline(
-      //   "found container: " ++ _string_of_interval(upper.interval),
-      // );
+      let (name, binder_kind) = x;
       switch (upper.entry.middle) {
-      | Lam(bind, t, _, _, body, _) when Bind.Var(x) == bind.contents => (
+      | Lam(bind, t, _, _, body, _) when Bind.Var(name) == bind.contents && binder_kind == Lam => (
           Lower(body),
           t.contents,
+          Unmarked,
+        )
+      | TypFun(bind, _, body, _) when Bind.Var(name) == bind.contents && binder_kind == TypFun => (
+          Lower(body),
+          Hole,
           Unmarked,
         )
       | _ => failwith("invalid binder lookup")
@@ -379,33 +382,41 @@ let interval_before = (e: Iexp.upper) => {
   (a, b);
 };
 
-let rec apply_action_typ = (z: Ztyp.t, a: Iaction.t): Ztyp.t => {
+module TypVarContext = Set.Make(String);
+
+let rec apply_action_typ = (ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   switch (z, a) {
+    // Significant MoveUp cases
   | (Cursor(_), MoveUp) => z
   | (LArrow(Cursor(t1), t2), MoveUp)
   | (RArrow(t1, Cursor(t2)), MoveUp) => Cursor(Arrow(t1, t2))
   | (LProduct(Cursor(t1), t2), MoveUp)
   | (RProduct(t1, Cursor(t2)), MoveUp) => Cursor(Product(t1, t2))
+  | (ForAll(name, Cursor(body_t)), MoveUp) => Cursor(ForAll(name, body_t))
   | (Cursor(Hole), MoveDown(_)) => z
   | (Cursor(Num), MoveDown(_)) => z
   | (Cursor(Bool), MoveDown(_)) => z
   | (Cursor(Unit), MoveDown(_)) => z
   | (Cursor(List), MoveDown(_)) => z
+  | (Cursor(TypVar(_)), MoveDown(_)) => z
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
   | (Cursor(Arrow(t1, t2)), MoveDown(Two)) => RArrow(t1, Cursor(t2))
   | (Cursor(Arrow(_)), MoveDown(Three)) => z
   | (Cursor(Product(t1, t2)), MoveDown(One)) => LProduct(Cursor(t1), t2)
   | (Cursor(Product(t1, t2)), MoveDown(Two)) => RProduct(t1, Cursor(t2))
   | (Cursor(Product(_)), MoveDown(Three)) => z
+  | (Cursor(ForAll(alpha, t)), MoveDown(_)) => ForAll(alpha, Cursor(t))
   | (Cursor(_), Delete) => Cursor(Hole)
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
   | (Cursor(Hole), InsertBoolType) => Cursor(Bool)
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
+  | (Cursor(Hole), InsertList) => Cursor(List)
+  | (Cursor(Hole), InsertTypVar(name)) => Cursor(TypVar(name, _))
   | (Cursor(_), InsertNumType)
   | (Cursor(_), InsertBoolType)
-  | (Cursor(_), InsertUnitType) => z
-  | (Cursor(Hole), InsertList) => Cursor(List)
-  | (Cursor(_), InsertList) => z
+  | (Cursor(_), InsertUnitType)
+  | (Cursor(_), InsertList)
+  | (Cursor(_), InsertTypVar(_)) => z
   | (Cursor(t), WrapArrow(One)) => Cursor(Arrow(t, Hole))
   | (Cursor(t), WrapArrow(Two)) => Cursor(Arrow(Hole, t))
   | (Cursor(_), WrapArrow(Three)) => z
