@@ -1,7 +1,7 @@
 open Typ;
 open Term;
 open UpdateQueue;
-open Tree;
+// open Tree;
 open State;
 open Statics;
 

@@ -4,5 +4,5 @@ type stepped =
   | Settled
   | Stepped;
 
-let update_step: Istate.t => stepped;
-let all_update_steps: Istate.t => unit;
+let update_step: State.t => stepped;
+let all_update_steps: State.t => unit;

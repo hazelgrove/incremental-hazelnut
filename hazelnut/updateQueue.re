@@ -2,7 +2,6 @@ open Term;
 open Typ;
 open Monad_lib.Monad;
 open Queue;
-open Hazelnut;
 
 module Update = {
   // [@deriving sexp]

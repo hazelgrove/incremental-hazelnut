@@ -1,44 +1,19 @@
-open Hazelnut;
-// open Incremental;
 open State;
 
-module Child: {
-  [@deriving (sexp, compare)]
-  type t =
-    | One
-    | Two
-    | Three;
-};
+type child = int;
 
-module Iaction: {
-  [@deriving sexp]
+module Action: {
+  // [@deriving sexp]
   type t =
     | MoveUp
-    | MoveDown(Child.t)
+    | MoveDown(child)
     | Delete
-    | WrapArrow(Child.t)
-    | InsertNumType
-    | InsertBoolType
-    | InsertUnitType
-    | InsertLt
-    | InsertITE
-    | InsertList
-    | InsertNumLit(int)
+    | WrapArrow(child)
     | InsertVar(string)
-    | InsertNil
-    | InsertCons
-    | InsertListRec
-    | InsertListMatch
-    | InsertY
-    | WrapPlus(Child.t)
-    | WrapAp(Child.t)
-    | WrapPair(Child.t)
-    | WrapProduct(Child.t)
-    | WrapProj(ProdSide.t)
     | WrapLam
-    | WrapAsc
-    | Unwrap(Child.t); // The child argument is only relevant for the Ap case
+    | WrapAp(child)
+    | Unwrap(child);
 };
 
-let apply_action: (Istate.t, Iaction.t) => Istate.t;
-let apply_actions: (list(Iaction.t), Istate.t) => Istate.t;
+let apply_action: (State.t, Action.t) => State.t;
+let apply_actions: (list(Action.t), State.t) => State.t;

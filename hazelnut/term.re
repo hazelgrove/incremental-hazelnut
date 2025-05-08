@@ -1,6 +1,7 @@
 open Id;
 open Typ;
 open Mark;
+open Tree;
 open Order;
 
 module Term = {
@@ -14,24 +15,26 @@ module Term = {
     | Hole
     | Var(string);
 
+  type bound_set = ref(Tree.t(Id.t));
+
   type exp_constructor =
-    | Var(string)
-    | Fun(string) //, bound_var_set)
+    | Var(string, Id.t) // binder site)
+    | Fun(string, bound_set) //, bound_var_set)
     | Ap
     | Hole
     | Multihole(int) // number of children
     | Multiref(Id.t)
     | Uniref(Id.t);
 
-  let arity =
-    fun
-    | Var(_) => (1, 1) // variable has a type child, the type of the var
-    | Fun(_) => (2, 2)
-    | Ap => (2, 1)
-    | Hole => (0, 0)
-    | Multihole(n) => (n, 0)
-    | Multiref(_) => (0, 0)
-    | Uniref(_) => (0, 0);
+  // let arity =
+  //   fun
+  //   | Var(_) => (1, 1) // variable has a type child, the type of the var
+  //   | Fun(_) => (2, 2)
+  //   | Ap => (2, 1)
+  //   | Hole => (0, 0)
+  //   | Multihole(n) => (n, 0)
+  //   | Multiref(_) => (0, 0)
+  //   | Uniref(_) => (0, 0);
 
   type dirtyTyp = (option(Typ.t), bool);
 
@@ -44,7 +47,6 @@ module Term = {
   type typ_data = {
     // ADT of self
     mutable pure_typ: Typ.t,
-    // only for root of types, whether self is dirty
     mutable dirty: bool,
   };
 
@@ -54,17 +56,17 @@ module Term = {
     | Exp(exp_constructor, exp_data);
 
   type t = {
-    id: Id.t,
+    mutable id: Id.t,
     interval: (Order.t, Order.t),
-    deleted: bool,
+    mutable deleted: bool,
     mutable parent: option(t),
     edges: list(edge),
-    content,
-    children: list(t),
+    mutable content,
+    mutable children: list(t),
     mutable marks: list(Mark.t),
   };
 
-  let initial = (): t => {
+  let initial = (counter: Id.counter): t => {
     let initial_order = Order.create();
     let initial_interval = (initial_order, Order.add_next(initial_order));
     let initial_exp_data = {
@@ -73,7 +75,7 @@ module Term = {
       syn: (Some(Hole), false),
     };
     {
-      id: 0,
+      id: Id.fresh(counter),
       interval: initial_interval,
       deleted: false,
       parent: None,
