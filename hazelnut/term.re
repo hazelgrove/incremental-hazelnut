@@ -3,10 +3,9 @@ open Typ;
 open Mark;
 open Tree;
 open Order;
+open Patch;
 
 module Term = {
-  type edge = unit; // todo - should include edge state, id, and metadata I think
-
   type typ_constructor =
     | Hole
     | Arrow;
@@ -18,8 +17,8 @@ module Term = {
   type bound_set = ref(Tree.t(Id.t));
 
   type exp_constructor =
-    | Var(string, Id.t) // binder site)
-    | Fun(string, bound_set) //, bound_var_set)
+    | Var(string, Id.t)
+    | Fun(string, bound_set)
     | Ap
     | Hole
     | Multihole(int) // number of children
@@ -55,12 +54,24 @@ module Term = {
     | Pat(pat_constructor)
     | Exp(exp_constructor, exp_data);
 
-  type t = {
-    mutable id: Id.t,
+  type position = int;
+
+  type edge = {
+    id: (Id.t, position),
+    source: Id.t,
+    destination: Id.t,
+    sign: Patch.sign,
+    meta: Patch.meta,
+  };
+
+  type location = (t, position)
+
+  and t = {
+    id: Id.t,
     interval: (Order.t, Order.t),
     mutable deleted: bool,
-    mutable parent: option(t),
-    edges: list(edge),
+    mutable part_of_unicycle: bool,
+    mutable parent: option(location),
     mutable content,
     mutable children: list(t),
     mutable marks: list(Mark.t),
@@ -78,8 +89,8 @@ module Term = {
       id: Id.fresh(counter),
       interval: initial_interval,
       deleted: false,
+      part_of_unicycle: false,
       parent: None,
-      edges: [],
       content: Exp(Hole, initial_exp_data),
       children: [],
       marks: [],
