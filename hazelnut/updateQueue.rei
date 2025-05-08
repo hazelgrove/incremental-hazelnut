@@ -1,18 +1,16 @@
-open Incremental;
+open Typ;
+open Term;
 
 module Update: {
   type t =
-    | NewSyn(Iexp.upper)
-    | NewAna(Iexp.parent)
-    | NewAnn(Iexp.upper)
-    | NewAsc(Iexp.upper)
-    | NewListRec(Iexp.upper)
-    | NewY(Iexp.upper);
+    | NewSyn(Term.t)
+    | NewAna(Term.t)
+    | NewTyp(Term.t);
   let leq: (t, t) => bool;
 };
 
 module UpdateQueue: {
-  [@deriving sexp]
+  // [@deriving sexp]
   type t;
 
   let empty: unit => t;
@@ -22,6 +20,6 @@ module UpdateQueue: {
 
   let update_pop: t => option(Update.t);
 
-  let update_ana: (Iexp.lower, option(Hazelnut.Htyp.t)) => list(Update.t);
-  let update_syn: (Iexp.upper, option(Hazelnut.Htyp.t)) => list(Update.t);
+  let update_ana: (Term.t, option(Typ.t)) => list(Update.t);
+  let update_syn: (Term.t, option(Typ.t)) => list(Update.t);
 };

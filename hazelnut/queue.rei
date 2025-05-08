@@ -1,5 +1,5 @@
 module type Comparable = {
-  [@deriving sexp]
+  // [@deriving sexp]
   type t;
   let leq: (t, t) => bool;
 };
@@ -7,7 +7,7 @@ module type Comparable = {
 module PQueue:
   (Elem: Comparable) =>
    {
-    [@deriving sexp]
+    // [@deriving sexp]
     type t;
 
     let empty: unit => t;

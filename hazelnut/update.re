@@ -1,5 +1,4 @@
-open Hazelnut;
-open Incremental;
+open Term;
 open UpdateQueue;
 open Tree;
 open State;
@@ -8,17 +7,17 @@ type stepped =
   | Settled
   | Stepped;
 
-let _update_ana_dum =
-    (lower: Iexp.lower, t_new: option(Htyp.t)): list(Update.t) => {
-  lower.ana = t_new;
-  [Update.NewAna(Lower(lower))];
-};
+// let _update_ana_dum =
+//     (lower: Iexp.lower, t_new: option(Htyp.t)): list(Update.t) => {
+//   lower.ana = t_new;
+//   [Update.NewAna(Lower(lower))];
+// };
 
-let _update_syn_dum =
-    (upper: Iexp.upper, t_new: option(Htyp.t)): list(Update.t) => {
-  upper.syn = t_new;
-  [Update.NewSyn(upper)];
-};
+// let _update_syn_dum =
+//     (upper: Iexp.upper, t_new: option(Htyp.t)): list(Update.t) => {
+//   upper.syn = t_new;
+//   [Update.NewSyn(upper)];
+// };
 
 let var_syn = (e: Iexp.upper, syn: Htyp.t): list(Update.t) => {
   switch (e.middle) {
@@ -27,33 +26,15 @@ let var_syn = (e: Iexp.upper, syn: Htyp.t): list(Update.t) => {
   };
 };
 
-let update_step = (state: Istate.t): stepped => {
-  // print_endline(
-  //   string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
-  //   ++ " updates.",
-  // );
-
-  // switch (List.nth(UpdateQueue.list_of_t(state.ephemeral.q), 0)) {
-  // | NewListRec(_) => print_endline("found0")
-  // | _ => ()
-  // };
-
-  // switch (List.nth(UpdateQueue.list_of_t(state.ephemeral.q), 1)) {
-  // | NewListRec(_) => print_endline("found1")
-  // | _ => ()
-  // };
-
+let update_step = (state: State.t): stepped => {
   let apply_update = (update: Update.t, q): unit => {
     switch (update) {
-    | NewSyn(e) =>
-      switch (e.parent) {
-      | Deleted => failwith("step in deleted term")
-      | Root(_) =>
-        // print_endline("STEP: TopStep")
-        ()
-      | Lower(parent) =>
-        switch (parent.upper.middle) {
-        | Ap(e1, m, e2) when e1.child === e =>
+    | NewSyn(child) =>
+      switch (child.parent) {
+      | None => ()
+      | Some(parent) =>
+        switch (parent.constructor) {
+        | Exp(Ap) when child === e1 =>
           //print_endine("STEP: StepAp");
           let (t_in, t_out, m') = matched_arrow_typ_opt(e.syn);
           let e2_update = UpdateQueue.update_ana(e2, t_in);
