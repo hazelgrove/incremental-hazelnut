@@ -85,7 +85,7 @@ let upper_of_parent = (p: Iexp.parent): option(Iexp.upper) => {
   };
 };
 
-let var_set_of_binder = (x: string): (Iexp.parent => Iexp.var_set) =>
+let var_set_of_binder = (x: (string, BinderKind.t)): (Iexp.parent => Iexp.var_set) =>
   fun
   | Deleted => failwith("var set of deleted root")
   | Root(root) => {
@@ -99,7 +99,8 @@ let var_set_of_binder = (x: string): (Iexp.parent => Iexp.var_set) =>
     }
   | Lower(lower) =>
     switch (lower.upper.middle) {
-    | Lam(_, _, _, _, _, bound_vars) => bound_vars
+    | Lam(_, _, _, _, _, bound_vars)
+    | TypFun(_, _, _, bound_vars) => bound_vars
     | _ => failwith("non-lam binder")
     };
 
@@ -109,18 +110,18 @@ let name_of_var_upper = (e: Iexp.upper): string =>
   | _ => failwith("name_of_var_upper called on non-var")
   };
 
-let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+let unbind_from_binder = (var: Iexp.upper, kind: BinderKind.t, parent: Iexp.parent) => {
   Iexp.remove_bound_var(
     var,
-    var_set_of_binder(name_of_var_upper(var), parent),
+    var_set_of_binder((name_of_var_upper(var), kind), parent),
   );
 };
 
-let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+let bind_to_binder = (var: Iexp.upper, kind: BinderKind.t, parent: Iexp.parent) => {
   // print_endline("adding to binder");
   Iexp.add_bound_var(
     var,
-    var_set_of_binder(name_of_var_upper(var), parent),
+    var_set_of_binder((name_of_var_upper(var), kind), parent),
     // print_endline(
     //   "now has this many: "
     //   ++ string_of_int(
@@ -143,7 +144,7 @@ let update_var =
   switch (e.middle) {
   | Var(_, mark, binder) =>
     // remove this var from its previous binder
-    unbind_from_binder(e, binder.contents);
+    unbind_from_binder(e, BinderKind.Lam, binder.contents);
     // set the local binder, mark, and syn type
     binder.contents = new_binder;
     mark.contents = new_mark;
@@ -206,13 +207,13 @@ let rec _look_up_binder_walk =
 };
 
 let add_bound_var_set =
-    (x: string, joining_set: Tree.t(Iexp.upper), binder: Iexp.parent) => {
+    (x: (string, BinderKind.t), joining_set: Tree.t(Iexp.upper), binder: Iexp.parent) => {
   let parent_var_set = var_set_of_binder(x, binder);
   Iexp.union_bound_vars(joining_set, parent_var_set);
 };
 
 let capture_name =
-    (x: string, e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root) => {
+    (x: (string, BinderKind.t), e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root) => {
   let (ancestor_binder, _, _) = look_up_binder(x, e, binder_set, root);
   // print_endline("capturing name: " ++ x);
   // switch (ancestor_binder) {
@@ -285,7 +286,7 @@ let rec _capture_name_body =
 };
 
 let remove_from_binder_set =
-    (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
+    (x: (string, BinderKind.t), e: Iexp.upper, binder_set: BinderSet.t) => {
   switch (Hashtbl.find_opt(binder_set, x)) {
   | None => failwith("removing binder that doesn't exist")
   | Some(var_set) =>
@@ -298,7 +299,7 @@ let remove_from_binder_set =
   };
 };
 
-let add_to_binder_set = (x: string, e: Iexp.upper, binder_set: BinderSet.t) => {
+let add_to_binder_set = (x: (string, BinderKind.t), e: Iexp.upper, binder_set: BinderSet.t) => {
   // print_endline("adding binder at: " ++ _string_of_interval(e.interval));
   switch (Hashtbl.find_opt(binder_set, x)) {
   | None =>
@@ -327,7 +328,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | ListRec(_) => ()
   | Y(_) => ()
   | Var(x, _, binder) =>
-    let var_set = var_set_of_binder(x, binder.contents);
+    let var_set = var_set_of_binder((x, BinderKind.Lam), binder.contents);
     Iexp.remove_bound_var(upper, var_set);
   | Asc(e, _) => delete_lower(e)
   | Lam(_, _, _, _, e, _) => delete_lower(e)
@@ -384,7 +385,7 @@ let interval_before = (e: Iexp.upper) => {
 
 module TypVarContext = Set.Make(String);
 
-let rec apply_action_typ = (ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp.t => {
+let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   switch (z, a) {
     // Significant MoveUp cases
   | (Cursor(_), MoveUp) => z
@@ -411,7 +412,7 @@ let rec apply_action_typ = (ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp
   | (Cursor(Hole), InsertBoolType) => Cursor(Bool)
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
   | (Cursor(Hole), InsertList) => Cursor(List)
-  | (Cursor(Hole), InsertTypVar(name)) => Cursor(TypVar(name, _))
+  | (Cursor(Hole), InsertTypVar(name)) => failwith("Unimplemented")
   | (Cursor(_), InsertNumType)
   | (Cursor(_), InsertBoolType)
   | (Cursor(_), InsertUnitType)
@@ -443,7 +444,7 @@ let rec apply_action_typ = (ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp
   | (LArrow(z, t), InsertList)
   | (LArrow(z, t), WrapArrow(_))
   | (LArrow(z, t), WrapProduct(_))
-  | (LArrow(z, t), Unwrap(_)) => LArrow(apply_action_typ(z, a), t)
+  | (LArrow(z, t), Unwrap(_)) => LArrow(apply_action_typ(containing_upper, ctx, z, a), t)
   | (RArrow(t, z), MoveUp)
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
@@ -453,7 +454,7 @@ let rec apply_action_typ = (ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp
   | (RArrow(t, z), InsertList)
   | (RArrow(t, z), WrapArrow(_))
   | (RArrow(t, z), WrapProduct(_))
-  | (RArrow(t, z), Unwrap(_)) => RArrow(t, apply_action_typ(z, a))
+  | (RArrow(t, z), Unwrap(_)) => RArrow(t, apply_action_typ(containing_upper, ctx, z, a))
   | (LProduct(z, t), MoveUp)
   | (LProduct(z, t), MoveDown(_))
   | (LProduct(z, t), Delete)
@@ -463,7 +464,7 @@ let rec apply_action_typ = (ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp
   | (LProduct(z, t), InsertList)
   | (LProduct(z, t), WrapArrow(_))
   | (LProduct(z, t), WrapProduct(_))
-  | (LProduct(z, t), Unwrap(_)) => LProduct(apply_action_typ(z, a), t)
+  | (LProduct(z, t), Unwrap(_)) => LProduct(apply_action_typ(containing_upper, ctx, z, a), t)
   | (RProduct(t, z), MoveUp)
   | (RProduct(t, z), MoveDown(_))
   | (RProduct(t, z), Delete)
@@ -473,7 +474,7 @@ let rec apply_action_typ = (ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp
   | (RProduct(t, z), InsertList)
   | (RProduct(t, z), WrapArrow(_))
   | (RProduct(t, z), WrapProduct(_))
-  | (RProduct(t, z), Unwrap(_)) => RProduct(t, apply_action_typ(z, a))
+  | (RProduct(t, z), Unwrap(_)) => RProduct(t, apply_action_typ(containing_upper, ctx, z, a))
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
@@ -558,12 +559,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Var(x) =>
         bind.contents = Hole;
-        remove_from_binder_set(x, e, binder_set);
+        remove_from_binder_set((x, BinderKind.Lam), e, binder_set);
         let bound_var_set = bound_vars.contents;
 
-        let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
+        let (new_binder, t, m) = look_up_binder((x, BinderKind.Lam), e, binder_set, root);
 
-        add_bound_var_set(x, bound_var_set, new_binder);
+        add_bound_var_set((x, BinderKind.Lam), bound_var_set, new_binder);
 
         let update = var => update_var(var, t, m, new_binder);
         Tree.iter(update, bound_var_set);
@@ -585,9 +586,9 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Hole =>
         bind.contents = Var(x);
-        add_to_binder_set(x, e, binder_set);
+        add_to_binder_set((x, BinderKind.Lam), e, binder_set);
 
-        bound_vars.contents = capture_name(x, e, binder_set, root);
+        bound_vars.contents = capture_name((x, BinderKind.Lam), e, binder_set, root);
 
         let update = var =>
           update_var(var, t.contents, Unmarked, Iexp.Lower(body));
@@ -608,25 +609,25 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorTyp(e, z), a) =>
     switch (e.middle) {
     | Lam(_, t, _m1, _m2, _body, _bound) =>
-      let z' = apply_action_typ(z, a);
+      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAnn(e), q);
       return_cursor(CursorTyp(e, z'));
     | Asc(_, t) =>
-      let z' = apply_action_typ(z, a);
+      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAsc(e), q);
       return_cursor(CursorTyp(e, z'));
     | ListRec(t) =>
-      let z' = apply_action_typ(z, a);
+      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewListRec(e), q);
       return_cursor(CursorTyp(e, z'));
     | Y(t) =>
-      let z' = apply_action_typ(z, a);
+      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewY(e), q);
@@ -876,7 +877,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorExp(e), InsertVar(x)) =>
     switch (e.middle) {
     | EHole =>
-      let (parent, ty, mark) = look_up_binder(x, e, binder_set, root);
+      let (parent, ty, mark) = look_up_binder((x, BinderKind.Lam), e, binder_set, root);
       let e': Iexp.upper = {
         parent: e.parent,
         syn: Some(ty),
@@ -891,7 +892,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       // };
       delete_upper(e);
       replace(e, e');
-      bind_to_binder(e', parent);
+      bind_to_binder(e', BinderKind.Lam, parent);
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(e'));
@@ -1183,9 +1184,9 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       switch (bind.contents) {
       | Hole => ()
       | Var(x) =>
-        remove_from_binder_set(x, e, binder_set);
-        let (new_binder, t, m) = look_up_binder(x, e, binder_set, root);
-        add_bound_var_set(x, bound_var_set, new_binder);
+        remove_from_binder_set((x, BinderKind.Lam), e, binder_set);
+        let (new_binder, t, m) = look_up_binder((x, BinderKind.Lam), e, binder_set, root);
+        add_bound_var_set((x, BinderKind.Lam), bound_var_set, new_binder);
 
         let update = var => update_var(var, t, m, new_binder);
         Tree.iter(update, bound_var_set);
