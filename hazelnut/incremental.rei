@@ -1,6 +1,5 @@
 open Hazelnut;
 open Order;
-open State;
 open Tree;
 
 module InQueue: {
@@ -17,6 +16,13 @@ module InQueue: {
   let default_lower: unit => lower;
   let default_root: unit => root;
   let default_upper: unit => upper;
+};
+
+module BinderKind: {
+  [@deriving (sexp, compare)]
+  type t =
+    | Lam
+    | TypFun;
 };
 
 module Iexp: {

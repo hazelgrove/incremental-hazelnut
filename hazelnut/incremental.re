@@ -1,7 +1,6 @@
 open Sexplib.Std;
 open Hazelnut;
 open Order;
-open State;
 open Tree;
 
 module InQueue = {
@@ -29,6 +28,13 @@ module InQueue = {
     list_rec: false,
     y: false,
   };
+};
+
+module BinderKind = {
+  [@deriving (sexp, compare)]
+  type t =
+    | Lam
+    | TypFun;
 };
 
 module Iexp = {
