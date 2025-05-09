@@ -61,7 +61,6 @@ module Iexp: {
         ref(Bind.t),
         ref(Mark.t),
         lower,
-        var_set,
       )
     | TypAp(
         lower,
