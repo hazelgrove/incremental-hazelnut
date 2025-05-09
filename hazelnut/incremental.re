@@ -1,6 +1,7 @@
 open Sexplib.Std;
 open Hazelnut;
 open Order;
+open State;
 open Tree;
 
 module InQueue = {
@@ -85,7 +86,7 @@ module Iexp = {
 
   and root = {
     mutable root_child: upper,
-    free_vars: Hashtbl.t(string, var_set),
+    free_vars: Hashtbl.t((string, BinderKind.t), var_set),
     in_queue_root: InQueue.root,
   }
 
