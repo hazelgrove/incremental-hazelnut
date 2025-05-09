@@ -1,4 +1,3 @@
-open Map;
 open Sexplib.Std;
 
 module Bind = {
