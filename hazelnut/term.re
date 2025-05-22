@@ -6,34 +6,20 @@ open Order;
 open Patch;
 
 module Term = {
-  type typ_constructor =
-    | Hole
-    | Arrow;
-
   type pat_constructor =
-    | Hole
     | Var(string);
 
-  type bound_set = ref(Tree.t(Id.t));
+  type typ_constructor =
+    | Arrow;
+
+  type var_data = Id.t;
+
+  type fun_data = ref(Tree.t(Id.t));
 
   type exp_constructor =
-    | Var(string, Id.t)
-    | Fun(string, bound_set)
-    | Ap
-    | Hole
-    | Multihole(int) // number of children
-    | Multiref(Id.t)
-    | Uniref(Id.t);
-
-  // let arity =
-  //   fun
-  //   | Var(_) => (1, 1) // variable has a type child, the type of the var
-  //   | Fun(_) => (2, 2)
-  //   | Ap => (2, 1)
-  //   | Hole => (0, 0)
-  //   | Multihole(n) => (n, 0)
-  //   | Multiref(_) => (0, 0)
-  //   | Uniref(_) => (0, 0);
+    | Var(var_data, string)
+    | Fun(fun_data, string)
+    | Ap;
 
   type dirtyTyp = (option(Typ.t), bool);
 
@@ -44,15 +30,16 @@ module Term = {
   };
 
   type typ_data = {
-    // ADT of self
-    mutable pure_typ: Typ.t,
+    // future optimization: store ADT of self
+    // mutable pure_typ: Typ.t,
     mutable dirty: bool,
   };
 
   type content =
-    | Typ(typ_constructor, typ_data)
+    | Root
     | Pat(pat_constructor)
-    | Exp(exp_constructor, exp_data);
+    | Typ(typ_data, typ_constructor)
+    | Exp(exp_data, exp_constructor);
 
   type position = int;
 
@@ -64,42 +51,48 @@ module Term = {
     meta: Patch.meta,
   };
 
-  type location = (t, position)
+  type edge_set = list(edge)
+
+  // future optimization: store visible parents and children using refs,
+  // rather than our own indirect Id.t based references
 
   and t = {
     id: Id.t,
     interval: (Order.t, Order.t),
     mutable deleted: bool,
+    mutable root: bool,
     mutable part_of_unicycle: bool,
-    mutable parent: option(location),
+    mutable parent_edges: edge_set, // live incoming edges
+    // mutable parent: option((t, position)),
     mutable content,
-    mutable children: list(t),
+    mutable children_edges: list(edge_set), // live outgoing edges at each position
+    // mutable children: list(t),
     mutable marks: list(Mark.t),
   };
 
-  let initial = (counter: Id.counter): t => {
+  let create_node = (id: Id.t, content: content): t => {
     let initial_order = Order.create();
     let initial_interval = (initial_order, Order.add_next(initial_order));
-    let initial_exp_data = {
-      ana: (None, false),
-      mark_consistent: Unmarked,
-      syn: (Some(Hole), false),
-    };
     {
-      id: Id.fresh(counter),
+      id,
       interval: initial_interval,
       deleted: false,
+      root: true,
       part_of_unicycle: false,
-      parent: None,
-      content: Exp(Hole, initial_exp_data),
-      children: [],
+      parent_edges: [],
+      content,
+      children_edges: [],
       marks: [],
     };
   };
 
+  let initial = (counter: Id.counter): t => {
+    create_node(Id.fresh(counter), Root);
+  };
+
   let get_typ_data = (e: t): typ_data => {
     switch (e.content) {
-    | Typ(_, typ_data) => typ_data
+    | Typ(typ_data, _) => typ_data
     | _ => failwith("Get typ_data of non typ")
     };
   };
@@ -114,7 +107,8 @@ module Term = {
 
   let get_exp_data = (e: t): exp_data => {
     switch (e.content) {
-    | Exp(_, exp_data) => exp_data
+    | Exp(exp_data, _) => exp_data
+    | Root
     | Typ(_)
     | Pat(_) => failwith("Get exp_data of non exp")
     };

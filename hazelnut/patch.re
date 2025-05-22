@@ -1,12 +1,23 @@
 open Id;
 
 module Patch = {
-  type constructor =
+  type pat_constructor =
+    | Var(string);
+
+  type typ_constructor =
+    | Arrow;
+
+  type exp_constructor =
     | Var(string)
     | Fun(string)
     | Ap;
 
-  type node = (Id.t, constructor);
+  type content =
+    | Pat(pat_constructor)
+    | Typ(typ_constructor)
+    | Exp(exp_constructor);
+
+  type node = (Id.t, content);
 
   type position = int;
 
