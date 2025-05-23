@@ -165,6 +165,7 @@ let update_var =
 };
 
 // Finds the looks up [name] in the context of [e].
+// Side effect: splaying
 // Returns:
 // - the binding site (or root)
 // - if the binding site is a lambda, then the annotated type
