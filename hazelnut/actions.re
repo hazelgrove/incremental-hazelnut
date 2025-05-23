@@ -85,6 +85,13 @@ let upper_of_parent = (p: Iexp.parent): option(Iexp.upper) => {
   };
 };
 
+// Given either the root or a lower contained
+// in a binder, returns the set of variable expressions
+// bound to that binder.
+//
+// Side effect: if the root is provided
+// to this function, and the variable is not
+// in the free set, then it will be added to the free set.
 let var_set_of_binder = (x: (string, BinderKind.t)): (Iexp.parent => Iexp.var_set) =>
   fun
   | Deleted => failwith("var set of deleted root")
@@ -110,18 +117,22 @@ let name_of_var_upper = (e: Iexp.upper): string =>
   | _ => failwith("name_of_var_upper called on non-var")
   };
 
-let unbind_from_binder = (var: Iexp.upper, kind: BinderKind.t, parent: Iexp.parent) => {
+// Remove expression variable from provided lower contained in
+// a binder, or from the root free vars.
+let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   Iexp.remove_bound_var(
     var,
-    var_set_of_binder((name_of_var_upper(var), kind), parent),
+    var_set_of_binder((name_of_var_upper(var), Lam), parent),
   );
 };
 
-let bind_to_binder = (var: Iexp.upper, kind: BinderKind.t, parent: Iexp.parent) => {
+// Adds expression variable from provided lower contained in
+// a binder, or to the root free vars.
+let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   // print_endline("adding to binder");
   Iexp.add_bound_var(
     var,
-    var_set_of_binder((name_of_var_upper(var), kind), parent),
+    var_set_of_binder((name_of_var_upper(var), Lam), parent),
     // print_endline(
     //   "now has this many: "
     //   ++ string_of_int(
@@ -136,7 +147,7 @@ let bind_to_binder = (var: Iexp.upper, kind: BinderKind.t, parent: Iexp.parent) 
 };
 
 // precondition: e.middle is a Var
-// makes them all synthesize [syn], marks them all as [m], and updates their
+// makes [e] synthesize [syn], marks [e] as [m], and updates their
 // binding on both ends. It also marks them as on the update queue with new syn.
 let update_var =
     (e: Iexp.upper, syn: Htyp.t, new_mark: Mark.t, new_binder: Iexp.binder)
@@ -144,7 +155,7 @@ let update_var =
   switch (e.middle) {
   | Var(_, mark, binder) =>
     // remove this var from its previous binder
-    unbind_from_binder(e, BinderKind.Lam, binder.contents);
+    unbind_from_binder(e, binder.contents);
     // set the local binder, mark, and syn type
     binder.contents = new_binder;
     mark.contents = new_mark;
@@ -171,7 +182,7 @@ let look_up_binder =
       Hashtbl.replace(binder_set, x, splayed);
       let (name, binder_kind) = x;
       switch (upper.entry.middle) {
-      | Lam(bind, t, _, _, body, _) when Bind.Var(name) == bind.contents && binder_kind == Lam => (
+      | Lam(bind, t, _, _, body, _, _) when Bind.Var(name) == bind.contents && binder_kind == Lam => (
           Lower(body),
           t.contents,
           Unmarked,
@@ -188,23 +199,23 @@ let look_up_binder =
 };
 
 // Dumb version of look_up_binder for comparison
-let rec _look_up_binder_walk =
-        (parent: Iexp.parent, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
-  switch (parent) {
-  | Deleted
-  | Root(_) => (parent, Hole, Marked)
-  | Lower(lower) =>
-    switch (lower.upper.middle) {
-    | Lam(bind, lam_ty, _, _, _, _) =>
-      if (bind.contents == Var(name)) {
-        (parent, lam_ty.contents, Unmarked);
-      } else {
-        _look_up_binder_walk(lower.upper.parent, name);
-      }
-    | _ => _look_up_binder_walk(lower.upper.parent, name)
-    }
-  };
-};
+// let rec _look_up_binder_walk =
+//         (parent: Iexp.parent, name: string): (Iexp.parent, Htyp.t, Mark.t) => {
+//   switch (parent) {
+//   | Deleted
+//   | Root(_) => (parent, Hole, Marked)
+//   | Lower(lower) =>
+//     switch (lower.upper.middle) {
+//     | Lam(bind, lam_ty, _, _, _, _) =>
+//       if (bind.contents == Var(name)) {
+//         (parent, lam_ty.contents, Unmarked);
+//       } else {
+//         _look_up_binder_walk(lower.upper.parent, name);
+//       }
+//     | _ => _look_up_binder_walk(lower.upper.parent, name)
+//     }
+//   };
+// };
 
 let add_bound_var_set =
     (x: (string, BinderKind.t), joining_set: Tree.t(Iexp.upper), binder: Iexp.parent) => {
@@ -245,45 +256,45 @@ let capture_name =
 };
 
 // Dumb version of capture_name for comparison
-let rec _capture_name_body =
-        (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder)
-        : list(Iexp.upper) => {
-  switch (e.middle) {
-  | EHole
-  | NumLit(_) => []
-  | Var(var_name, _, _) =>
-    if (name == var_name) {
-      update_var(e, syn, Unmarked, binder);
-      [e];
-    } else {
-      [];
-    }
-  | Lam(bind, _, _, _, body_lower, _) =>
-    if (bind.contents == Var(name)) {
-      [];
-    } else {
-      _capture_name_body(body_lower.child, name, syn, binder);
-    }
-  | Asc(lower, _) => _capture_name_body(lower.child, name, syn, binder)
-  | Plus(lower_a, lower_b) =>
-    List.append(
-      _capture_name_body(lower_a.child, name, syn, binder),
-      _capture_name_body(lower_b.child, name, syn, binder),
-    )
-  | Ap(actor, _, param) =>
-    List.append(
-      _capture_name_body(actor.child, name, syn, binder),
-      _capture_name_body(param.child, name, syn, binder),
-    )
-  | Pair(lower_a, lower_b, _) =>
-    List.append(
-      _capture_name_body(lower_a.child, name, syn, binder),
-      _capture_name_body(lower_b.child, name, syn, binder),
-    )
-  | Proj(_, lower, _) => _capture_name_body(lower.child, name, syn, binder)
-  | _ => failwith("unimplemented")
-  };
-};
+// let rec _capture_name_body =
+//         (e: Iexp.upper, name: string, syn: Htyp.t, binder: Iexp.binder)
+//         : list(Iexp.upper) => {
+//   switch (e.middle) {
+//   | EHole
+//   | NumLit(_) => []
+//   | Var(var_name, _, _) =>
+//     if (name == var_name) {
+//       update_var(e, syn, Unmarked, binder);
+//       [e];
+//     } else {
+//       [];
+//     }
+//   | Lam(bind, _, _, _, body_lower, _) =>
+//     if (bind.contents == Var(name)) {
+//       [];
+//     } else {
+//       _capture_name_body(body_lower.child, name, syn, binder);
+//     }
+//   | Asc(lower, _) => _capture_name_body(lower.child, name, syn, binder)
+//   | Plus(lower_a, lower_b) =>
+//     List.append(
+//       _capture_name_body(lower_a.child, name, syn, binder),
+//       _capture_name_body(lower_b.child, name, syn, binder),
+//     )
+//   | Ap(actor, _, param) =>
+//     List.append(
+//       _capture_name_body(actor.child, name, syn, binder),
+//       _capture_name_body(param.child, name, syn, binder),
+//     )
+//   | Pair(lower_a, lower_b, _) =>
+//     List.append(
+//       _capture_name_body(lower_a.child, name, syn, binder),
+//       _capture_name_body(lower_b.child, name, syn, binder),
+//     )
+//   | Proj(_, lower, _) => _capture_name_body(lower.child, name, syn, binder)
+//   | _ => failwith("unimplemented")
+//   };
+// };
 
 let remove_from_binder_set =
     (x: (string, BinderKind.t), e: Iexp.upper, binder_set: BinderSet.t) => {
