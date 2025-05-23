@@ -99,7 +99,7 @@ let var_set_of_binder = (x: (string, BinderKind.t)): (Iexp.parent => Iexp.var_se
     }
   | Lower(lower) =>
     switch (lower.upper.middle) {
-    | Lam(_, _, _, _, _, bound_vars)
+    | Lam(_, _, _, _, _, bound_vars, _)
     | TypFun(_, _, _, bound_vars) => bound_vars
     | _ => failwith("non-lam binder")
     };
