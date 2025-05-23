@@ -168,7 +168,7 @@ let update_var =
 // Returns:
 // - the binding site (or root)
 // - if the binding site is a lambda, then the annotated type
-// - whether the binder is free
+// - whether the variable is free
 let look_up_binder =
     (x: (string, BinderKind.t), e: Iexp.upper, binder_set: BinderSet.t, root: Iexp.root)
     : (Iexp.parent, Htyp.t, Mark.t) => {
