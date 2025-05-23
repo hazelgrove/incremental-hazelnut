@@ -47,16 +47,17 @@ module Iexp: {
         ref(Mark.t),
         lower,
         var_set,
+        typ_binders,
       )
     | Ap(lower, ref(Mark.t), lower)
     | Pair(lower, lower, ref(Mark.t))
     | Proj(ProdSide.t, lower, ref(Mark.t))
-    | Asc(lower, ref(Htyp.t))
+    | Asc(lower, ref(Htyp.t), typ_binders)
     | Nil
     | Cons
-    | ListRec(ref(Htyp.t))
-    | Y(ref(Htyp.t))
-    | ITE(ref(Htyp.t))
+    | ListRec(ref(Htyp.t), typ_binders)
+    | Y(ref(Htyp.t), typ_binders)
+    | ITE(ref(Htyp.t), typ_binders)
     | TypFun(
         ref(Bind.t),
         ref(Mark.t),
@@ -65,6 +66,7 @@ module Iexp: {
     | TypAp(
         lower,
         ref(Htyp.t),
+        typ_binders,
       )
     | EHole
 
@@ -89,7 +91,8 @@ module Iexp: {
     | Lower(lower) // child location of a constuctor
 
   and binder = parent // pointer from a variable occurrence to binding location
-  and var_set = ref(Tree.t(upper)); // pointers from a binder to the variable occurrences it binds
+  and var_set = ref(Tree.t(upper)) // pointers from a binder to the variable occurrences it binds
+  and typ_binders = Hashtbl.t(string, parent); // stored on the expression immediately containing a type
 
   let add_bound_var: (upper, var_set) => unit;
   let remove_bound_var: (upper, var_set) => unit;
