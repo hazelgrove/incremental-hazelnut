@@ -342,8 +342,8 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Var(x, _, binder) =>
     let var_set = var_set_of_binder((x, BinderKind.Lam), binder.contents);
     Iexp.remove_bound_var(upper, var_set);
-  | Asc(e, _) => delete_lower(e)
-  | Lam(_, _, _, _, e, _)
+  | Asc(e, _, _) => delete_lower(e)
+  | Lam(_, _, _, _, e, _, _)
   | TypFun(_, _, e, _) => delete_lower(e)
   | Plus(e1, e2) =>
     delete_lower(e1);
@@ -351,7 +351,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Ap(e1, _, e2) =>
     delete_lower(e1);
     delete_lower(e2);
-  | TypAp(e, _) =>
+  | TypAp(e, _, _) =>
     delete_lower(e);
   | Pair(e1, e2, _) =>
     delete_lower(e1);
