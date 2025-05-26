@@ -1,18 +1,18 @@
 open Patch;
-open Term;
+open Node;
 open State;
 
-let rec root_of_term = (e: Term.t) => {
-  switch (e.parent) {
+let rec root_of_term = (state: State.t, e: Node.t) => {
+  switch (get_parent(state, e)) {
   | None => e
-  | Some((parent, _)) => root_of_term(parent)
+  | Some(parent) => root_of_term(state, parent)
   };
 };
 
-let edge_of_patch = (patch: Patch.t): Term.edge => {
+let edge_of_patch = (patch: Patch.t): Node.edge => {
   let ((source_id, _source_con), source_location) = patch.source;
   let (destination_id, _destination_con) = patch.destination;
-  let edge: Term.edge = {
+  let edge: Node.edge = {
     id: patch.id,
     source: (source_id, source_location),
     destination: destination_id,
@@ -27,7 +27,7 @@ let create_if_new = (state: State.t, node: Patch.node): unit => {
   switch (Hashtbl.find_opt(state.term_map, id)) {
   | Some(_) => ()
   | None =>
-    let create_con = (c: Patch.content): Term.content => {
+    let create_con = (c: Patch.content): Node.content => {
       switch (c) {
       | Pat(Var(x)) => Pat(Var(x))
       | Typ(Arrow) => Typ(failwith("todo"), Arrow)
@@ -36,13 +36,13 @@ let create_if_new = (state: State.t, node: Patch.node): unit => {
       | Exp(Ap) => Exp(failwith("todo"), Ap)
       };
     };
-    let n = Term.create_node(id, create_con(con));
+    let n = Node.create_node(id, create_con(con));
     Hashtbl.add(state.term_map, id, n);
   };
 };
 
 let rec appatch = (state: State.t, patch: Patch.t): State.t => {
-  let ((source_id, source_con), source_location) = patch.source;
+  let ((source_id, source_con), _source_location) = patch.source;
   let (destination_id, destination_con) = patch.destination;
   switch (Hashtbl.find_opt(state.edge_map, patch.id)) {
   // edge ids are unique, so if this id is in the database, the patch must have already been applied.
@@ -81,7 +81,7 @@ let rec appatch = (state: State.t, patch: Patch.t): State.t => {
           | None => failwith("Todo")
           | Some(term) => term
           };
-        let root_of_source = root_of_term(source_term);
+        let root_of_source = root_of_term(state, source_term);
         if (root_of_source.id == destination_term.id) {
           failwith("first case");
         } else if (destination_term.part_of_unicycle) {

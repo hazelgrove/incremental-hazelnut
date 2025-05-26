@@ -5,7 +5,7 @@ open Tree;
 open Order;
 open Patch;
 
-module Term = {
+module Node = {
   type pat_constructor =
     | Var(string);
 
@@ -21,12 +21,11 @@ module Term = {
     | Fun(fun_data, string)
     | Ap;
 
-  type dirtyTyp = (option(Typ.t), bool);
-
   type exp_data = {
-    mutable ana: dirtyTyp,
+    mutable ana: option(Typ.t),
     mutable mark_consistent: Mark.t,
-    mutable syn: dirtyTyp,
+    // mutable dirty: bool,
+    mutable syn: option(Typ.t),
   };
 
   type typ_data = {
@@ -114,17 +113,17 @@ module Term = {
     };
   };
 
-  let get_syn = (e: t): dirtyTyp => {
+  let get_syn = (e: t): option(Typ.t) => {
     get_exp_data(e).syn;
   };
 
-  let get_ana = (e: t): dirtyTyp => {
+  let get_ana = (e: t): option(Typ.t) => {
     get_exp_data(e).ana;
   };
-  let set_syn = (e: t, syn: dirtyTyp) => {
+  let set_syn = (e: t, syn: option(Typ.t)) => {
     get_exp_data(e).syn = syn;
   };
-  let set_ana = (e: t, ana: dirtyTyp) => {
+  let set_ana = (e: t, ana: option(Typ.t)) => {
     get_exp_data(e).ana = ana;
   };
 };
