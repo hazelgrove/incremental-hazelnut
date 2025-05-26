@@ -465,6 +465,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
       | ITE(_, typ_binders)
       | TypAp(_, _, typ_binders) =>
         let (binder_parent, _ty, mark) = look_up_binder((name, TypFun), containing_upper, binder_set, root);
+        Hashtbl.replace(typ_binders, name, binder_parent);
         bind_to_binder_typ(containing_upper, name, binder_parent);
         Cursor(TypVar(Bind.Var(name), mark))
       | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
