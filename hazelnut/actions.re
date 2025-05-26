@@ -119,7 +119,7 @@ let name_of_var_upper = (e: Iexp.upper): string =>
 
 // Remove expression variable from provided lower contained in
 // a binder, or from the root free vars.
-let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+let unbind_from_binder_var = (var: Iexp.upper, parent: Iexp.parent) => {
   Iexp.remove_bound_var(
     var,
     var_set_of_binder((name_of_var_upper(var), Lam), parent),
@@ -128,7 +128,7 @@ let unbind_from_binder = (var: Iexp.upper, parent: Iexp.parent) => {
 
 // Adds expression variable from provided lower contained in
 // a binder, or to the root free vars.
-let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
+let bind_to_binder_var = (var: Iexp.upper, parent: Iexp.parent) => {
   // print_endline("adding to binder");
   Iexp.add_bound_var(
     var,
@@ -146,6 +146,28 @@ let bind_to_binder = (var: Iexp.upper, parent: Iexp.parent) => {
   );
 };
 
+// Removes the expression containing some type variable from
+// the provided binder's variable set, or from the root free vars.
+// It is removed from the entry corresponding to the type variable's
+// name. 
+let unbind_from_binder_typ = (containing_upper: Iexp.upper, name: string, binders_parent: Iexp.parent) => {
+  Iexp.remove_bound_var(
+    containing_upper,
+    var_set_of_binder((name, TypFun), binders_parent),
+  )
+}
+
+// Adds the expression containing some type variable to
+// the provided binder's variable set, or to the root free vars.
+// It is put under the entry corresponding to the type variable's
+// name.
+let bind_to_binder_typ = (containing_upper: Iexp.upper, name: string, binders_parent: Iexp.parent) => {
+  Iexp.add_bound_var(
+    containing_upper,
+    var_set_of_binder((name, TypFun), binders_parent),
+  )
+}
+
 // precondition: e.middle is a Var
 // makes [e] synthesize [syn], marks [e] as [m], and updates their
 // binding on both ends. It also marks them as on the update queue with new syn.
@@ -155,7 +177,7 @@ let update_var =
   switch (e.middle) {
   | Var(_, mark, binder) =>
     // remove this var from its previous binder
-    unbind_from_binder(e, binder.contents);
+    unbind_from_binder_var(e, binder.contents);
     // set the local binder, mark, and syn type
     binder.contents = new_binder;
     mark.contents = new_mark;
@@ -400,7 +422,7 @@ let interval_before = (e: Iexp.upper) => {
 
 module TypVarContext = Set.Make(String);
 
-let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t): Ztyp.t => {
+let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t, root: Iexp.root, binder_set: BinderSet.t): Ztyp.t => {
   switch (z, a) {
     // Significant MoveUp cases
   | (Cursor(_), MoveUp) => z
@@ -427,7 +449,27 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (Cursor(Hole), InsertBoolType) => Cursor(Bool)
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
   | (Cursor(Hole), InsertList) => Cursor(List)
-  | (Cursor(Hole), InsertTypVar(name)) => failwith("Unimplemented")
+  | (Cursor(Hole), InsertTypVar(name)) =>
+    if (TypVarContext.mem(name, local_ctx)) {
+      // If the type variable is contained in the
+      // local type, before we escape to the expression.
+      Cursor(TypVar(Bind.Var(name), Unmarked))
+    } else {
+      // Otherwise, look up outside of the local type
+      // for where the binder might be.
+      switch (containing_upper.middle) {
+      | Lam(_, _, _, _, _, _, typ_binders)
+      | Asc(_, _, typ_binders)
+      | ListRec(_, typ_binders)
+      | Y(_, typ_binders)
+      | ITE(_, typ_binders)
+      | TypAp(_, _, typ_binders) =>
+        let (binder_parent, _ty, mark) = look_up_binder((name, TypFun), containing_upper, binder_set, root);
+        bind_to_binder_typ(containing_upper, name, binder_parent);
+        Cursor(TypVar(Bind.Var(name), mark))
+      | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
+      };
+    }
   | (Cursor(_), WrapForAll) => failwith("Unimplemented")
   | (Cursor(_), InsertNumType)
   | (Cursor(_), InsertBoolType)
@@ -464,7 +506,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (LArrow(z, t), WrapProduct(_))
   | (LArrow(z, t), Unwrap(_))
   | (LArrow(z, t), WrapForAll) 
-  | (LArrow(z, t), InsertTypVar(_)) => LArrow(apply_action_typ(containing_upper, ctx, z, a), t)
+  | (LArrow(z, t), InsertTypVar(_)) => LArrow(apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set), t)
   | (RArrow(t, z), MoveUp)
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
@@ -476,7 +518,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (RArrow(t, z), WrapProduct(_))
   | (RArrow(t, z), Unwrap(_))
   | (RArrow(t, z), WrapForAll) 
-  | (RArrow(t, z), InsertTypVar(_)) => RArrow(t, apply_action_typ(containing_upper, ctx, z, a))
+  | (RArrow(t, z), InsertTypVar(_)) => RArrow(t, apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set))
   | (LProduct(z, t), MoveUp)
   | (LProduct(z, t), MoveDown(_))
   | (LProduct(z, t), Delete)
@@ -488,7 +530,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (LProduct(z, t), WrapProduct(_))
   | (LProduct(z, t), Unwrap(_))
   | (LProduct(z, t), WrapForAll) 
-  | (LProduct(z, t), InsertTypVar(_)) => LProduct(apply_action_typ(containing_upper, ctx, z, a), t)
+  | (LProduct(z, t), InsertTypVar(_)) => LProduct(apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set), t)
   | (RProduct(t, z), MoveUp)
   | (RProduct(t, z), MoveDown(_))
   | (RProduct(t, z), Delete)
@@ -500,7 +542,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (RProduct(t, z), WrapProduct(_))
   | (RProduct(t, z), Unwrap(_))
   | (RProduct(t, z), WrapForAll) 
-  | (RProduct(t, z), InsertTypVar(_)) => RProduct(t, apply_action_typ(containing_upper, ctx, z, a))
+  | (RProduct(t, z), InsertTypVar(_)) => RProduct(t, apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set))
   | (ForAll(alpha, z), MoveUp)
   | (ForAll(alpha, z), MoveDown(_))
   | (ForAll(alpha, z), Delete)
@@ -512,7 +554,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (ForAll(alpha, z), WrapProduct(_))
   | (ForAll(alpha, z), Unwrap(_))
   | (ForAll(alpha, z), WrapForAll) 
-  | (ForAll(alpha, z), InsertTypVar(_)) => ForAll(alpha, apply_action_typ(containing_upper, ctx, z, a))
+  | (ForAll(alpha, z), InsertTypVar(_)) => ForAll(alpha, apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set))
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
@@ -932,7 +974,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       // };
       delete_upper(e);
       replace(e, e');
-      bind_to_binder(e', BinderKind.Lam, parent);
+      bind_to_binder_var(e', parent);
       let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(e'));
