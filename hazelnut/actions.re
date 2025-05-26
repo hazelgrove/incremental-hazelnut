@@ -428,6 +428,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
   | (Cursor(Hole), InsertList) => Cursor(List)
   | (Cursor(Hole), InsertTypVar(name)) => failwith("Unimplemented")
+  | (Cursor(_), WrapForAll) => failwith("Unimplemented")
   | (Cursor(_), InsertNumType)
   | (Cursor(_), InsertBoolType)
   | (Cursor(_), InsertUnitType)
@@ -444,12 +445,14 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (Cursor(Bool), Unwrap(_)) => z
   | (Cursor(Unit), Unwrap(_)) => z
   | (Cursor(List), Unwrap(_)) => z
+  | (Cursor(TypVar(_, _)), Unwrap(_)) => z
   | (Cursor(Arrow(t, _)), Unwrap(One))
   | (Cursor(Arrow(_, t)), Unwrap(Two)) => Cursor(t)
   | (Cursor(Arrow(_)), Unwrap(Three)) => z
   | (Cursor(Product(t, _)), Unwrap(One))
   | (Cursor(Product(_, t)), Unwrap(Two)) => Cursor(t)
   | (Cursor(Product(_)), Unwrap(Three)) => z
+  | (Cursor(ForAll(_, z)), Unwrap(_)) => failwith("Unimplemented")
   | (LArrow(z, t), MoveUp)
   | (LArrow(z, t), MoveDown(_))
   | (LArrow(z, t), Delete)
@@ -459,7 +462,9 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (LArrow(z, t), InsertList)
   | (LArrow(z, t), WrapArrow(_))
   | (LArrow(z, t), WrapProduct(_))
-  | (LArrow(z, t), Unwrap(_)) => LArrow(apply_action_typ(containing_upper, ctx, z, a), t)
+  | (LArrow(z, t), Unwrap(_))
+  | (LArrow(z, t), WrapForAll) 
+  | (LArrow(z, t), InsertTypVar(_)) => LArrow(apply_action_typ(containing_upper, ctx, z, a), t)
   | (RArrow(t, z), MoveUp)
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
@@ -469,7 +474,9 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (RArrow(t, z), InsertList)
   | (RArrow(t, z), WrapArrow(_))
   | (RArrow(t, z), WrapProduct(_))
-  | (RArrow(t, z), Unwrap(_)) => RArrow(t, apply_action_typ(containing_upper, ctx, z, a))
+  | (RArrow(t, z), Unwrap(_))
+  | (RArrow(t, z), WrapForAll) 
+  | (RArrow(t, z), InsertTypVar(_)) => RArrow(t, apply_action_typ(containing_upper, ctx, z, a))
   | (LProduct(z, t), MoveUp)
   | (LProduct(z, t), MoveDown(_))
   | (LProduct(z, t), Delete)
@@ -479,7 +486,9 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (LProduct(z, t), InsertList)
   | (LProduct(z, t), WrapArrow(_))
   | (LProduct(z, t), WrapProduct(_))
-  | (LProduct(z, t), Unwrap(_)) => LProduct(apply_action_typ(containing_upper, ctx, z, a), t)
+  | (LProduct(z, t), Unwrap(_))
+  | (LProduct(z, t), WrapForAll) 
+  | (LProduct(z, t), InsertTypVar(_)) => LProduct(apply_action_typ(containing_upper, ctx, z, a), t)
   | (RProduct(t, z), MoveUp)
   | (RProduct(t, z), MoveDown(_))
   | (RProduct(t, z), Delete)
@@ -489,7 +498,21 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (RProduct(t, z), InsertList)
   | (RProduct(t, z), WrapArrow(_))
   | (RProduct(t, z), WrapProduct(_))
-  | (RProduct(t, z), Unwrap(_)) => RProduct(t, apply_action_typ(containing_upper, ctx, z, a))
+  | (RProduct(t, z), Unwrap(_))
+  | (RProduct(t, z), WrapForAll) 
+  | (RProduct(t, z), InsertTypVar(_)) => RProduct(t, apply_action_typ(containing_upper, ctx, z, a))
+  | (ForAll(alpha, z), MoveUp)
+  | (ForAll(alpha, z), MoveDown(_))
+  | (ForAll(alpha, z), Delete)
+  | (ForAll(alpha, z), InsertNumType)
+  | (ForAll(alpha, z), InsertBoolType)
+  | (ForAll(alpha, z), InsertUnitType)
+  | (ForAll(alpha, z), InsertList)
+  | (ForAll(alpha, z), WrapArrow(_))
+  | (ForAll(alpha, z), WrapProduct(_))
+  | (ForAll(alpha, z), Unwrap(_))
+  | (ForAll(alpha, z), WrapForAll) 
+  | (ForAll(alpha, z), InsertTypVar(_)) => ForAll(alpha, apply_action_typ(containing_upper, ctx, z, a))
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
@@ -505,6 +528,8 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, ctx: TypVarContext.t, 
   | (z, WrapPair(_)) => z
   | (z, WrapProj(_)) => z
   | (z, WrapLam) => z
+  | (z, WrapTypFun) => z
+  | (z, WrapTypAp) => z
   };
 };
 
