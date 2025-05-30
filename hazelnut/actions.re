@@ -555,7 +555,12 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (ForAll(alpha, z), WrapProduct(_))
   | (ForAll(alpha, z), Unwrap(_))
   | (ForAll(alpha, z), WrapForAll) 
-  | (ForAll(alpha, z), InsertTypVar(_)) => ForAll(alpha, apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set))
+  | (ForAll(alpha, z), InsertTypVar(_)) =>
+    let new_ctx = switch (alpha) {
+    | Var(alpha) => TypVarContext.add(alpha, local_ctx)
+    | Hole => local_ctx
+    };
+    ForAll(alpha, apply_action_typ(containing_upper, new_ctx, z, a, root, binder_set))
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
