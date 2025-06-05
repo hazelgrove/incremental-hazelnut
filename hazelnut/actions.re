@@ -474,13 +474,15 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (RArrow(t1, Cursor(t2)), MoveUp) => Cursor(Arrow(t1, t2))
   | (LProduct(Cursor(t1), t2), MoveUp)
   | (RProduct(t1, Cursor(t2)), MoveUp) => Cursor(Product(t1, t2))
-  | (ForAll(name, Cursor(body_t)), MoveUp) => Cursor(ForAll(name, body_t))
+  | (ForAll(name, Cursor(body_t)), MoveUp) 
+  | (ForAllCursorBind(name, body_t), MoveUp) => Cursor(ForAll(name, body_t))
   | (Cursor(Hole), MoveDown(_)) => z
   | (Cursor(Num), MoveDown(_)) => z
   | (Cursor(Bool), MoveDown(_)) => z
   | (Cursor(Unit), MoveDown(_)) => z
   | (Cursor(List), MoveDown(_)) => z
   | (Cursor(TypVar(_)), MoveDown(_)) => z
+  | (ForAllCursorBind(_), MoveDown(_)) => z
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
   | (Cursor(Arrow(t1, t2)), MoveDown(Two)) => RArrow(t1, Cursor(t2))
   | (Cursor(Arrow(_)), MoveDown(Three)) => z
@@ -489,6 +491,9 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (Cursor(Product(_)), MoveDown(Three)) => z
   | (Cursor(ForAll(alpha, t)), MoveDown(_)) => ForAll(alpha, Cursor(t))
   | (Cursor(_), Delete) => Cursor(Hole)
+  | (ForAllCursorBind(_, body_t), Delete) =>
+    // TODO: Effectively the same logic as unwrapping a ForAll
+    ForAllCursorBind(Bind.Hole, body_t)
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
   | (Cursor(Hole), InsertBoolType) => Cursor(Bool)
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
@@ -515,7 +520,6 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
       | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
       };
     }
-  // TODO: Allow editing the type abstractor variable
   | (Cursor(t), WrapForAll) => Cursor(ForAll(Bind.Hole, t))
   | (Cursor(_), InsertNumType)
   | (Cursor(_), InsertBoolType)
@@ -576,6 +580,24 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
         }
       }
     }
+  | (ForAllCursorBind(Bind.Hole, body_t), InsertTypVar(name)) =>
+    // TODO: unbind any contained variables from higher
+    // bindings outside this type
+    // TODO: mark all contained type variables as bound
+    ForAllCursorBind(Bind.Var(name), body_t)
+  // Any action that isn't insert type variable, delete, or move up
+  // does nothing on a ForAllCursorBind.
+  | (ForAllCursorBind(_), InsertNumType)
+  | (ForAllCursorBind(_), InsertBoolType)
+  | (ForAllCursorBind(_), InsertUnitType)
+  | (ForAllCursorBind(_), InsertList)
+  | (ForAllCursorBind(_), WrapArrow(_))
+  | (ForAllCursorBind(_), WrapProduct(_))
+  | (ForAllCursorBind(_), Unwrap(_))
+  | (ForAllCursorBind(_), WrapForAll)
+  // Also, attempting to insert type variable to a binder
+  // that already has one does nothing.
+  | (ForAllCursorBind(Bind.Var(_), _), InsertTypVar(_)) => z
   | (LArrow(z, t), MoveUp)
   | (LArrow(z, t), MoveDown(_))
   | (LArrow(z, t), Delete)
