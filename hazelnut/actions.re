@@ -491,7 +491,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (Cursor(Product(_)), MoveDown(Three)) => z
   | (Cursor(ForAll(alpha, t)), MoveDown(_)) => ForAll(alpha, Cursor(t))
   | (Cursor(_), Delete) => Cursor(Hole)
-  | (ForAllCursorBind(_, body_t), Delete) =>
+  | (ForAllCursorBind(Bind.Var(name), body_t), Delete) =>
     // TODO: Effectively the same logic as unwrapping a ForAll
     ForAllCursorBind(Bind.Hole, body_t)
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
@@ -597,7 +597,10 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (ForAllCursorBind(_), WrapForAll)
   // Also, attempting to insert type variable to a binder
   // that already has one does nothing.
-  | (ForAllCursorBind(Bind.Var(_), _), InsertTypVar(_)) => z
+  | (ForAllCursorBind(Bind.Var(_), _), InsertTypVar(_))
+  // Likewise deleting the type variable in a binder
+  // that already is a hole does nothing.
+  | (ForAllCursorBind(Bind.Hole, _), Delete) => z
   | (LArrow(z, t), MoveUp)
   | (LArrow(z, t), MoveDown(_))
   | (LArrow(z, t), Delete)
