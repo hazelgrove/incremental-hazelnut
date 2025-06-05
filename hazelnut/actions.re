@@ -546,7 +546,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (Cursor(Product(_)), Unwrap(Three)) => z
   | (Cursor(ForAll(alpha, t)), Unwrap(_)) =>
     switch (alpha) {
-    | Hole => z
+    | Hole => Cursor(t)
     | Var(alpha) =>
       if (TypVarContext.mem(alpha, local_ctx)) {
         // No change needed if there is still a local binder.
