@@ -38,7 +38,7 @@ module Ztyp: {
     | RProduct(Htyp.t, t)
     | ForAll(Bind.t, t)
     // A second variant of the ForAll which represents cursor selection
-    | ForAllCursorBind(Bind.t, t);
+    | ForAllCursorBind(Bind.t, Htyp.t);
 };
 
 module ProdSide: {
