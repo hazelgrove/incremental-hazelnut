@@ -491,9 +491,38 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (Cursor(Product(_)), MoveDown(Three)) => z
   | (Cursor(ForAll(alpha, t)), MoveDown(_)) => ForAll(alpha, Cursor(t))
   | (Cursor(_), Delete) => Cursor(Hole)
-  | (ForAllCursorBind(Bind.Var(name), body_t), Delete) =>
-    // TODO: Effectively the same logic as unwrapping a ForAll
-    ForAllCursorBind(Bind.Hole, body_t)
+  | (ForAllCursorBind(Bind.Var(alpha), t), Delete) =>
+    if (TypVarContext.mem(alpha, local_ctx)) {
+      // No change needed if there is still a local binder.
+      ForAllCursorBind(Bind.Hole, t)
+    } else {
+      // Look down to see if there are any variables that bound
+      // to this...
+      let binder_used = typ_contains(t, alpha);
+      
+      if (!binder_used) {
+        // If not, then no change needed.
+        ForAllCursorBind(Bind.Hole, t)
+      } else {
+        // Otherwise, this variable escapes the type.
+        // We have to mutate, adjust pointers.
+        switch (containing_upper.middle) {
+        | Lam(_, _, _, _, _, _, typ_binders)
+        | Asc(_, _, typ_binders)
+        | ListRec(_, typ_binders)
+        | Y(_, typ_binders)
+        | ITE(_, typ_binders)
+        | TypAp(_, _, typ_binders) =>
+          let (binder_parent, _ty, mark) = look_up_binder((alpha, TypFun), containing_upper, binder_set, root);
+          // Containing expression points to binder
+          Hashtbl.replace(typ_binders, alpha, binder_parent);
+          // Binder points to containing expression
+          bind_to_binder_typ(containing_upper, alpha, binder_parent);
+          ForAllCursorBind(Bind.Hole, typ_update_mark(t, alpha, mark))
+        | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
+        };
+      }
+    }
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
   | (Cursor(Hole), InsertBoolType) => Cursor(Bool)
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
