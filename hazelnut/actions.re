@@ -609,11 +609,47 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
         }
       }
     }
-  | (ForAllCursorBind(Bind.Hole, body_t), InsertTypVar(name)) =>
-    // TODO: unbind any contained variables from higher
-    // bindings outside this type
-    // TODO: mark all contained type variables as bound
-    ForAllCursorBind(Bind.Var(name), body_t)
+  | (ForAllCursorBind(Bind.Hole, t), InsertTypVar(alpha)) =>
+    if (TypVarContext.mem(alpha, local_ctx)) {
+      // No change needed if contained variables were
+      // previously bound to another local binder.
+      ForAllCursorBind(Bind.Var(alpha), t)
+    } else {
+      // Look down to see if there are any variables that bound
+      // to this...
+      let binder_used = typ_contains(t, alpha);
+      
+      if (!binder_used) {
+        // If not, then no change needed.
+        ForAllCursorBind(Bind.Var(alpha), t)
+      } else {
+        // Otherwise, this variable escapes the type.
+        // We have to mutate, adjust pointers.
+        switch (containing_upper.middle) {
+        | Lam(_, exp_root_t, _, _, _, _, typ_binders)
+        | Asc(_, exp_root_t, typ_binders)
+        | ListRec(exp_root_t, typ_binders)
+        | Y(exp_root_t, typ_binders)
+        | ITE(exp_root_t, typ_binders)
+        | TypAp(_, exp_root_t, typ_binders) =>
+          // Check if the variable no longer escapes outside
+          // the local type. If so, remove the external binder-boundvar
+          // connection.
+          // TODO: Check escaping properly
+          let doesEscape = failwith("Unimplemented");
+          if (!doesEscape) {
+            // Must be present bcause previously escaped
+            let binder_parent = Hashtbl.find(typ_binders, alpha);
+            // Bound no longer points to binder
+            Hashtbl.remove(typ_binders, alpha);
+            // Binder no longer points to bound.
+            unbind_from_binder_typ(containing_upper, alpha, binder_parent);
+          }
+          ForAllCursorBind(Bind.Var(alpha), typ_update_mark(t, alpha, Unmarked))
+        | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
+        };
+      }
+    }
   // Any action that isn't insert type variable, delete, or move up
   // does nothing on a ForAllCursorBind.
   | (ForAllCursorBind(_), InsertNumType)
