@@ -420,7 +420,7 @@ let interval_before = (e: Iexp.upper) => {
   (a, b);
 };
 
-module TypVarContext = Set.Make(String);
+module TypVarSet = Set.Make(String);
 
 // Returns the provided type, but with all type variables bound
 // to alpha changed their mark. Doesn't go past shadowing.
@@ -466,7 +466,10 @@ let rec typ_contains = (t: Htyp.t, alpha: string): bool => {
   }
 }
 
-let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarContext.t, z: Ztyp.t, a: Iaction.t, root: Iexp.root, binder_set: BinderSet.t): Ztyp.t => {
+// Applies an action to a Ztyp, assuming nothing about the
+// context of type variable binders in outer expressions
+// containing this Ztyp.
+let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.t): Ztyp.t => {
   switch (z, a) {
     // Significant MoveUp cases
   | (Cursor(_), MoveUp) => z
@@ -491,64 +494,12 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (Cursor(Product(_)), MoveDown(Three)) => z
   | (Cursor(ForAll(alpha, t)), MoveDown(_)) => ForAll(alpha, Cursor(t))
   | (Cursor(_), Delete) => Cursor(Hole)
-  | (ForAllCursorBind(Bind.Var(alpha), t), Delete) =>
-    if (TypVarContext.mem(alpha, local_ctx)) {
-      // No change needed if there is still a local binder.
-      ForAllCursorBind(Bind.Hole, t)
-    } else {
-      // Look down to see if there are any variables that bound
-      // to this...
-      let binder_used = typ_contains(t, alpha);
-      
-      if (!binder_used) {
-        // If not, then no change needed.
-        ForAllCursorBind(Bind.Hole, t)
-      } else {
-        // Otherwise, this variable escapes the type.
-        // We have to mutate, adjust pointers.
-        switch (containing_upper.middle) {
-        | Lam(_, _, _, _, _, _, typ_binders)
-        | Asc(_, _, typ_binders)
-        | ListRec(_, typ_binders)
-        | Y(_, typ_binders)
-        | ITE(_, typ_binders)
-        | TypAp(_, _, typ_binders) =>
-          let (binder_parent, _ty, mark) = look_up_binder((alpha, TypFun), containing_upper, binder_set, root);
-          // Containing expression points to binder
-          Hashtbl.replace(typ_binders, alpha, binder_parent);
-          // Binder points to containing expression
-          bind_to_binder_typ(containing_upper, alpha, binder_parent);
-          ForAllCursorBind(Bind.Hole, typ_update_mark(t, alpha, mark))
-        | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
-        };
-      }
-    }
   | (Cursor(Hole), InsertNumType) => Cursor(Num)
   | (Cursor(Hole), InsertBoolType) => Cursor(Bool)
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
   | (Cursor(Hole), InsertList) => Cursor(List)
-  | (Cursor(Hole), InsertTypVar(name)) =>
-    if (TypVarContext.mem(name, local_ctx)) {
-      // If the type variable is contained in the
-      // local type, before we escape to the expression.
-      Cursor(TypVar(Bind.Var(name), Unmarked))
-    } else {
-      // Otherwise, look up outside of the local type
-      // for where the binder might be.
-      switch (containing_upper.middle) {
-      | Lam(_, _, _, _, _, _, typ_binders)
-      | Asc(_, _, typ_binders)
-      | ListRec(_, typ_binders)
-      | Y(_, typ_binders)
-      | ITE(_, typ_binders)
-      | TypAp(_, _, typ_binders) =>
-        let (binder_parent, _ty, mark) = look_up_binder((name, TypFun), containing_upper, binder_set, root);
-        Hashtbl.replace(typ_binders, name, binder_parent);
-        bind_to_binder_typ(containing_upper, name, binder_parent);
-        Cursor(TypVar(Bind.Var(name), mark))
-      | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
-      };
-    }
+  | (Cursor(Hole), InsertTypVar(alpha)) =>
+    Cursor(TypVar(Bind.Var(alpha), TypVarSet.mem(alpha, local_ctx) ? Unmarked : Marked))
   | (Cursor(t), WrapForAll) => Cursor(ForAll(Bind.Hole, t))
   | (Cursor(_), InsertNumType)
   | (Cursor(_), InsertBoolType)
@@ -573,83 +524,13 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (Cursor(Product(t, _)), Unwrap(One))
   | (Cursor(Product(_, t)), Unwrap(Two)) => Cursor(t)
   | (Cursor(Product(_)), Unwrap(Three)) => z
-  | (Cursor(ForAll(alpha, t)), Unwrap(_)) =>
-    switch (alpha) {
-    | Hole => Cursor(t)
-    | Var(alpha) =>
-      if (TypVarContext.mem(alpha, local_ctx)) {
-        // No change needed if there is still a local binder.
-        Cursor(t)
-      } else {
-        // Look down to see if there are any variables that bound
-        // to this...
-        let binder_used = typ_contains(t, alpha);
-        
-        if (!binder_used) {
-          // If not, then no change needed.
-          Cursor(t)
-        } else {
-          // Otherwise, this variable escapes the type.
-          // We have to mutate, adjust pointers.
-          switch (containing_upper.middle) {
-          | Lam(_, _, _, _, _, _, typ_binders)
-          | Asc(_, _, typ_binders)
-          | ListRec(_, typ_binders)
-          | Y(_, typ_binders)
-          | ITE(_, typ_binders)
-          | TypAp(_, _, typ_binders) =>
-            let (binder_parent, _ty, mark) = look_up_binder((alpha, TypFun), containing_upper, binder_set, root);
-            // Containing expression points to binder
-            Hashtbl.replace(typ_binders, alpha, binder_parent);
-            // Binder points to containing expression
-            bind_to_binder_typ(containing_upper, alpha, binder_parent);
-            Cursor(typ_update_mark(t, alpha, mark))
-          | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
-          };
-        }
-      }
-    }
+  | (Cursor(ForAll(Bind.Hole, t)), Unwrap(_)) => Cursor(t)
+  | (Cursor(ForAll(Bind.Var(alpha), t)), Unwrap(_)) => 
+    Cursor(TypVarSet.mem(alpha, local_ctx) ? t : typ_update_mark(t, alpha, Marked))
   | (ForAllCursorBind(Bind.Hole, t), InsertTypVar(alpha)) =>
-    if (TypVarContext.mem(alpha, local_ctx)) {
-      // No change needed if contained variables were
-      // previously bound to another local binder.
-      ForAllCursorBind(Bind.Var(alpha), t)
-    } else {
-      // Look down to see if there are any variables that bound
-      // to this...
-      let binder_used = typ_contains(t, alpha);
-      
-      if (!binder_used) {
-        // If not, then no change needed.
-        ForAllCursorBind(Bind.Var(alpha), t)
-      } else {
-        // Otherwise, this variable escapes the type.
-        // We have to mutate, adjust pointers.
-        switch (containing_upper.middle) {
-        | Lam(_, exp_root_t, _, _, _, _, typ_binders)
-        | Asc(_, exp_root_t, typ_binders)
-        | ListRec(exp_root_t, typ_binders)
-        | Y(exp_root_t, typ_binders)
-        | ITE(exp_root_t, typ_binders)
-        | TypAp(_, exp_root_t, typ_binders) =>
-          // Check if the variable no longer escapes outside
-          // the local type. If so, remove the external binder-boundvar
-          // connection.
-          // TODO: Check escaping properly
-          let doesEscape = failwith("Unimplemented");
-          if (!doesEscape) {
-            // Must be present bcause previously escaped
-            let binder_parent = Hashtbl.find(typ_binders, alpha);
-            // Bound no longer points to binder
-            Hashtbl.remove(typ_binders, alpha);
-            // Binder no longer points to bound.
-            unbind_from_binder_typ(containing_upper, alpha, binder_parent);
-          }
-          ForAllCursorBind(Bind.Var(alpha), typ_update_mark(t, alpha, Unmarked))
-        | _ => failwith("Type variable insertion was applied inside an expression that does not have pointers back to the type abstractors.")
-        };
-      }
-    }
+    ForAllCursorBind(Bind.Var(alpha), TypVarSet.mem(alpha, local_ctx) ? t : typ_update_mark(t, alpha, Unmarked))
+  | (ForAllCursorBind(Bind.Var(alpha), t), Delete) =>
+    ForAllCursorBind(Bind.Hole, TypVarSet.mem(alpha, local_ctx) ? t : typ_update_mark(t, alpha, Marked))
   // Any action that isn't insert type variable, delete, or move up
   // does nothing on a ForAllCursorBind.
   | (ForAllCursorBind(_), InsertNumType)
@@ -677,7 +558,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (LArrow(z, t), WrapProduct(_))
   | (LArrow(z, t), Unwrap(_))
   | (LArrow(z, t), WrapForAll) 
-  | (LArrow(z, t), InsertTypVar(_)) => LArrow(apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set), t)
+  | (LArrow(z, t), InsertTypVar(_)) => LArrow(apply_action_typ_local(local_ctx, z, a), t)
   | (RArrow(t, z), MoveUp)
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
@@ -689,7 +570,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (RArrow(t, z), WrapProduct(_))
   | (RArrow(t, z), Unwrap(_))
   | (RArrow(t, z), WrapForAll) 
-  | (RArrow(t, z), InsertTypVar(_)) => RArrow(t, apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set))
+  | (RArrow(t, z), InsertTypVar(_)) => RArrow(t, apply_action_typ_local(local_ctx, z, a))
   | (LProduct(z, t), MoveUp)
   | (LProduct(z, t), MoveDown(_))
   | (LProduct(z, t), Delete)
@@ -701,7 +582,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (LProduct(z, t), WrapProduct(_))
   | (LProduct(z, t), Unwrap(_))
   | (LProduct(z, t), WrapForAll) 
-  | (LProduct(z, t), InsertTypVar(_)) => LProduct(apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set), t)
+  | (LProduct(z, t), InsertTypVar(_)) => LProduct(apply_action_typ_local(local_ctx, z, a), t)
   | (RProduct(t, z), MoveUp)
   | (RProduct(t, z), MoveDown(_))
   | (RProduct(t, z), Delete)
@@ -713,7 +594,7 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (RProduct(t, z), WrapProduct(_))
   | (RProduct(t, z), Unwrap(_))
   | (RProduct(t, z), WrapForAll) 
-  | (RProduct(t, z), InsertTypVar(_)) => RProduct(t, apply_action_typ(containing_upper, local_ctx, z, a, root, binder_set))
+  | (RProduct(t, z), InsertTypVar(_)) => RProduct(t, apply_action_typ_local(local_ctx, z, a))
   | (ForAll(alpha, z), MoveUp)
   | (ForAll(alpha, z), MoveDown(_))
   | (ForAll(alpha, z), Delete)
@@ -727,10 +608,10 @@ let rec apply_action_typ = (containing_upper: Iexp.upper, local_ctx: TypVarConte
   | (ForAll(alpha, z), WrapForAll) 
   | (ForAll(alpha, z), InsertTypVar(_)) =>
     let new_ctx = switch (alpha) {
-    | Var(alpha) => TypVarContext.add(alpha, local_ctx)
+    | Var(alpha) => TypVarSet.add(alpha, local_ctx)
     | Hole => local_ctx
     };
-    ForAll(alpha, apply_action_typ(containing_upper, new_ctx, z, a, root, binder_set))
+    ForAll(alpha, apply_action_typ_local(new_ctx, z, a))
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
@@ -867,25 +748,25 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorTyp(e, z), a) =>
     switch (e.middle) {
     | Lam(_, t, _m1, _m2, _body, _bound) =>
-      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
+      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAnn(e), q);
       return_cursor(CursorTyp(e, z'));
     | Asc(_, t) =>
-      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
+      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAsc(e), q);
       return_cursor(CursorTyp(e, z'));
     | ListRec(t) =>
-      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
+      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewListRec(e), q);
       return_cursor(CursorTyp(e, z'));
     | Y(t) =>
-      let z' = apply_action_typ(e, TypVarContext.empty, z, a);
+      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewY(e), q);
