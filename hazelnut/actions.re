@@ -424,7 +424,7 @@ module TypVarSet = Set.Make(String);
 
 // Returns the provided type, but with all type variables bound
 // to alpha changed their mark. Doesn't go past shadowing.
-let rec typ_update_mark = (t: Htyp.t, alpha: string, new_mark: Mark.t): Htyp.t => {
+let rec htyp_update_mark = (t: Htyp.t, alpha: string, new_mark: Mark.t): Htyp.t => {
   switch (t) {
   | TypVar(beta, _) =>
     switch (beta) {
@@ -436,41 +436,56 @@ let rec typ_update_mark = (t: Htyp.t, alpha: string, new_mark: Mark.t): Htyp.t =
         t
       }
     }
-  | ForAll(beta, tbody) => ForAll(beta, typ_update_mark(tbody, alpha, new_mark))
-  | Arrow(tin, tout) => Arrow(typ_update_mark(tin, alpha, new_mark), typ_update_mark(tout, alpha, new_mark))
-  | Product(t1, t2) => Product(typ_update_mark(t1, alpha, new_mark), typ_update_mark(t2, alpha, new_mark))
+  | ForAll(beta, tbody) => ForAll(beta, htyp_update_mark(tbody, alpha, new_mark))
+  | Arrow(tin, tout) => Arrow(htyp_update_mark(tin, alpha, new_mark), htyp_update_mark(tout, alpha, new_mark))
+  | Product(t1, t2) => Product(htyp_update_mark(t1, alpha, new_mark), htyp_update_mark(t2, alpha, new_mark))
   | _ => t
   }
 };
 
-let rec typ_contains = (t: Htyp.t, alpha: string): bool => {
-  switch (t) {
-  | TypVar(beta, _) =>
-    switch (beta) {
-    | Hole => false
-    | Var(beta) => beta == alpha 
-    }
-  | ForAll(beta, tbody) =>
-    switch (beta) {
-    | Hole => typ_contains(tbody, alpha)
-    | Var(beta) =>
-      if (beta == alpha) {
-        false
-      } else {
-        typ_contains(tbody, alpha)
-      }
-    }
-  | Arrow(tin, tout) => typ_contains(tin, alpha) || typ_contains(tout, alpha)
-  | Product(t1, t2) => typ_contains(t1, alpha) || typ_contains(t2, alpha)
-  | _ => false
+let rec ztyp_update_mark = (z: Ztyp.t, alpha: string, new_mark: Mark.t): Ztyp.t => {
+  switch (z) {
+  | Cursor(t) => Cursor(htyp_update_mark(t, alpha, new_mark))
+  | LArrow(z, t) => LArrow(ztyp_update_mark(z, alpha, new_mark), htyp_update_mark(t, alpha, new_mark))
+  | RArrow(t, z) => RArrow(htyp_update_mark(t, alpha, new_mark), ztyp_update_mark(z, alpha, new_mark))
+  | LProduct(z, t) => LProduct(ztyp_update_mark(z, alpha, new_mark), htyp_update_mark(t, alpha, new_mark))
+  | RProduct(t, z) => RProduct(htyp_update_mark(t, alpha, new_mark), ztyp_update_mark(z, alpha, new_mark))
+  | ForAll(Bind.Var(beta), _) when alpha == beta => z
+  | ForAllCursorBind(Bind.Var(beta), _) when alpha == beta => z 
+  | ForAll(other, z) => ForAll(other, ztyp_update_mark(z, alpha, new_mark))
+  | ForAllCursorBind(other, t) => ForAllCursorBind(other, htyp_update_mark(t, alpha, new_mark))
   }
 }
+
+// Collects the names of all marked type variables in the input Htyp.
+let rec htyp_collect_marked: Htyp.t => TypVarSet.t =
+  fun
+  | TypVar(Var(alpha), Marked) => TypVarSet.singleton(alpha)
+  | ForAll(_, t) => htyp_collect_marked(t)
+  | Arrow(tin, tout) => TypVarSet.union(htyp_collect_marked(tin), htyp_collect_marked(tout))
+  | Product(t1, t2) => TypVarSet.union(htyp_collect_marked(t1), htyp_collect_marked(t2))
+  | _ => TypVarSet.empty;
+
+// Collects the names of all marked type variables in the input Ztyp.
+let rec ztyp_collect_marked: Ztyp.t => TypVarSet.t =
+  fun
+  | Cursor(t) => htyp_collect_marked(t)
+  | LArrow(z, t) => TypVarSet.union(ztyp_collect_marked(z), htyp_collect_marked(t))
+  | RArrow(t, z) => TypVarSet.union(htyp_collect_marked(t), ztyp_collect_marked(z))
+  | LProduct(z, t) => TypVarSet.union(ztyp_collect_marked(z), htyp_collect_marked(t))
+  | RProduct(t, z) => TypVarSet.union(htyp_collect_marked(t), ztyp_collect_marked(z))
+  | ForAll(_, z) => ztyp_collect_marked(z)
+  | ForAllCursorBind(_, t) => htyp_collect_marked(t);
 
 // Applies an action to a Ztyp, assuming nothing about the
 // context of type variable binders in outer expressions
 // containing this Ztyp.
-let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.t): Ztyp.t => {
-  switch (z, a) {
+// Additionally returns a boolean for whether
+// any type variable changes occurred that could affect outside
+// binder-boundvar pointers.
+let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.t): (Ztyp.t, bool) => {
+  let typvars_affected = ref(false);
+  let z_after_action = switch (z, a) {
     // Significant MoveUp cases
   | (Cursor(_), MoveUp) => z
   | (LArrow(Cursor(t1), t2), MoveUp)
@@ -479,12 +494,12 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (RProduct(t1, Cursor(t2)), MoveUp) => Cursor(Product(t1, t2))
   | (ForAll(name, Cursor(body_t)), MoveUp) 
   | (ForAllCursorBind(name, body_t), MoveUp) => Cursor(ForAll(name, body_t))
-  | (Cursor(Hole), MoveDown(_)) => z
-  | (Cursor(Num), MoveDown(_)) => z
-  | (Cursor(Bool), MoveDown(_)) => z
-  | (Cursor(Unit), MoveDown(_)) => z
-  | (Cursor(List), MoveDown(_)) => z
-  | (Cursor(TypVar(_)), MoveDown(_)) => z
+  | (Cursor(Hole), MoveDown(_))
+  | (Cursor(Num), MoveDown(_))
+  | (Cursor(Bool), MoveDown(_))
+  | (Cursor(Unit), MoveDown(_))
+  | (Cursor(List), MoveDown(_))
+  | (Cursor(TypVar(_)), MoveDown(_))
   | (ForAllCursorBind(_), MoveDown(_)) => z
   | (Cursor(Arrow(t1, t2)), MoveDown(One)) => LArrow(Cursor(t1), t2)
   | (Cursor(Arrow(t1, t2)), MoveDown(Two)) => RArrow(t1, Cursor(t2))
@@ -499,6 +514,7 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (Cursor(Hole), InsertUnitType) => Cursor(Unit)
   | (Cursor(Hole), InsertList) => Cursor(List)
   | (Cursor(Hole), InsertTypVar(alpha)) =>
+    typvars_affected := true;
     Cursor(TypVar(Bind.Var(alpha), TypVarSet.mem(alpha, local_ctx) ? Unmarked : Marked))
   | (Cursor(t), WrapForAll) => Cursor(ForAll(Bind.Hole, t))
   | (Cursor(_), InsertNumType)
@@ -525,12 +541,15 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (Cursor(Product(_, t)), Unwrap(Two)) => Cursor(t)
   | (Cursor(Product(_)), Unwrap(Three)) => z
   | (Cursor(ForAll(Bind.Hole, t)), Unwrap(_)) => Cursor(t)
-  | (Cursor(ForAll(Bind.Var(alpha), t)), Unwrap(_)) => 
-    Cursor(TypVarSet.mem(alpha, local_ctx) ? t : typ_update_mark(t, alpha, Marked))
+  | (Cursor(ForAll(Bind.Var(alpha), t)), Unwrap(_)) =>
+    typvars_affected := true;
+    Cursor(TypVarSet.mem(alpha, local_ctx) ? t : htyp_update_mark(t, alpha, Marked))
   | (ForAllCursorBind(Bind.Hole, t), InsertTypVar(alpha)) =>
-    ForAllCursorBind(Bind.Var(alpha), TypVarSet.mem(alpha, local_ctx) ? t : typ_update_mark(t, alpha, Unmarked))
+    typvars_affected := true;
+    ForAllCursorBind(Bind.Var(alpha), TypVarSet.mem(alpha, local_ctx) ? t : htyp_update_mark(t, alpha, Unmarked))
   | (ForAllCursorBind(Bind.Var(alpha), t), Delete) =>
-    ForAllCursorBind(Bind.Hole, TypVarSet.mem(alpha, local_ctx) ? t : typ_update_mark(t, alpha, Marked))
+    typvars_affected := true;
+    ForAllCursorBind(Bind.Hole, TypVarSet.mem(alpha, local_ctx) ? t : htyp_update_mark(t, alpha, Marked))
   // Any action that isn't insert type variable, delete, or move up
   // does nothing on a ForAllCursorBind.
   | (ForAllCursorBind(_), InsertNumType)
@@ -558,7 +577,10 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (LArrow(z, t), WrapProduct(_))
   | (LArrow(z, t), Unwrap(_))
   | (LArrow(z, t), WrapForAll) 
-  | (LArrow(z, t), InsertTypVar(_)) => LArrow(apply_action_typ_local(local_ctx, z, a), t)
+  | (LArrow(z, t), InsertTypVar(_)) =>
+    let (sub_z, sub_typvars_affected) = apply_action_typ_local(local_ctx, z, a);
+    typvars_affected := sub_typvars_affected;
+    LArrow(sub_z, t)
   | (RArrow(t, z), MoveUp)
   | (RArrow(t, z), MoveDown(_))
   | (RArrow(t, z), Delete)
@@ -570,7 +592,10 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (RArrow(t, z), WrapProduct(_))
   | (RArrow(t, z), Unwrap(_))
   | (RArrow(t, z), WrapForAll) 
-  | (RArrow(t, z), InsertTypVar(_)) => RArrow(t, apply_action_typ_local(local_ctx, z, a))
+  | (RArrow(t, z), InsertTypVar(_)) =>
+    let (sub_z, sub_typvars_affected) = apply_action_typ_local(local_ctx, z, a);
+    typvars_affected := sub_typvars_affected;
+    RArrow(t, sub_z)
   | (LProduct(z, t), MoveUp)
   | (LProduct(z, t), MoveDown(_))
   | (LProduct(z, t), Delete)
@@ -582,7 +607,10 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (LProduct(z, t), WrapProduct(_))
   | (LProduct(z, t), Unwrap(_))
   | (LProduct(z, t), WrapForAll) 
-  | (LProduct(z, t), InsertTypVar(_)) => LProduct(apply_action_typ_local(local_ctx, z, a), t)
+  | (LProduct(z, t), InsertTypVar(_)) =>
+    let (sub_z, sub_typvars_affected) = apply_action_typ_local(local_ctx, z, a);
+    typvars_affected := sub_typvars_affected;
+    LProduct(sub_z, t)
   | (RProduct(t, z), MoveUp)
   | (RProduct(t, z), MoveDown(_))
   | (RProduct(t, z), Delete)
@@ -594,7 +622,10 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (RProduct(t, z), WrapProduct(_))
   | (RProduct(t, z), Unwrap(_))
   | (RProduct(t, z), WrapForAll) 
-  | (RProduct(t, z), InsertTypVar(_)) => RProduct(t, apply_action_typ_local(local_ctx, z, a))
+  | (RProduct(t, z), InsertTypVar(_)) =>
+    let (sub_z, sub_typvars_affected) = apply_action_typ_local(local_ctx, z, a);
+    typvars_affected := sub_typvars_affected;
+    RProduct(t, sub_z)
   | (ForAll(alpha, z), MoveUp)
   | (ForAll(alpha, z), MoveDown(_))
   | (ForAll(alpha, z), Delete)
@@ -611,7 +642,9 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
     | Var(alpha) => TypVarSet.add(alpha, local_ctx)
     | Hole => local_ctx
     };
-    ForAll(alpha, apply_action_typ_local(new_ctx, z, a))
+    let (sub_z, sub_typvars_affected) = apply_action_typ_local(new_ctx, z, a);
+    typvars_affected := sub_typvars_affected;
+    ForAll(alpha, sub_z)
   | (z, WrapAsc) => z
   | (z, InsertNumLit(_)) => z
   | (z, InsertVar(_)) => z
@@ -630,7 +663,57 @@ let rec apply_action_typ_local = (local_ctx: TypVarSet.t, z: Ztyp.t, a: Iaction.
   | (z, WrapTypFun) => z
   | (z, WrapTypAp) => z
   };
+  (z_after_action, typvars_affected^)
 };
+
+// I feel like this could totally be incrementalized more granularly.
+// z after action is locally accurate, but some unmarked stuff may
+// actually be bound.
+let fixup_pointers = (z_after_action: Ztyp.t, containing_upper: Iexp.upper, root: Iexp.root, binder_set: BinderSet.t): Ztyp.t => {
+  let escaped_typ_vars = ztyp_collect_marked(z_after_action);
+  let typ_binders = switch (containing_upper.middle) {
+  | Lam(_, _, _, _, _, _, typ_binders)
+  | Asc(_, _, typ_binders)
+  | ListRec(_, typ_binders)
+  | Y(_, typ_binders)
+  | ITE(_, typ_binders)
+  | TypAp(_, _, typ_binders) => typ_binders
+  | _ => failwith("[fixup_pointers] Type action application happened in containing_upper")
+  };
+
+  let result = ref(z_after_action);
+
+  // Remove typvars that are now entirely locally contained
+  let unbind = (alpha: string, binder_parent: Iexp.parent) => {
+    unbind_from_binder_typ(containing_upper, alpha, binder_parent);
+  }
+
+  Hashtbl.iter(unbind, typ_binders);
+  Hashtbl.filter_map_inplace((alpha, binder_parent) => { TypVarSet.mem(alpha, escaped_typ_vars) ? Some(binder_parent) : None }, typ_binders);
+
+  // Add typvars that are unbound, also update the type to reflect
+  // the new bound status
+  let add_escaped = (alpha: string) => {
+    if (!Hashtbl.mem(typ_binders, alpha)) {
+      let (binder_parent, _, mark) = look_up_binder((alpha, TypFun), containing_upper, binder_set, root);
+      bind_to_binder_typ(containing_upper, alpha, binder_parent);
+      Hashtbl.replace(typ_binders, alpha, binder_parent);
+      result := ztyp_update_mark(result^, alpha, mark);
+    }
+  }
+  TypVarSet.iter(add_escaped, escaped_typ_vars);
+
+  result^
+}
+
+let apply_action_typ = (containing_upper: Iexp.upper, z: Ztyp.t, a: Iaction.t, root: Iexp.root, binder_set: BinderSet.t): Ztyp.t => {
+  let (local_z, typvar_affected) = apply_action_typ_local(TypVarSet.empty, z, a);
+  if (typvar_affected) {
+    fixup_pointers(local_z, containing_upper, root, binder_set)
+  } else {
+    local_z
+  }
+}
 
 // these belong in Pexp, copied for convenience
 
@@ -748,25 +831,25 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorTyp(e, z), a) =>
     switch (e.middle) {
     | Lam(_, t, _m1, _m2, _body, _bound) =>
-      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
+      let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAnn(e), q);
       return_cursor(CursorTyp(e, z'));
     | Asc(_, t) =>
-      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
+      let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAsc(e), q);
       return_cursor(CursorTyp(e, z'));
     | ListRec(t) =>
-      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
+      let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewListRec(e), q);
       return_cursor(CursorTyp(e, z'));
     | Y(t) =>
-      let z' = apply_action_typ(e, TypVarSet.empty, z, a);
+      let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewY(e), q);
