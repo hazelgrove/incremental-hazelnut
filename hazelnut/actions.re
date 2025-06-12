@@ -755,6 +755,10 @@ let _string_of_action: Iaction.t => string =
     "WrapProj(" ++ _string_of_prod_side(prod_side) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
+  | WrapTypAp => "WrapTypAp"
+  | WrapTypFun => "WrapTypFun"
+  | WrapForAll => "WrapForAll"
+  | InsertTypVar(s) => "InsertTypVar(\"" ++ s ++ "\")"
   | Unwrap(c) => "Unwrap(" ++ _string_of_child(c) ++ ")";
 
 let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
@@ -777,7 +781,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorBind(e), MoveUp) => return_cursor(CursorExp(e))
   | (CursorBind(e), Delete) =>
     switch (e.middle) {
-    | Lam(bind, _t, _m1, _m2, body, bound_vars) =>
+    | Lam(bind, _t, _m1, _m2, body, bound_vars, _) =>
       switch (bind.contents) {
       | Var(x) =>
         bind.contents = Hole;
@@ -804,7 +808,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     }
   | (CursorBind(e), InsertVar(x)) =>
     switch (e.middle) {
-    | Lam(bind, t, _m1, _m2, body, bound_vars) =>
+    | Lam(bind, t, _m1, _m2, body, bound_vars, _) =>
       switch (bind.contents) {
       | Hole =>
         bind.contents = Var(x);
@@ -932,7 +936,9 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorExp(_), InsertUnitType)
   | (CursorExp(_), WrapArrow(_))
   | (CursorExp(_), InsertList)
-  | (CursorExp(_), WrapProduct(_)) => no_movement
+  | (CursorExp(_), WrapProduct(_))
+  | (CursorExp(_), WrapForAll)
+  | (CursorExp(_), InsertTypVar(_)) => no_movement
   | (CursorExp(e), InsertNumLit(x)) =>
     switch (e.middle) {
     | EHole =>
@@ -1264,6 +1270,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
 
+  | (CursorExp(e), WrapTypFun) => failwith("Unimplemented");
+
+  | (CursorExp(e), WrapTypAp) => failwith("Unimplemented");
+
   | (CursorExp(e), WrapPair(child)) =>
     let make_product_with_children = (parent, interval, e1, e2, q, child) => {
       let new_lower_left: Iexp.lower = {
@@ -1393,7 +1403,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     | ListRec(_)
     | ITE(_)
     | Y(_) => apply_action(state, Delete)
-    | Lam(bind, _, _, _, body_lower, bound_vars) =>
+    | Lam(bind, _, _, _, body_lower, bound_vars, _) =>
       let body = body_lower.child;
       let parent = e.parent;
       let bound_var_set = bound_vars.contents;
