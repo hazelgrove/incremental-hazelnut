@@ -804,7 +804,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         no_movement;
       | Hole => no_movement
       }
-    | _ => failwith("CursorBind on non lambda")
+    | TypFun(_, _, _, _) => failwith("Unimplemented");
+    | _ => failwith("CursorBind on non lambda and non typfun")
     }
   | (CursorBind(e), InsertVar(x)) =>
     switch (e.middle) {
@@ -828,35 +829,43 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         no_movement;
       | Var(_) => no_movement
       }
-    | _ => failwith("CursorBind on non lambda")
+    | TypFun(_, _, _, _) => failwith("Unimplemented");
+    | _ => failwith("CursorBind on non lambda and non typfun")
     }
   | (CursorBind(_), _) => no_movement
   | (CursorTyp(e, Cursor(_)), MoveUp) => return_cursor(CursorExp(e))
   | (CursorTyp(e, z), a) =>
     switch (e.middle) {
-    | Lam(_, t, _m1, _m2, _body, _bound) =>
+    | Lam(_, t, _m1, _m2, _body, _bound, _) =>
       let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAnn(e), q);
       return_cursor(CursorTyp(e, z'));
-    | Asc(_, t) =>
+    | Asc(_, t, _) =>
       let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewAsc(e), q);
       return_cursor(CursorTyp(e, z'));
-    | ListRec(t) =>
+    | ListRec(t, _) =>
       let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewListRec(e), q);
       return_cursor(CursorTyp(e, z'));
-    | Y(t) =>
+    | Y(t, _) =>
       let z' = apply_action_typ(e, z, a, root, binder_set);
       let t' = erase_typ(z');
       t.contents = t';
       UpdateQueue.update_push(NewY(e), q);
+      return_cursor(CursorTyp(e, z'));
+    | TypAp(_, t, _) =>
+      let z' = apply_action_typ(e, z, a, root, binder_set);
+      let t' = erase_typ(z');
+      t.contents = t';
+      // TODO: Make NewTypAp
+      UpdateQueue.update_push(failwith("Unimplemented"), q);
       return_cursor(CursorTyp(e, z'));
     | _ => failwith("CursorTyp on node with no type")
     }
@@ -880,13 +889,13 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Two => return_cursor(CursorExp(e2.child))
       | Three => no_movement
       }
-    | Lam(_, t, _, _, e1, _) =>
+    | Lam(_, t, _, _, e1, _, _) =>
       switch (child) {
       | One => return_cursor(CursorBind(e))
       | Two => return_cursor(CursorTyp(e, Cursor(t.contents)))
       | Three => return_cursor(CursorExp(e1.child))
       }
-    | Asc(e1, t) =>
+    | Asc(e1, t, _) =>
       switch (child) {
       | One => return_cursor(CursorExp(e1.child))
       | Two => return_cursor(CursorTyp(e, Cursor(t.contents)))
@@ -898,22 +907,34 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Two => no_movement
       | Three => no_movement
       }
-    | ListRec(t) =>
+    | ListRec(t, _) =>
       switch (child) {
       | One => return_cursor(CursorTyp(e, Cursor(t.contents)))
       | Two
       | Three => no_movement
       }
-    | Y(t) =>
+    | Y(t, _) =>
       switch (child) {
       | One => return_cursor(CursorTyp(e, Cursor(t.contents)))
       | Two
       | Three => no_movement
       }
-    | ITE(t) =>
+    | ITE(t, _) =>
       switch (child) {
       | One => return_cursor(CursorTyp(e, Cursor(t.contents)))
       | Two
+      | Three => no_movement
+      }
+    | TypFun(_, _, e1, _) =>
+      switch (child) {
+      | One => return_cursor(CursorBind(e))
+      | Two => return_cursor(CursorExp(e1.child))
+      | Three => no_movement 
+      }
+    | TypAp(e1, t, _) =>
+      switch (child) {
+      | One => return_cursor(CursorExp(e1.child))
+      | Two => return_cursor(CursorTyp(e, Cursor(t.contents)))
       | Three => no_movement
       }
     }
@@ -1005,7 +1026,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
               Arrow(Arrow(Num, Arrow(Hole, Hole)), Arrow(List, Hole)),
             ),
           ),
-        middle: ListRec(ref(Htyp.Hole)),
+        middle: ListRec(ref(Htyp.Hole), Hashtbl.create(0)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -1029,7 +1050,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
               Arrow(Hole, Arrow(Arrow(Num, Arrow(List, Hole)), Hole)),
             ),
           ),
-        middle: ListRec(ref(Htyp.Hole)),
+        middle: ListRec(ref(Htyp.Hole), Hashtbl.create(0)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -1048,7 +1069,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let e': Iexp.upper = {
         parent: e.parent,
         syn: Some(Arrow(Arrow(Hole, Hole), Hole)),
-        middle: Y(ref(Htyp.Hole)),
+        middle: Y(ref(Htyp.Hole), Hashtbl.create(0)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -1066,7 +1087,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let e': Iexp.upper = {
         parent: e.parent,
         syn: Some(Arrow(Num, Arrow(Num, Bool))),
-        middle: ListRec(ref(Htyp.Hole)),
+        middle: ListRec(ref(Htyp.Hole), Hashtbl.create(0)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -1090,7 +1111,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
               Arrow(Arrow(Unit, Hole), Arrow(Arrow(Unit, Hole), Hole)),
             ),
           ),
-        middle: ListRec(ref(Htyp.Hole)),
+        middle: ListRec(ref(Htyp.Hole), Hashtbl.create(0)),
         interval: e.interval,
         in_queue_upper: InQueue.default_upper(),
         deleted_upper: false,
@@ -1249,6 +1270,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         ref(Mark.Unmarked),
         new_lower,
         ref(Tree.empty),
+        Hashtbl.create(0),
       );
     let new_upper: Iexp.upper = {
       parent: body.parent,
@@ -1270,9 +1292,9 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
 
-  | (CursorExp(e), WrapTypFun) => failwith("Unimplemented");
+  | (CursorExp(_), WrapTypFun) => failwith("Unimplemented");
 
-  | (CursorExp(e), WrapTypAp) => failwith("Unimplemented");
+  | (CursorExp(_), WrapTypAp) => failwith("Unimplemented");
 
   | (CursorExp(e), WrapPair(child)) =>
     let make_product_with_children = (parent, interval, e1, e2, q, child) => {
@@ -1373,7 +1395,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       in_queue_lower: InQueue.default_lower(),
       deleted_lower: false,
     };
-    let new_mid: Iexp.middle = Asc(new_lower, ref(Htyp.Hole));
+    let new_mid: Iexp.middle = Asc(new_lower, ref(Htyp.Hole), Hashtbl.create(0));
     let new_upper: Iexp.upper = {
       parent: e.parent,
       syn: Some(Hole),
@@ -1475,7 +1497,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       return_cursor(CursorExp(body));
 
     | Proj(_, body_lower, _)
-    | Asc(body_lower, _) =>
+    | Asc(body_lower, _, _) =>
       let body = body_lower.child;
 
       e.deleted_upper = true;
@@ -1485,6 +1507,8 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(body));
+    | TypFun(_, _, _, _)
+    | TypAp(_, _, _) => failwith("Unimplemented")
     }
   };
 };
