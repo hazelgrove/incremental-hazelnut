@@ -715,6 +715,43 @@ let apply_action_typ = (containing_upper: Iexp.upper, z: Ztyp.t, a: Iaction.t, r
   }
 }
 
+// Extracts the new-type update variant from the upper's middle.
+let typ_update_of_upper = (containing_upper: Iexp.upper): Update.t => {
+  switch (containing_upper.middle) {
+  | Lam(_) => NewAnn(containing_upper)
+  | Asc(_) => NewAsc(containing_upper)
+  | ListRec(_) => NewListRec(containing_upper)
+  | Y(_) => NewY(containing_upper)
+  | ITE(_) => failwith("Unimplemented")
+  | TypAp(_) => failwith("Unimplemented")
+  | _ => failwith("Tried to get new-type update variant from an upper with no type.")
+  }
+}
+
+let typ_binders_of_upper = (containing_upper: Iexp.upper): Iexp.typ_binders => {
+  switch (containing_upper.middle) {
+  | Lam(_, _, _, _, _, _, typ_binders)
+  | Asc(_, _, typ_binders)
+  | ListRec(_, typ_binders)
+  | Y(_, typ_binders)
+  | ITE(_, typ_binders)
+  | TypAp(_, _, typ_binders) => typ_binders
+  | _ => failwith("Tried to get typ_binders from an upper with no type.")
+  }
+};
+
+let typ_ref_of_upper = (containing_upper: Iexp.upper): ref(Htyp.t) => {
+  switch (containing_upper.middle) {
+  | Lam(_, t, _, _, _, _, _)
+  | Asc(_, t, _)
+  | ListRec(t, _)
+  | Y(t, _)
+  | ITE(t, _)
+  | TypAp(_, t, _) => t
+  | _ => failwith("Tried to get type from an upper with no type.")
+  }
+};
+
 // these belong in Pexp, copied for convenience
 
 let _string_of_child: Child.t => string =
@@ -804,7 +841,35 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         no_movement;
       | Hole => no_movement
       }
-    | TypFun(_, _, _, _) => failwith("Unimplemented");
+    | TypFun(bind, _, body, bound_vars) =>
+      switch (bind^) {
+      | Var(x) =>
+        bind.contents = Hole;
+
+        remove_from_binder_set((x, BinderKind.TypFun), e, binder_set);
+
+        // Binder -> Boundvars
+        let (new_binder, _, m) = look_up_binder((x, BinderKind.TypFun), e, binder_set, root);
+        add_bound_var_set((x, BinderKind.TypFun), bound_vars^, new_binder);
+        
+        // Boundvars -> Binder
+        let update = (containing_upper: Iexp.upper) => {
+          let t = typ_ref_of_upper(containing_upper);
+          t := htyp_update_mark(t^, x, m);
+          Hashtbl.replace(typ_binders_of_upper(containing_upper), x, new_binder);
+        }
+        Tree.iter(update, bound_vars^);
+
+        let bound_var_list = Tree.list_of_t(bound_vars^);
+        let update_list =
+          [Update.NewAna(e.parent)]
+          @ List.map(e => Update.NewSyn(e), bound_var_list)
+          @ [NewAna(Lower(body)), NewSyn(body.child)]; // TODO: Doublecheck this
+        UpdateQueue.update_push_list(update_list, q);
+        no_movement
+      | Hole =>
+        no_movement
+      }
     | _ => failwith("CursorBind on non lambda and non typfun")
     }
   | (CursorBind(e), InsertVar(x)) =>
@@ -835,40 +900,12 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
   | (CursorBind(_), _) => no_movement
   | (CursorTyp(e, Cursor(_)), MoveUp) => return_cursor(CursorExp(e))
   | (CursorTyp(e, z), a) =>
-    switch (e.middle) {
-    | Lam(_, t, _m1, _m2, _body, _bound, _) =>
-      let z' = apply_action_typ(e, z, a, root, binder_set);
-      let t' = erase_typ(z');
-      t.contents = t';
-      UpdateQueue.update_push(NewAnn(e), q);
-      return_cursor(CursorTyp(e, z'));
-    | Asc(_, t, _) =>
-      let z' = apply_action_typ(e, z, a, root, binder_set);
-      let t' = erase_typ(z');
-      t.contents = t';
-      UpdateQueue.update_push(NewAsc(e), q);
-      return_cursor(CursorTyp(e, z'));
-    | ListRec(t, _) =>
-      let z' = apply_action_typ(e, z, a, root, binder_set);
-      let t' = erase_typ(z');
-      t.contents = t';
-      UpdateQueue.update_push(NewListRec(e), q);
-      return_cursor(CursorTyp(e, z'));
-    | Y(t, _) =>
-      let z' = apply_action_typ(e, z, a, root, binder_set);
-      let t' = erase_typ(z');
-      t.contents = t';
-      UpdateQueue.update_push(NewY(e), q);
-      return_cursor(CursorTyp(e, z'));
-    | TypAp(_, t, _) =>
-      let z' = apply_action_typ(e, z, a, root, binder_set);
-      let t' = erase_typ(z');
-      t.contents = t';
-      // TODO: Make NewTypAp
-      UpdateQueue.update_push(failwith("Unimplemented"), q);
-      return_cursor(CursorTyp(e, z'));
-    | _ => failwith("CursorTyp on node with no type")
-    }
+    let t = typ_ref_of_upper(e);
+    let z' = apply_action_typ(e, z, a, root, binder_set);
+    let t' = erase_typ(z');
+    t := t';
+    UpdateQueue.update_push(typ_update_of_upper(e), q);
+    return_cursor(CursorTyp(e, z'));
   | (CursorExp(e), MoveUp) =>
     switch (upper_of_parent(e.parent)) {
     | None => no_movement
