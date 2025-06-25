@@ -24,8 +24,8 @@ module Patch = {
   type location = (node, position);
 
   type sign =
-    | Add
-    | Delete;
+    | Live
+    | Dead;
 
   type meta =
     | Alexander

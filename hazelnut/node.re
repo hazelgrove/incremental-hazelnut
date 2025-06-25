@@ -12,9 +12,9 @@ module Node = {
   type typ_constructor =
     | Arrow;
 
-  type var_data = Id.t;
+  type var_data = option(Id.t);
 
-  type fun_data = ref(Tree.t(Id.t));
+  type fun_data = option(ref(Tree.t(Id.t)));
 
   type exp_constructor =
     | Var(var_data, string)
@@ -35,7 +35,7 @@ module Node = {
   };
 
   type content =
-    | Root
+    | Program
     | Pat(pat_constructor)
     | Typ(typ_data, typ_constructor)
     | Exp(exp_data, exp_constructor);
@@ -50,12 +50,12 @@ module Node = {
     meta: Patch.meta,
   };
 
-  type edge_set = list(edge)
+  type edge_set = list(edge);
 
   // future optimization: store visible parents and children using refs,
   // rather than our own indirect Id.t based references
 
-  and t = {
+  type t = {
     id: Id.t,
     interval: (Order.t, Order.t),
     mutable deleted: bool,
@@ -88,6 +88,13 @@ module Node = {
   let initial = (counter: Id.counter): t => {
     create_node(Id.fresh(counter), Root);
   };
+  let live_edge = e => e.sign == Live;
+
+  let live_parent_edges = e => List.filter(live_edge, e.parent_edges);
+
+  let default_typ_data: unit => typ_data = () => {dirty: false};
+  let default_exp_data: unit => exp_data =
+    () => {ana: None, mark_consistent: Unmarked, syn: None};
 
   let get_typ_data = (e: t): typ_data => {
     switch (e.content) {
@@ -131,3 +138,10 @@ module Node = {
 let first: list('a) => 'a = List.nth(_, 0);
 let second: list('a) => 'a = List.nth(_, 1);
 let third: list('a) => 'a = List.nth(_, 2);
+
+let map_children_at_position =
+    (n: Node.t, position: Node.position, f: Node.edge_set => Node.edge_set) => {
+  let map_component = (i, children) =>
+    i == position ? f(children) : children;
+  n.children_edges = List.mapi(map_component, n.children_edges);
+};
