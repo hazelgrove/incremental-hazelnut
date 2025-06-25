@@ -888,13 +888,41 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         let newly_bound_list = Tree.list_of_t(bound_vars.contents);
         let update_list =
           [Update.NewAna(e.parent)]
-          @ List.map(e => Update.NewSyn(e), newly_bound_list)
+          @ List.map(e => typ_update_of_upper(e), newly_bound_list)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
         UpdateQueue.update_push_list(update_list, q);
         no_movement;
       | Var(_) => no_movement
       }
-    | TypFun(_, _, _, _) => failwith("Unimplemented");
+    | TypFun(bind, _, body, bound_vars) =>
+      switch (bind^) {
+      | Hole =>
+        bind := Var(x);
+        add_to_binder_set((x, BinderKind.TypFun), e, binder_set);
+
+        // Look up to find old binder.
+        // Binder -> Boundvars
+        bound_vars := capture_name((x, BinderKind.TypFun), e, binder_set, root);
+
+        // Boundvars -> Binder
+        let update = (containing_upper: Iexp.upper) => {
+          let t = typ_ref_of_upper(containing_upper);
+          t := htyp_update_mark(t^, x, Unmarked);
+          Hashtbl.replace(typ_binders_of_upper(containing_upper), x, Iexp.Lower(body));
+        }
+        Tree.iter(update, bound_vars^);
+
+        // Updates
+        let newly_bound_list = Tree.list_of_t(bound_vars^);
+        let update_list =
+          [Update.NewAna(e.parent)]
+          @ List.map(e => typ_update_of_upper(e), newly_bound_list)
+          @ [NewAna(Lower(body)), NewSyn(body.child)];
+        UpdateQueue.update_push_list(update_list, q);
+
+        no_movement
+      | Var(_) => no_movement
+      }
     | _ => failwith("CursorBind on non lambda and non typfun")
     }
   | (CursorBind(_), _) => no_movement
