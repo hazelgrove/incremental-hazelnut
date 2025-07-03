@@ -1357,7 +1357,41 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper));
 
-  | (CursorExp(_), WrapTypFun) => failwith("Unimplemented");
+  | (CursorExp(body), WrapTypFun) =>
+    let new_lower: Iexp.lower = {
+      upper: dummy_upper(),
+      ana: None,
+      marked: Unmarked,
+      child: body,
+      in_queue_lower: InQueue.default_lower(),
+      deleted_lower: false,
+    };
+    let new_mid =
+      Iexp.TypFun(
+        ref(Bind.Hole),
+        ref(Mark.Unmarked),
+        new_lower,
+        ref(Tree.empty)
+      );
+    let new_upper: Iexp.upper = {
+      parent: body.parent,
+      syn: None,
+      interval: interval_around(body),
+      middle: new_mid,
+      in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
+    };
+
+    splice(new_lower, new_upper);
+
+    let update_list = [
+      Update.NewAna(new_upper.parent),
+      Update.NewAna(Lower(new_lower)),
+      Update.NewSyn(body),
+      Update.NewSyn(new_upper),
+    ];
+    UpdateQueue.update_push_list(update_list, q);
+    return_cursor(CursorExp(new_upper))
 
   | (CursorExp(_), WrapTypAp) => failwith("Unimplemented");
 
