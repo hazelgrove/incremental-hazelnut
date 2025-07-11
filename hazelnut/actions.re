@@ -1393,7 +1393,38 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
     UpdateQueue.update_push_list(update_list, q);
     return_cursor(CursorExp(new_upper))
 
-  | (CursorExp(_), WrapTypAp) => failwith("Unimplemented");
+  | (CursorExp(e), WrapTypAp) =>
+    // this must come before the calls to interval_before or _after. It mutates s.som.
+    let interval = interval_around(e);
+    let new_lower_left: Iexp.lower = {
+      upper: dummy_upper(),
+      ana: None,
+      marked: Unmarked,
+      child: e,
+      in_queue_lower: InQueue.default_lower(),
+      deleted_lower: false,
+    };
+    let new_mid: Iexp.middle =
+      TypAp(new_lower_left, ref(Htyp.Hole), Hashtbl.create(0));
+    let new_upper: Iexp.upper = {
+      parent: e.parent,
+      syn: Some(Hole),
+      interval,
+      middle: new_mid,
+      in_queue_upper: InQueue.default_upper(),
+      deleted_upper: false,
+    };
+
+    splice(new_lower_left, new_upper);
+    let update_list = [
+      Update.NewAna(new_upper.parent),
+      Update.NewSyn(e),
+      Update.NewSyn(new_upper),
+      Update.NewAna(Lower(new_lower_left))
+    ];
+
+    UpdateQueue.update_push_list(update_list, q);
+    return_cursor(CursorExp(new_upper));
 
   | (CursorExp(e), WrapPair(child)) =>
     let make_product_with_children = (parent, interval, e1, e2, q, child) => {
