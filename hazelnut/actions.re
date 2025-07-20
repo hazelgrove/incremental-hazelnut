@@ -688,7 +688,7 @@ let fixup_pointers = (z_after_action: Ztyp.t, containing_upper: Iexp.upper, root
     unbind_from_binder_typ(containing_upper, alpha, binder_parent);
   }
 
-  Hashtbl.iter(unbind, typ_binders);
+  Hashtbl.iter(unbind, Hashtbl.copy(typ_binders));
   Hashtbl.filter_map_inplace((alpha, binder_parent) => { TypVarSet.mem(alpha, escaped_typ_vars) ? Some(binder_parent) : None }, typ_binders);
 
   // Add typvars that are unbound, also update the type to reflect
@@ -1637,7 +1637,45 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(body));
-    | TypFun(_, _, _, _)
+    | TypFun(bind, _, body_lower, bound_vars) =>
+      let body = body_lower.child;
+      let parent = e.parent;
+
+      e.deleted_upper = true;
+      body_lower.deleted_lower = true;
+      replace(e, body);
+
+      // update bound variables to outer binder
+      switch (bind.contents) {
+      | Hole => ()
+      | Var(x) =>
+        remove_from_binder_set((x, BinderKind.TypFun), e, binder_set);
+
+        // Binder -> Boundvars
+        let (new_binder, _, m) = look_up_binder((x, BinderKind.TypFun), e, binder_set, root);
+        add_bound_var_set((x, BinderKind.TypFun), bound_vars^, new_binder);
+        
+        // Boundvars -> Binder
+        let update = (containing_upper: Iexp.upper) => {
+          let t = typ_ref_of_upper(containing_upper);
+          t := htyp_update_mark(t^, x, m);
+          Hashtbl.replace(typ_binders_of_upper(containing_upper), x, new_binder);
+        }
+        Tree.iter(update, bound_vars^);
+      };
+
+      // because updating vars could have deleted the body
+      let new_body = child_of_parent(parent);
+
+      // todo: maybe this could be a stream so that we don't have to wast time
+      // appending sublists
+      let bound_vars_list = Tree.list_of_t(bound_vars^);
+      let update_list =
+        [Update.NewAna(parent)]
+        @ List.map(e => Update.NewSyn(e), bound_vars_list)
+        @ [Update.NewSyn(new_body)]; // TODO: Doublecheck this
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(new_body));
     | TypAp(_, _, _) => failwith("Unimplemented")
     }
   };
