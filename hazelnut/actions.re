@@ -1676,7 +1676,16 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         @ [Update.NewSyn(new_body)]; // TODO: Doublecheck this
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(new_body));
-    | TypAp(_, _, _) => failwith("Unimplemented")
+    | TypAp(fun_lower, _, _) =>
+      let body = fun_lower.child;
+
+      e.deleted_upper = true;
+      fun_lower.deleted_lower = true;
+      replace(e, body);
+
+      let update_list = [Update.NewAna(body.parent), Update.NewSyn(body)];
+      UpdateQueue.update_push_list(update_list, q);
+      return_cursor(CursorExp(body));
     }
   };
 };
