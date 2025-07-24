@@ -11,6 +11,8 @@ module InQueue = {
     mutable asc: bool,
     mutable list_rec: bool,
     mutable y: bool,
+    mutable ite: bool,
+    mutable typ_ap: bool,
   };
 
   [@deriving sexp]
@@ -27,6 +29,8 @@ module InQueue = {
     ann: false,
     list_rec: false,
     y: false,
+    ite: false,
+    typ_ap: false,
   };
 };
 

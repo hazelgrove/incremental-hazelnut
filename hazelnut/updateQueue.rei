@@ -7,7 +7,9 @@ module Update: {
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper)
     | NewListRec(Iexp.upper)
-    | NewY(Iexp.upper);
+    | NewY(Iexp.upper)
+    | NewITE(Iexp.upper)
+    | NewTypAp(Iexp.upper);
   let leq: (t, t) => bool;
 };
 

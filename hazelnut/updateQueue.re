@@ -11,7 +11,9 @@ module Update = {
     | NewAnn(Iexp.upper)
     | NewAsc(Iexp.upper)
     | NewListRec(Iexp.upper)
-    | NewY(Iexp.upper);
+    | NewY(Iexp.upper)
+    | NewITE(Iexp.upper)
+    | NewTypAp(Iexp.upper);
 
   let priority =
     fun
@@ -20,7 +22,9 @@ module Update = {
     | NewAnn(e) => fst(e.interval)
     | NewAsc(e) => fst(e.interval)
     | NewListRec(e) => fst(e.interval)
-    | NewY(e) => fst(e.interval);
+    | NewY(e) => fst(e.interval)
+    | NewITE(e) => fst(e.interval)
+    | NewTypAp(e) => fst(e.interval);
 
   // only called on updates with the same priority
   // NewAnn or NewAsc should always come first
@@ -86,6 +90,12 @@ module UpdateQueue = {
     | NewY(e) when !e.in_queue_upper.y =>
       e.in_queue_upper.y = true;
       push(u, q);
+    | NewITE(e) when !e.in_queue_upper.ite =>
+      e.in_queue_upper.ite = true;
+      push(u, q);
+    | NewTypAp(e) when !e.in_queue_upper.typ_ap =>
+      e.in_queue_upper.typ_ap = true;
+      push(u, q);
     | _ => ()
     };
   };
@@ -129,6 +139,14 @@ module UpdateQueue = {
     | NewY(e) =>
       assert(e.in_queue_upper.y);
       e.in_queue_upper.y = false;
+      recurse_if_deleted(e.deleted_upper, u);
+    | NewITE(e) =>
+      assert(e.in_queue_upper.ite);
+      e.in_queue_upper.ite = false;
+      recurse_if_deleted(e.deleted_upper, u);
+    | NewTypAp(e) =>
+      assert(e.in_queue_upper.typ_ap);
+      e.in_queue_upper.typ_ap = false;
       recurse_if_deleted(e.deleted_upper, u);
     };
   };

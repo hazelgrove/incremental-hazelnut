@@ -9,6 +9,8 @@ module InQueue: {
     mutable asc: bool,
     mutable list_rec: bool,
     mutable y: bool,
+    mutable ite: bool,
+    mutable typ_ap: bool,
   };
   type lower = {mutable ana: bool};
   type root = {mutable ana: bool};
