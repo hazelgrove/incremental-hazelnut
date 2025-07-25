@@ -135,6 +135,23 @@ let matched_proj_typ_opt =
   };
 };
 
+let matched_forall_typ = (t: Htyp.t): (Bind.t, Htyp.t, Mark.t) => {
+  switch (t) {
+  | ForAll(x, t) => (x, t, Mark.Marked) // According to the Agda, this is Marked !!
+  | Hole => (Bind.Hole, Htyp.Hole, Mark.Unmarked)
+  | _ => (Bind.Hole, Htyp.Hole, Mark.Marked)
+  }
+}
+
+let matched_forall_typ_opt = (t: option(Htyp.t)): (Bind.t, option(Htyp.t), Mark.t) => {
+  switch (t) {
+  | Some(t) =>
+    let (x, t1, m) = matched_forall_typ(t);
+    (x, Some(t1), m)
+  | None => (Bind.Hole, None, Mark.Unmarked)
+  }
+}
+
 module RenamingMap = Map.Make(String);
 
 let rec is_type_consistent =
