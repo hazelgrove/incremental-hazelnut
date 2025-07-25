@@ -722,8 +722,8 @@ let typ_update_of_upper = (containing_upper: Iexp.upper): Update.t => {
   | Asc(_) => NewAsc(containing_upper)
   | ListRec(_) => NewListRec(containing_upper)
   | Y(_) => NewY(containing_upper)
-  | ITE(_) => failwith("Unimplemented")
-  | TypAp(_) => failwith("Unimplemented")
+  | ITE(_) => NewITE(containing_upper)
+  | TypAp(_) => NewTypAp(containing_upper)
   | _ => failwith("Tried to get new-type update variant from an upper with no type.")
   }
 }
