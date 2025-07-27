@@ -373,7 +373,7 @@ and delete_middle = (e: Iexp.middle, upper: Iexp.upper) => {
   | Ap(e1, _, e2) =>
     delete_lower(e1);
     delete_lower(e2);
-  | TypAp(e, _, _) =>
+  | TypAp(e, _, _, _) =>
     delete_lower(e);
   | Pair(e1, e2, _) =>
     delete_lower(e1);
@@ -677,7 +677,7 @@ let fixup_pointers = (z_after_action: Ztyp.t, containing_upper: Iexp.upper, root
   | ListRec(_, typ_binders)
   | Y(_, typ_binders)
   | ITE(_, typ_binders)
-  | TypAp(_, _, typ_binders) => typ_binders
+  | TypAp(_, _, _, typ_binders) => typ_binders
   | _ => failwith("[fixup_pointers] Type action application happened in containing_upper")
   };
 
@@ -735,7 +735,7 @@ let typ_binders_of_upper = (containing_upper: Iexp.upper): Iexp.typ_binders => {
   | ListRec(_, typ_binders)
   | Y(_, typ_binders)
   | ITE(_, typ_binders)
-  | TypAp(_, _, typ_binders) => typ_binders
+  | TypAp(_, _, _, typ_binders) => typ_binders
   | _ => failwith("Tried to get typ_binders from an upper with no type.")
   }
 };
@@ -747,7 +747,7 @@ let typ_ref_of_upper = (containing_upper: Iexp.upper): ref(Htyp.t) => {
   | ListRec(t, _)
   | Y(t, _)
   | ITE(t, _)
-  | TypAp(_, t, _) => t
+  | TypAp(_, _, t, _) => t
   | _ => failwith("Tried to get type from an upper with no type.")
   }
 };
@@ -996,7 +996,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       | Two => return_cursor(CursorExp(e1.child))
       | Three => no_movement 
       }
-    | TypAp(e1, t, _) =>
+    | TypAp(e1, _, t, _) =>
       switch (child) {
       | One => return_cursor(CursorExp(e1.child))
       | Two => return_cursor(CursorTyp(e, Cursor(t.contents)))
@@ -1405,7 +1405,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       deleted_lower: false,
     };
     let new_mid: Iexp.middle =
-      TypAp(new_lower_left, ref(Htyp.Hole), Hashtbl.create(0));
+      TypAp(new_lower_left, ref(Mark.Unmarked), ref(Htyp.Hole), Hashtbl.create(0));
     let new_upper: Iexp.upper = {
       parent: e.parent,
       syn: Some(Hole),
@@ -1676,7 +1676,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         @ [Update.NewSyn(new_body)]; // TODO: Doublecheck this
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(new_body));
-    | TypAp(fun_lower, _, _) =>
+    | TypAp(fun_lower, _, _, _) =>
       let body = fun_lower.child;
 
       e.deleted_upper = true;

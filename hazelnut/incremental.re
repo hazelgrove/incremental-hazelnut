@@ -82,6 +82,7 @@ module Iexp = {
       )
     | TypAp(
         lower,
+        ref(Mark.t),
         ref(Htyp.t),
         typ_binders,
       )
