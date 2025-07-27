@@ -81,3 +81,5 @@ let arrow_unless:
   (Htyp.t, option(Htyp.t), option(Htyp.t)) => option(Htyp.t);
 let product_unless:
   (option(Htyp.t), option(Htyp.t), option(Htyp.t)) => option(Htyp.t);
+let substitute: (Htyp.t, Bind.t, Htyp.t) => Htyp.t;
+let substitute_opt: (Htyp.t, Bind.t, option(Htyp.t)) => option(Htyp.t);

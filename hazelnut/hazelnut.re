@@ -243,5 +243,33 @@ let forall_unless =
   }
 }
 
+// Sub
+let rec substitute = (arg: Htyp.t, bind: Bind.t, target: Htyp.t): Htyp.t => {
+  switch (bind) {
+  | Hole => target
+  | Var(x) => switch (target) {
+    | TypVar(name, _) => switch (name) {
+      | Var(y) when x == y => arg
+      | _ => target
+      }
+    | ForAll(forall_bind, body) => switch (forall_bind) {
+      | Var(y) when x == y => target // Shadowing
+      | _ => ForAll(forall_bind, substitute(arg, bind, body))
+      } 
+    | Arrow(input, output) => Arrow(substitute(arg, bind, input), substitute(arg, bind, output))
+    | Product(first, second) => Product(substitute(arg, bind, first), substitute(arg, bind, second))
+    | _ => target
+    }
+  }
+};
+
+// DSub
+let substitute_opt = (arg: Htyp.t, bind: Bind.t, target: option(Htyp.t)): option(Htyp.t) => {
+  switch (target) {
+  | None => None
+  | Some(target) => Some(substitute(arg, bind, target))
+  }
+};
+
 exception Unimplemented;
 exception Unreachable;
