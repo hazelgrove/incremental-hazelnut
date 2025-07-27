@@ -62,7 +62,7 @@ let update_step = (state: Istate.t): stepped => {
           e1.marked = Unmarked;
           let update_list = e2_update @ parent_update;
           UpdateQueue.update_push_list(update_list, q);
-        | Lam(_, t, _, _, body, _) when Option.is_none(parent.ana) =>
+        | Lam(_, t, _, _, body, _, _) when Option.is_none(parent.ana) =>
           //print_endine("STEP: StepSynFun");
           let parent_update =
             UpdateQueue.update_syn(
@@ -108,7 +108,7 @@ let update_step = (state: Istate.t): stepped => {
         | _ => ()
         };
       switch (child.middle) {
-      | Lam(_, t_ann, m_ana, m_ann, body, _) =>
+      | Lam(_, t_ann, m_ana, m_ann, body, _, _) =>
         //print_endine("STEP: StepAnaFun");
         let (t_in, t_out, m_ana') = matched_arrow_typ_opt(ana);
         let m_ann' = type_consistent_opt(Some(t_ann.contents), t_in);
@@ -143,7 +143,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewAnn(e) =>
       //print_endine("STEP: StepAnnFun");
       switch (e.middle) {
-      | Lam(_, t, _, _, _, bound_vars) =>
+      | Lam(_, t, _, _, _, bound_vars, _) =>
         let var_list = Tree.list_of_t(bound_vars.contents);
         let update = var => var_syn(var, t.contents);
         let updates = List.concat_map(update, var_list);
@@ -154,7 +154,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewAsc(e) =>
       //print_endine("STEP: StepAsc");
       switch (e.middle) {
-      | Asc(low, asc) =>
+      | Asc(low, asc, _) =>
         let syn_update = UpdateQueue.update_syn(e, Some(asc.contents));
         let ana_update = UpdateQueue.update_ana(low, Some(asc.contents));
         let update_list = ana_update @ syn_update;
@@ -164,7 +164,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewListRec(e) =>
       // print_endline("STEP: StepListRec");
       switch (e.middle) {
-      | ListRec(t) =>
+      | ListRec(t, _) =>
         let syn_type: option(Htyp.t) =
           Some(
             Arrow(
@@ -183,7 +183,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewY(e) =>
       // print_endline("STEP: StepY");
       switch (e.middle) {
-      | Y(t) =>
+      | Y(t, _) =>
         let syn_type: option(Htyp.t) =
           Some(
             Arrow(
@@ -198,6 +198,27 @@ let update_step = (state: Istate.t): stepped => {
         let update_list = syn_update;
         UpdateQueue.update_push_list(update_list, q);
       | _ => failwith("NewY on non Y")
+      }
+    | NewITE(e) =>
+      switch (e.middle) {
+      | ITE(t, _) =>
+        let syn_type: option(Htyp.t) = failwith("Unimplemented");
+        let syn_update = UpdateQueue.update_syn(e, syn_type);
+        let update_list = syn_update;
+        UpdateQueue.update_push_list(update_list, q);
+      | _ => failwith("NewITE on non ITE")
+      }
+    | NewTypAp(e) =>
+      switch (e.middle) {
+      | TypAp(e_fun, m, t_arg, _) =>
+        let t_fun = e_fun.child.syn;
+        let (x, t_fun_body, m_fun) = matched_forall_typ_opt(t_fun);
+        let t_syn = substitute_opt(t_arg^, x, t_fun_body);
+        m := m_fun;
+        let syn_update = UpdateQueue.update_syn(e, t_syn);
+        let update_list = syn_update;
+        UpdateQueue.update_push_list(update_list, q);
+      | _ => failwith("NewTypAp on non TypAp")
       }
     };
   };
