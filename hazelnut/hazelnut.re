@@ -152,6 +152,23 @@ let matched_forall_typ_opt = (t: option(Htyp.t)): (Bind.t, option(Htyp.t), Mark.
   }
 }
 
+let matched_forall_typ_of_bind = (t: Htyp.t, x: Bind.t): (Htyp.t, Mark.t) => {
+  switch (t) {
+  | ForAll(y, t) when x == y => (t, Mark.Unmarked)
+  | Hole => (Htyp.Hole, Mark.Unmarked)
+  | _ => (Htyp.Hole, Mark.Marked)
+  }
+};
+
+let matched_forall_typ_of_bind_opt = (t: option(Htyp.t), x: Bind.t): (option(Htyp.t), Mark.t) => {
+  switch (t) {
+  | Some(t) =>
+    let (t1, m) = matched_forall_typ_of_bind(t, x);
+    (Some(t1), m)
+  | None => (None, Mark.Unmarked)
+  }
+};
+
 module RenamingMap = Map.Make(String);
 
 let rec is_type_consistent =
