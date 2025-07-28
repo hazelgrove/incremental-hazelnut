@@ -27,6 +27,14 @@ let var_syn = (e: Iexp.upper, syn: Htyp.t): list(Update.t) => {
   };
 };
 
+let ana_of_parent = (parent: Iexp.parent): option(Htyp.t) => {
+  switch (parent) {
+  | Deleted => failwith("ana_of_parent on Deleted term");
+  | Root(_) => None
+  | Lower(lower) => lower.ana
+  }
+}
+
 let update_step = (state: Istate.t): stepped => {
   // print_endline(
   //   string_of_int(List.length(UpdateQueue.list_of_t(state.ephemeral.q)))
