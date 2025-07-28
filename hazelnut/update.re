@@ -89,6 +89,14 @@ let update_step = (state: Istate.t): stepped => {
             UpdateQueue.update_syn(parent.upper, t_side_body);
           let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
+        | TypAp(e_fun, m, t_arg, _) =>
+          let t_fun = e_fun.child.syn;
+          let (x, t_fun_body, m_fun) = matched_forall_typ_opt(t_fun);
+          let t_syn = substitute_opt(t_arg^, x, t_fun_body);
+          m := m_fun;
+          let syn_update = UpdateQueue.update_syn(parent.upper, t_syn);
+          let update_list = syn_update;
+          UpdateQueue.update_push_list(update_list, q);
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana)
