@@ -143,6 +143,17 @@ let update_step = (state: Istate.t): stepped => {
           );
         let update_list = e1_update @ e2_update @ syn_update;
         UpdateQueue.update_push_list(update_list, q);
+      | TypFun(x, m, e_body, _) =>
+        let (t_body_ana, m') = matched_forall_typ_of_bind_opt(ana, x^);
+        m := m';
+        let e_body_update = UpdateQueue.update_ana(e_body, t_body_ana);
+        let syn_update = UpdateQueue.update_syn(
+          child,
+          forall_unless(x^, e_body.child.syn, ana)
+        );
+        mark_parent(Unmarked);
+        let update_list = e_body_update @ syn_update;
+        UpdateQueue.update_push_list(update_list, q);
       | _ =>
         // This case must come after the above case. Relies on the term being subsumable.
         //print_endine("STEP: StepAnaConsist");
