@@ -75,7 +75,7 @@ let update_step = (state: Istate.t): stepped => {
           let parent_update =
             UpdateQueue.update_syn(
               parent.upper,
-              arrow_unless(t.contents, body.child.syn, parent.ana),
+              arrow_unless(t.contents, body.child.syn, ana_of_parent(parent.upper.parent)),
             );
           body.marked = Unmarked;
           let update_list = parent_update;
@@ -84,7 +84,7 @@ let update_step = (state: Istate.t): stepped => {
           let parent_update =
             UpdateQueue.update_syn(
               parent.upper,
-              product_unless(e1.child.syn, e2.child.syn, parent.ana),
+              product_unless(e1.child.syn, e2.child.syn, ana_of_parent(parent.upper.parent)),
             );
           parent.marked = Unmarked; // Removes the mark from the originating child
           let update_list = parent_update;
