@@ -137,7 +137,7 @@ let matched_proj_typ_opt =
 
 let matched_forall_typ = (t: Htyp.t): (Bind.t, Htyp.t, Mark.t) => {
   switch (t) {
-  | ForAll(x, t) => (x, t, Mark.Marked) // According to the Agda, this is Marked !!
+  | ForAll(x, t) => (x, t, Mark.Unmarked)
   | Hole => (Bind.Hole, Htyp.Hole, Mark.Unmarked)
   | _ => (Bind.Hole, Htyp.Hole, Mark.Marked)
   }
