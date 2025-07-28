@@ -97,6 +97,15 @@ let update_step = (state: Istate.t): stepped => {
             UpdateQueue.update_syn(parent.upper, t_side_body);
           let update_list = parent_update;
           UpdateQueue.update_push_list(update_list, q);
+        | TypFun(x, _, e_body, _) when Option.is_none(parent.ana) =>
+          let parent_update =
+            UpdateQueue.update_syn(
+              parent.upper,
+              forall_unless(x^, e_body.child.syn, ana_of_parent(parent.upper.parent))
+            );
+          e_body.marked = Unmarked;
+          let update_list = parent_update;
+          UpdateQueue.update_push_list(update_list, q);
         | TypAp(e_fun, m, t_arg, _) =>
           let t_fun = e_fun.child.syn;
           let (x, t_fun_body, m_fun) = matched_forall_typ_opt(t_fun);
