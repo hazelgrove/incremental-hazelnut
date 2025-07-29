@@ -225,6 +225,18 @@ let rec pexp_of_iexp = (e: Iexp.upper, s: Istate.t): Pexp.t => {
       | _ => failwith("NewY on non Y (pexp)")
       }
     | NewY(_) => d
+    | NewITE(e') when e === e' =>
+      switch (unwrap_extras(d)) {
+      | (ITE(t), rewrap) => rewrap(ITE(New(t)))
+      | _ => failwith("NewITE on non ITE (pexp)")
+      }
+    | NewITE(_) => d
+    | NewTypAp(e') when e === e' =>
+      switch (unwrap_extras(d)) {
+      | (TypAp(e_fun, t_arg), rewrap) => rewrap(TypAp(e_fun, New(t_arg)))
+      | _ => failwith("NewTypAp on non TypAP (pexp)")
+      }
+    | NewTypAp(_) => d
     };
   };
   let with_new_types =
