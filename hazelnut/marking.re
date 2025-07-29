@@ -18,6 +18,8 @@ type bareExp =
   | ListRec(Htyp.t)
   | Y(Htyp.t)
   | ITE(Htyp.t)
+  | TypFun(Bind.t, bareExp)
+  | TypAp(bareExp, Htyp.t)
   | EHole;
 
 type markedExp =
@@ -33,6 +35,9 @@ type markedExp =
   | Cons
   | ListRec(Htyp.t)
   | Y(Htyp.t)
+  | ITE(Htyp.t)
+  | TypFun(Bind.t, Mark.t, markedExp)
+  | TypAp(markedExp, Mark.t, Htyp.t)
   | EHole
   | Subsume(markedExp, Mark.t);
 
