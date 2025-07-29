@@ -84,6 +84,8 @@ module Pexp = {
     | ListRec(t)
     | Y(t)
     | Asc(t, t)
+    | TypFun(t, t)
+    | TypAp(t, t)
     | Hole
     | Interval(string, t, string)
     | Mark(t, string);
