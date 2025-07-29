@@ -255,7 +255,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) =>
     Plus(pexp_of_iexp_lower(e1, s), pexp_of_iexp_lower(e2, s))
-  | Lam(x, t, m1, m2, body, _bound_vars) =>
+  | Lam(x, t, m1, m2, body, _bound_vars, _typ_binders) =>
     let pb: Pexp.t =
       switch (s.persistent.c) {
       | CursorBind(e') when e'.middle === e =>
@@ -294,7 +294,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | Snd => Snd(pexp_of_iexp_lower(e, s))
       },
     )
-  | Asc(body, t) =>
+  | Asc(body, t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
@@ -303,27 +303,52 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
     Asc(pexp_of_iexp_lower(body, s), pt);
   | Nil => Nil
   | Cons => Cons
-  | ListRec(t) =>
+  | ListRec(t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
     ListRec(pt);
-  | Y(t) =>
+  | Y(t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
     Y(pt);
-  | ITE(t) =>
+  | ITE(t, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
       | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
       | _ => pexp_of_htyp(t.contents)
       };
     ITE(pt);
+  | TypFun(x, m, e_body, _typ_binders) =>
+    let pb: Pexp.t =
+      switch (s.persistent.c) {
+      | CursorBind(e') when e'.middle === e =>
+        Cursor(pexp_of_bind(x.contents))
+      | _ => pexp_of_bind(x.contents)
+      };
+    let body_lower = pexp_of_iexp_lower(e_body, s);
+    pexp_markif(
+      m.contents,
+      NonForAllTypFun,
+      TypFun(pb, body_lower)
+    )
+  | TypAp(e_fun, m, t_arg, _typ_binders) =>
+    let pt =
+      switch (s.persistent.c) {
+      | CursorTyp(e', zt) when e'.middle === e => pexp_of_ztyp(zt)
+      | _ => pexp_of_htyp(t_arg.contents)
+      };
+    let fun_lower = pexp_of_iexp_lower(e_fun, s);
+    pexp_markif(
+      m.contents,
+      NonForAllTypAp,
+      TypAp(fun_lower, pt)
+    )
   };
 }
 
