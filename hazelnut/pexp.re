@@ -50,6 +50,10 @@ let string_of_action: Iaction.t => string =
     "WrapProj(" ++ string_of_prod_side(prod_side) ++ ")"
   | WrapLam => "WrapLam"
   | WrapAsc => "WrapAsc"
+  | WrapTypAp => "WrapTypAp"
+  | WrapTypFun => "WrapTypFun"
+  | WrapForAll => "WrapForAll"
+  | InsertTypVar(x) => "InsertTypVar(\"" ++ x ++ "\")"
   | Unwrap(c) => "Unwrap(" ++ string_of_child(c) ++ ")";
 
 module Pexp = {
