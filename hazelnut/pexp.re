@@ -365,6 +365,8 @@ and pexp_of_iexp_lower = (e: Iexp.lower, s: Istate.t): Pexp.t => {
     | NewAsc(_) => None
     | NewListRec(_) => None
     | NewY(_) => None
+    | NewITE(_) => None
+    | NewTypAp(_) => None
     };
   };
   switch (
@@ -387,6 +389,8 @@ let pexp_of_root = (s: Istate.t): Pexp.t => {
     | NewAsc(_) => false
     | NewListRec(_) => false
     | NewY(_) => false
+    | NewITE(_) => false
+    | NewTypAp(_) => false
     };
   };
   List.exists(filter_updates, UpdateQueue.list_of_t(s.ephemeral.q))
