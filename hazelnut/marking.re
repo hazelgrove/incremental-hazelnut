@@ -49,16 +49,18 @@ and erase_middle: Iexp.middle => bareExp =
   | Var(x, _, _) => Var(x)
   | NumLit(x) => NumLit(x)
   | Plus(e1, e2) => Plus(erase_lower(e1), erase_lower(e2))
-  | Lam(x, t, _, _, e, _) => Lam(x.contents, t.contents, erase_lower(e))
+  | Lam(x, t, _, _, e, _, _) => Lam(x.contents, t.contents, erase_lower(e))
   | Ap(e1, _, e2) => Ap(erase_lower(e1), erase_lower(e2))
   | Pair(e1, e2, _) => Pair(erase_lower(e1), erase_lower(e2))
   | Proj(prod_side, e, _) => Proj(prod_side, erase_lower(e))
-  | Asc(e, t) => Asc(erase_lower(e), t.contents)
+  | Asc(e, t, _) => Asc(erase_lower(e), t.contents)
   | Nil => Nil
   | Cons => Cons
-  | ITE(t) => ITE(t.contents)
-  | ListRec(t) => ListRec(t.contents)
-  | Y(t) => Y(t.contents)
+  | ITE(t, _) => ITE(t.contents)
+  | ListRec(t, _) => ListRec(t.contents)
+  | Y(t, _) => Y(t.contents)
+  | TypFun(x, _, body, _) => TypFun(x^, erase_lower(body))
+  | TypAp(e_fun, _, t_arg, _) => TypAp(erase_lower(e_fun), t_arg^)
   | EHole => EHole
 and erase_upper = (e: Iexp.upper): bareExp => {
   erase_middle(e.middle);
