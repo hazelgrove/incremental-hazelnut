@@ -103,6 +103,8 @@ let string_of_mark_message: Hazelnut.MarkMessage.t => string = {
   | Free => "Free"
   | NonArrowAp => "NonArrowAp"
   | NonArrowLam => "NonArrowLam"
+  | NonForAllTypAp => "NonForAllTypAp"
+  | NonForAllTypFun => "NonForAllTypFun"
   | NonProdPair => "NonProdPair"
   | NonProdProj => "NonProdProj"
   | LamAnnIncon => "LamAnnIncon"
