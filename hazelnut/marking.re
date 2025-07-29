@@ -416,7 +416,7 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
   | (Plus(e1, e2), Plus(e3, e4)) =>
     //print_endine("comparing plus");
     return(equiv_lower(e1, e3) && equiv_lower(e2, e4))
-  | (Lam(x1, t1, m1, m2, e1, _), Lam(x2, t2, m3, m4, e2, _)) =>
+  | (Lam(x1, t1, m1, m2, e1, _, _), Lam(x2, t2, m3, m4, e2, _, _)) =>
     //print_endine("comparing lam");
     return((x1, t1, m1, m2) == (x2, t2, m3, m4) && equiv_lower(e1, e2))
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
@@ -426,14 +426,14 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
     return(equiv_lower(e1, e3) && equiv_lower(e2, e4)) && m1 == m2
   | (Proj(s1, e1, m1), Proj(s2, e2, m2)) =>
     return(equiv_lower(e1, e2) && s1 == s2 && m1 == m2)
-  | (Asc(e1, t1), Asc(e2, t2)) =>
+  | (Asc(e1, t1, _), Asc(e2, t2, _)) =>
     //print_endine("comparing asc");
     equiv_lower(e1, e2) && t1 == t2
   | (EHole, EHole) => true
   | (Nil, Nil) => true
   | (Cons, Cons) => true
-  | (ListRec(t1), ListRec(t2)) => t1 == t2
-  | (Y(t1), Y(t2)) => t1 == t2
+  | (ListRec(t1, _), ListRec(t2, _)) => t1 == t2
+  | (Y(t1, _), Y(t2, _)) => t1 == t2
   | _ => false
   };
 }
