@@ -272,6 +272,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
           ref(Mark.Unmarked),
           wrap_lower(body, Unmarked, None),
           ref(Tree.empty),
+          Hashtbl.create(0)
         ),
         Some(Arrow(t, syn)),
       );
@@ -310,22 +311,22 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       );
     }
   | Asc(e, t) =>
-    wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t)), Some(t))
+    wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t), Hashtbl.create(0)), Some(t))
   | Nil => wrap_upper(Nil, Some(List))
   | Cons => wrap_upper(Cons, Some(Arrow(Num, Arrow(List, List))))
   | ListRec(t) =>
     wrap_upper(
-      ListRec(ref(t)),
+      ListRec(ref(t), Hashtbl.create(0)),
       Some(Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t)))),
     )
   | Y(t) =>
     wrap_upper(
-      Y(ref(t)),
+      Y(ref(t), Hashtbl.create(0)),
       Some(Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t))),
     )
   | ITE(t) =>
     wrap_upper(
-      ListRec(ref(t)),
+      ListRec(ref(t), Hashtbl.create(0)),
       Some(Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t)))),
     )
   | TypFun(x, b) => {
