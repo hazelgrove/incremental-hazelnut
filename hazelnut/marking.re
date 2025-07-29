@@ -382,6 +382,14 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let middle: Iexp.middle = Pair(e1, e2, ref(m));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
+  | TypFun(x, b_body) => {
+      let (t_body_ana, m_ana) = matched_forall_typ_of_bind(ana, x);
+      Ctx.extend_bind_typ(ctx, x);
+      let e_body = validity_mark_ana(ctx, t_body_ana, b_body);
+      Ctx.remove_bind_typ(ctx, x);
+      let middle: Iexp.middle = TypFun(ref(x), ref(m_ana), e_body, ref(Tree.empty));
+      wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
+    }
   | b => {
       let e = validity_mark_syn(ctx, b);
       let syn = Option.get(e.syn);
