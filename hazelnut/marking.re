@@ -370,7 +370,7 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let body = validity_mark_ana(ctx, t2, e);
       Ctx.remove_bind(ctx, x);
       let middle: Iexp.middle =
-        Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref(Tree.empty));
+        Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref(Tree.empty), Hashtbl.create(0));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | Pair(b1, b2) => {
