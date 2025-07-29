@@ -517,6 +517,18 @@ let rec string_of_pexp: Pexp.t => string =
   | ITE(t) => "ITE[" ++ string_of_pexp(t) ++ "]"
   | ListRec(t) => "ListRec[" ++ string_of_pexp(t) ++ "]"
   | Y(t) => "Y[" ++ string_of_pexp(t) ++ "]"
+  | TypFun(x, e) => "typfun "
+      ++ string_of_pexp(x)
+      ++ " ↦ ("
+      ++ string_of_pexp(e)
+      ++ ")"
+  | TypAp(e, t) as outer =>
+    paren(e, outer, Side.Left) ++ " " ++ paren(t, outer, Side.Right)
+  | ForAll(x, t) => "forall "
+      ++ string_of_pexp(x)
+      ++ " ↦ ("
+      ++ string_of_pexp(t)
+      ++ ")"
   | Interval(n1, e, n2) =>
     "{" ++ n1 ++ "]" ++ string_of_pexp(e) ++ "[" ++ n2 ++ "}"
   | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"
