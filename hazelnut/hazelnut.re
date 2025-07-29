@@ -63,6 +63,8 @@ module MarkMessage = {
     | Free
     | NonArrowAp
     | NonArrowLam
+    | NonForAllTypAp
+    | NonForAllTypFun
     | NonProdPair
     | NonProdProj
     | LamAnnIncon
