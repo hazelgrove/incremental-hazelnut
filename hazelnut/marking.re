@@ -434,6 +434,11 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
   | (Cons, Cons) => true
   | (ListRec(t1, _), ListRec(t2, _)) => t1 == t2
   | (Y(t1, _), Y(t2, _)) => t1 == t2
+  | (ITE(t1, _), ITE(t2, _)) => t1 == t2
+  | (TypFun(x1, m1, e1, _), TypFun(x2, m2, e2, _)) =>
+    x1 == x2 && m1 == m2 && equiv_lower(e1, e2)
+  | (TypAp(e1, m1, t1, _), TypAp(e2, m2, t2, _)) =>
+    equiv_lower(e1, e2) && m1 == m2 && t1 == t2
   | _ => false
   };
 }
