@@ -425,6 +425,9 @@ let rec prec: Pexp.t => int =
   | ITE(_) => 4
   | ListRec(_) => 4
   | Y(_) => 4
+  | TypFun(_) => 0
+  | TypAp(_) => 2
+  | ForAll(_) => 1
   | Hole => 0
   | Interval(_) => 0
   | Mark(_, _) => 0;
@@ -463,6 +466,9 @@ let rec assoc: Pexp.t => Side.t =
   | ITE(_) => Left
   | ListRec(_) => Left
   | Y(_) => Left
+  | TypFun(_) => Atom
+  | TypAp(_) => Left
+  | ForAll(_) => Atom
   | Hole => Atom
   | Interval(_) => Atom
   | Mark(_, _) => Atom;
