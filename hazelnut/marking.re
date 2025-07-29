@@ -170,8 +170,18 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       ListRec(t),
       Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t))),
     )
-  | TypFun(x, t) => ()
-  | TypAp(e, t) => 
+  | TypFun(x, e) => {
+      Ctx.extend_bind_typ(ctx, x);
+      let (e, syn) = performance_mark_syn(ctx, e);
+      Ctx.remove_bind_typ(ctx, x);
+      (TypFun(x, Unmarked, e), syn)
+    }
+  | TypAp(b_fun, t_arg) => {
+      let (e_fun, t_fun) = performance_mark_syn(ctx, b_fun);
+      let (x, t_fun_body, m_fun) = matched_forall_typ(t_fun);
+      let t_syn = substitute(t_arg, x, t_fun_body);
+      (TypAp(e_fun, m_fun, t_arg), t_syn)
+    }
   | EHole => (EHole, Hole)
 
 and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
