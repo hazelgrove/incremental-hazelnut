@@ -66,31 +66,60 @@ and erase_upper = (e: Iexp.upper): bareExp => {
   erase_middle(e.middle);
 };
 
+module TypVarSet = Set.Make(String);
+
 module Ctx = {
-  type t = Hashtbl.t(string, Htyp.t);
+  type t = {
+    vars: Hashtbl.t(string, Htyp.t),
+    mutable typ_vars: TypVarSet.t
+  };
 
   let lookup = (ctx: t, x: string): (Htyp.t, Mark.t) => {
-    switch (Hashtbl.find_opt(ctx, x)) {
+    switch (Hashtbl.find_opt(ctx.vars, x)) {
     | None => (Hole, Marked)
     | Some(t) => (t, Unmarked)
     };
   };
 
-  let empty: t = Hashtbl.create(100);
+  let lookup_typ = (ctx: t, x: string): Mark.t => {
+    switch (TypVarSet.mem(x, ctx.typ_vars)) {
+    | true => Unmarked
+    | false => Marked
+    }
+  }
+
+  let empty: t = {
+    vars: Hashtbl.create(100),
+    typ_vars: TypVarSet.empty,
+  };
 
   let extend_bind = (ctx: t, x: Bind.t, t: Htyp.t) => {
     switch (x) {
     | Hole => ()
-    | Var(x) => Hashtbl.add(ctx, x, t)
+    | Var(x) => Hashtbl.add(ctx.vars, x, t)
     };
   };
+
+  let extend_bind_typ = (ctx: t, x: Bind.t) => {
+    switch (x) {
+    | Hole => ()
+    | Var(x) => ctx.typ_vars = TypVarSet.add(x, ctx.typ_vars)
+    }
+  }
 
   let remove_bind = (ctx: t, x: Bind.t) => {
     switch (x) {
     | Hole => ()
-    | Var(x) => Hashtbl.remove(ctx, x)
+    | Var(x) => Hashtbl.remove(ctx.vars, x)
     };
   };
+
+  let remove_bind_typ = (ctx: t, x: Bind.t) => {
+    switch (x) {
+    | Hole => ()
+    | Var(x) => ctx.typ_vars = TypVarSet.remove(x, ctx.typ_vars)
+    }
+  }
 };
 
 let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
@@ -141,6 +170,8 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       ListRec(t),
       Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t))),
     )
+  | TypFun(x, t) => ()
+  | TypAp(e, t) => 
   | EHole => (EHole, Hole)
 
 and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
