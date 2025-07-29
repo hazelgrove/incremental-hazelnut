@@ -200,6 +200,11 @@ and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
       let e2 = performance_mark_ana(ctx, t2, b2);
       Pair(e1, e2, m);
     }
+  | TypFun(x, b_body) => {
+      let (t_body_ana, m_ana) = matched_forall_typ_of_bind(ana, x);
+      let e_body = performance_mark_ana(ctx, t_body_ana, b_body);
+      TypFun(x, m_ana, e_body)
+    }
   | b => {
       let (e, syn) = performance_mark_syn(ctx, b);
       let m = type_consistent(syn, ana);
