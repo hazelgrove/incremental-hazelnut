@@ -86,37 +86,11 @@ module Pexp = {
     | Asc(t, t)
     | TypFun(t, t)
     | TypAp(t, t)
-    | TypVar(string)
     | ForAll(t, t)
     | Hole
     | Interval(string, t, string)
     | Mark(t, string);
 };
-
-let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
-  fun
-  | ForAll(x, t) => ForAll(TypVar(x), pexp_of_htyp(t))
-  | 
-  | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
-  | Product(t1, t2) => Product(pexp_of_htyp(t1), pexp_of_htyp(t2))
-  | Num => Num
-  | Bool => Bool
-  | Unit => Unit
-  | List => List
-  | Hole => Hole;
-
-let pexp_of_htyp_opt: option(Htyp.t) => Pexp.t =
-  fun
-  | Some(t) => pexp_of_htyp(t)
-  | None => Var("■");
-
-let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
-  fun
-  | Cursor(t) => Cursor(pexp_of_htyp(t))
-  | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
-  | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z))
-  | LProduct(z, t) => Product(pexp_of_ztyp(z), pexp_of_htyp(t))
-  | RProduct(t, z) => Product(pexp_of_htyp(t), pexp_of_ztyp(z));
 
 let pexp_of_bind: Bind.t => Pexp.t = {
   fun
@@ -140,6 +114,34 @@ let pexp_markif = (b: Mark.t, m: MarkMessage.t, exp: Pexp.t): Pexp.t =>
   | Unmarked => exp
   | Marked => Mark(exp, string_of_mark_message(m))
   };
+
+let rec pexp_of_htyp: Hazelnut.Htyp.t => Pexp.t =
+  fun
+  | ForAll(x, t) => ForAll(pexp_of_bind(x), pexp_of_htyp(t))
+  | TypVar(x, m) => pexp_markif(m, MarkMessage.Free, pexp_of_bind(x))
+  | Arrow(t1, t2) => Arrow(pexp_of_htyp(t1), pexp_of_htyp(t2))
+  | Product(t1, t2) => Product(pexp_of_htyp(t1), pexp_of_htyp(t2))
+  | Num => Num
+  | Bool => Bool
+  | Unit => Unit
+  | List => List
+  | Hole => Hole;
+
+let pexp_of_htyp_opt: option(Htyp.t) => Pexp.t =
+  fun
+  | Some(t) => pexp_of_htyp(t)
+  | None => Var("■");
+
+let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
+  fun
+  | Cursor(t) => Cursor(pexp_of_htyp(t))
+  | LArrow(z, t) => Arrow(pexp_of_ztyp(z), pexp_of_htyp(t))
+  | RArrow(t, z) => Arrow(pexp_of_htyp(t), pexp_of_ztyp(z))
+  | LProduct(z, t) => Product(pexp_of_ztyp(z), pexp_of_htyp(t))
+  | RProduct(t, z) => Product(pexp_of_htyp(t), pexp_of_ztyp(z))
+  | ForAll(x, t) => ForAll(pexp_of_bind(x), pexp_of_ztyp(t))
+  | ForAllCursorBind(x, t) => ForAll(Cursor(pexp_of_bind(x)), pexp_of_htyp(t));
+
 
 let rec unwrap_extras: Pexp.t => (Pexp.t, Pexp.t => Pexp.t) =
   fun
