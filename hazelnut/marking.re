@@ -328,6 +328,36 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       ListRec(ref(t)),
       Some(Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t)))),
     )
+  | TypFun(x, b) => {
+      Ctx.extend_bind_typ(ctx, x);
+      let body = validity_mark_syn(ctx, b);
+      Ctx.remove_bind_typ(ctx, x);
+      let syn = Option.get(body.syn);
+      wrap_upper(
+        TypFun(
+          ref(x),
+          ref(Mark.Unmarked),
+          wrap_lower(body, Mark.Unmarked, None),
+          ref(Tree.empty)
+        ),
+        Some(ForAll(x, syn)),
+      );
+    }
+  | TypAp(b_fun, t_arg) => {
+      let e_fun = validity_mark_syn(ctx, b_fun);
+      let t_fun = Option.get(e_fun.syn);
+      let (x, t_fun_body, m_fun) = matched_forall_typ(t_fun);
+      let t_syn = substitute(t_arg, x, t_fun_body);
+      wrap_upper(
+        TypAp(
+          wrap_lower(e_fun, Mark.Unmarked, None),
+          ref(m_fun),
+          ref(t_arg),
+          Hashtbl.create(0)
+        ),
+        Some(t_syn)
+      )
+    }
   | EHole => wrap_upper(EHole, Some(Hole))
 
 and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
