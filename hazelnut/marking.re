@@ -202,7 +202,9 @@ and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
     }
   | TypFun(x, b_body) => {
       let (t_body_ana, m_ana) = matched_forall_typ_of_bind(ana, x);
+      Ctx.extend_bind_typ(ctx, x);
       let e_body = performance_mark_ana(ctx, t_body_ana, b_body);
+      Ctx.remove_bind_typ(ctx, x);
       TypFun(x, m_ana, e_body)
     }
   | b => {
