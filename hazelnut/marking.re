@@ -153,10 +153,11 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       Num,
     )
   | Lam(x, t, e) => {
-      Ctx.extend_bind(ctx, x, t);
+      let marked_t = mark_htyp(ctx, t);
+      Ctx.extend_bind(ctx, x, marked_t);
       let (body, syn) = performance_mark_syn(ctx, e);
       Ctx.remove_bind(ctx, x);
-      (Lam(x, t, Mark.Unmarked, Mark.Unmarked, body), Arrow(t, syn));
+      (Lam(x, marked_t, Mark.Unmarked, Mark.Unmarked, body), Arrow(marked_t, syn));
     }
   | Ap(b1, b2) => {
       let (e1, syn) = performance_mark_syn(ctx, b1);
@@ -174,18 +175,30 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       let (t_side, m) = matched_proj_typ(prod_side, syn);
       (Proj(prod_side, e, m), t_side);
     }
-  | Asc(e, t) => (Asc(performance_mark_ana(ctx, t, e), t), t)
+  | Asc(e, t) => {
+      let marked_t = mark_htyp(ctx, t);
+      (Asc(performance_mark_ana(ctx, marked_t, e), marked_t), marked_t)
+    }
   | Nil => (Nil, List)
   | Cons => (Cons, Arrow(Num, Arrow(List, List)))
-  | ListRec(t) => (
-      ListRec(t),
-      Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t))),
-    )
-  | Y(t) => (Y(t), Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t)))
-  | ITE(t) => (
-      ListRec(t),
-      Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t))),
-    )
+  | ListRec(t) => {
+      let t = mark_htyp(ctx, t);
+      (
+        ListRec(t),
+        Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t))),
+      )
+    }
+  | Y(t) => {
+      let t = mark_htyp(ctx, t);
+      (Y(t), Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t)))
+    }
+  | ITE(t) => {
+      let t = mark_htyp(ctx, t);
+      (
+        ITE(t),
+        Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t))),
+      )
+    }
   | TypFun(x, e) => {
       Ctx.extend_bind_typ(ctx, x);
       let (e, syn) = performance_mark_syn(ctx, e);
@@ -193,6 +206,7 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       (TypFun(x, Unmarked, e), syn)
     }
   | TypAp(b_fun, t_arg) => {
+      let t_arg = mark_htyp(ctx, t_arg);
       let (e_fun, t_fun) = performance_mark_syn(ctx, b_fun);
       let (x, t_fun_body, m_fun) = matched_forall_typ(t_fun);
       let t_syn = substitute(t_arg, x, t_fun_body);
@@ -203,6 +217,7 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
 and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
   fun
   | Lam(x, t, e) => {
+      let t = mark_htyp(ctx, t);
       let (t1, t2, m1) = matched_arrow_typ(ana);
       let m2 = type_consistent(t, t1);
       Ctx.extend_bind(ctx, x, t);
@@ -278,6 +293,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       Some(Num),
     )
   | Lam(x, t, e) => {
+      let t = mark_htyp(ctx, t);
       Ctx.extend_bind(ctx, x, t);
       let body = validity_mark_syn(ctx, e);
       Ctx.remove_bind(ctx, x);
@@ -328,25 +344,33 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
         Some(t_side),
       );
     }
-  | Asc(e, t) =>
-    wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t), Hashtbl.create(0)), Some(t))
+  | Asc(e, t) => {
+      let t = mark_htyp(ctx, t);
+      wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t), Hashtbl.create(0)), Some(t))
+    }
   | Nil => wrap_upper(Nil, Some(List))
   | Cons => wrap_upper(Cons, Some(Arrow(Num, Arrow(List, List))))
-  | ListRec(t) =>
-    wrap_upper(
-      ListRec(ref(t), Hashtbl.create(0)),
-      Some(Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t)))),
-    )
-  | Y(t) =>
-    wrap_upper(
-      Y(ref(t), Hashtbl.create(0)),
-      Some(Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t))),
-    )
-  | ITE(t) =>
-    wrap_upper(
-      ListRec(ref(t), Hashtbl.create(0)),
-      Some(Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t)))),
-    )
+  | ListRec(t) => {
+      let t = mark_htyp(ctx, t);
+      wrap_upper(
+        ListRec(ref(t), Hashtbl.create(0)),
+        Some(Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t)))),
+      )
+    }
+  | Y(t) => {
+      let t = mark_htyp(ctx, t);
+      wrap_upper(
+        Y(ref(t), Hashtbl.create(0)),
+        Some(Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t))),
+      )
+    }
+  | ITE(t) => {
+      let t = mark_htyp(ctx, t);
+      wrap_upper(
+        ListRec(ref(t), Hashtbl.create(0)),
+        Some(Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t)))),
+      )
+    }
   | TypFun(x, b) => {
       Ctx.extend_bind_typ(ctx, x);
       let body = validity_mark_syn(ctx, b);
@@ -363,6 +387,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       );
     }
   | TypAp(b_fun, t_arg) => {
+      let t_arg = mark_htyp(ctx, t_arg);
       let e_fun = validity_mark_syn(ctx, b_fun);
       let t_fun = Option.get(e_fun.syn);
       let (x, t_fun_body, m_fun) = matched_forall_typ(t_fun);
@@ -382,6 +407,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
 and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
   fun
   | Lam(x, t, e) => {
+      let t = mark_htyp(ctx, t);
       let (t1, t2, m1) = matched_arrow_typ(ana);
       let m2 = type_consistent(t, t1);
       Ctx.extend_bind(ctx, x, t);
