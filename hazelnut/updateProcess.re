@@ -131,7 +131,7 @@ let update_step = (state: Istate.t): stepped => {
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana)
-        | _ => failwith("unrecognized update step " ++ string_of_update(update, state))
+        | _ => failwith("Bad NewSyn case " ++ string_of_update(update, state) ++ " in parent " ++ string_of_pexp(pexp_of_iexp(parent.upper, state)))
         }
       }
     | NewAna(parent) =>
