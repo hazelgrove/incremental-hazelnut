@@ -1,13 +1,12 @@
 import time
 import subprocess
 import json
-import dominate
-from dominate.tags import *
 import matplotlib.pyplot as plt
 import numpy as np
 import math
 import shutil
-from sklearn.cluster import KMeans
+import dominate
+from dominate.tags import *
 
 PROFILE = False
 COUNTER = 0
@@ -43,7 +42,7 @@ def readlines_file(path):
     with open(path, "r") as f:
         return f.readlines()
 
-out_path = f"out/{path}/"
+out_path = f"out/"
 shell(f"rm -rf out/* || true")
 shell(f"mkdir -p {out_path}")
 
@@ -87,18 +86,15 @@ with doc:
         xs = [times[i][0] for i in range(len(times))]
         ys = [times[i][1] for i in range(len(times))]
         speedup = [math.log(xs[i]/ys[i]) for i in range(len(xs))]
-        n_clusters = min(4, len(speedup))
-        est = KMeans(n_clusters=n_clusters)
-        est.fit(np.array(speedup).reshape(-1, 1))
+        n_clusters = 1
         mp = []
         for nc in range(n_clusters):
-            sub = [speedup[i] for i in range(len(speedup)) if est.labels_[i] == nc]
+            sub = [speedup[i] for i in range(len(speedup))]
             # (geomean, percentage)
         mp.append((math.exp(sum(sub)/len(sub)), 100 * len(sub)/len(speedup)))
         mp.sort()
 
         fig1, ax1 = plt.subplots(layout='constrained')
-        fig2, ax2 = plt.subplots(layout='constrained')
 
         def scatterplot():
             min_value = min(min(*xs), min(*ys))
@@ -115,56 +111,15 @@ with doc:
 
         scatterplot()
 
-        def cdf():
-            cdf_x = sorted([math.log(times[i][1]/times[i][0]) for i in range(len(times))])
-            cdf_y = [(i + 1)/len(cdf_x) for i in range(len(cdf_x))]
-
-            pct_slowdown = np.interp(1.0, cdf_x, cdf_y)
-            ax2.plot(cdf_x, cdf_y)
-            ax2.axvline(x=1,c='black',linewidth=0.5)
-            ax2.annotate('{:.0f}%'.format(pct_slowdown * 100), xy=(1, pct_slowdown), xytext=(-50, 0), textcoords='offset points', bbox = dict(boxstyle="round", fc="0.8"), arrowprops = dict(arrowstyle="->"))
-            x_range = math.exp(max(abs(max(cdf_x)), abs(min(cdf_x))))
-    
-        cdf()
-
         pic_path = f"{count()}.png"
         fig1.savefig(out_path + pic_path)
         img(src=pic_path)
 
-        pic_path = f"{count()}.png"
-        fig2.savefig(out_path + pic_path)
-        img(src=pic_path)
+        arithmean=sum(xs)/sum(ys)
+        span(f"arithmean={arithmean:.2f}")
+        print(f"arithmean={arithmean:.2f}")
 
-        def make_table(title, mp):
-            with table(border="1", style="display:inline-table"):
-                caption(title)
-                with thead():
-                    tr(td("fraction"), td("geomean"))
-                with tbody():
-                    for geomean, percentage in mp:
-                        tr(td(f"{percentage:.2f}"), td(f"{geomean:.2f}"))
-                    total = f"{math.exp(sum(speedup)/len(speedup)):.2f}"
-                    tr(td("total"), td(total))
-
-        def geomean(points):
-            speedup = list([math.log(x/y) for x, y in points])
-            return math.exp(sum(speedup)/len(speedup)) if len(speedup) > 0 else 1
-
-        def points_to_mp(points):
-            points = list([list(l) for l in points])
-            total_size = sum(len(l) for l in points)
-            return [(geomean(ps), 100 * len(ps)/total_size)for ps in points]
-
-        make_table("clustering", mp)
-        make_table("slowdown:speedup", points_to_mp([[(xs[i], ys[i]) for i in range(len(xs)) if xs[i] <= ys[i]], [(xs[i], ys[i]) for i in range(len(xs)) if xs[i] > ys[i]]]))
-        make_table(">1e3:<=1e3", points_to_mp([[(xs[i], ys[i]) for i in range(len(xs)) if xs[i] > 1e3], [(xs[i], ys[i]) for i in range(len(xs)) if xs[i] <= 1e3]]))
-
-        span(f"arithmean={sum(xs)/sum(ys):.2f}")
-            
-    compare([], [(x[0], y[0]) for (x, y) in times])
-    compare([(x[1], y[1]) for (x, y) in times], [])
     compare([(x[0] + x[1], y[0] + y[1]) for (x, y) in times], [])
-    compare([(x[1], y[1]) for (x, y) in times], [(x[0], y[0]) for (x, y) in times])
 
     data = []
     for l in readlines_file(f"log/{path}"):
@@ -182,12 +137,6 @@ with doc:
         })
         
     data.sort(key=lambda x: (x["name"], -x["tyck_time"]))
-
-    # with table(border="1", cls="sortable"):
-    #     tr(*[th(h, style="position:sticky;top:0px;") for h in header])
-    
-    #     for processed in data:
-    #         tr(*[td(processed[h]) for h in header])
         
 write_to(out_path + "index.html", str(doc))
 

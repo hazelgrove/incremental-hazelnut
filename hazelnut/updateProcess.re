@@ -7,16 +7,26 @@ open Pexp;
 
 let string_of_update = (update: Update.t, state: Istate.t): string => {
   switch (update) {
-  | NewSyn(upper) => "NewSyn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
-  | NewAna(parent) => "NewAna(" ++ string_of_pexp(pexp_of_iexp(child_of_parent(parent), state)) ++ ")"
-  | NewAnn(upper) => "NewAnn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
-  | NewAsc(upper) => "NewAsc(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
-  | NewListRec(upper) => "NewListRec(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
-  | NewY(upper) => "NewY(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
-  | NewITE(upper) => "NewITE(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
-  | NewTypAp(upper) => "NewTypAp(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
-  }
-}
+  | NewSyn(upper) =>
+    "NewSyn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewAna(parent) =>
+    "NewAna("
+    ++ string_of_pexp(pexp_of_iexp(child_of_parent(parent), state))
+    ++ ")"
+  | NewAnn(upper) =>
+    "NewAnn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewAsc(upper) =>
+    "NewAsc(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewListRec(upper) =>
+    "NewListRec(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewY(upper) =>
+    "NewY(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewITE(upper) =>
+    "NewITE(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewTypAp(upper) =>
+    "NewTypAp(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  };
+};
 
 type stepped =
   | Settled
@@ -43,11 +53,11 @@ let var_syn = (e: Iexp.upper, syn: Htyp.t): list(Update.t) => {
 
 let ana_of_parent = (parent: Iexp.parent): option(Htyp.t) => {
   switch (parent) {
-  | Deleted => failwith("ana_of_parent on Deleted term");
+  | Deleted => failwith("ana_of_parent on Deleted term")
   | Root(_) => None
   | Lower(lower) => lower.ana
-  }
-}
+  };
+};
 
 let update_step = (state: Istate.t): stepped => {
   // print_endline(
@@ -89,7 +99,11 @@ let update_step = (state: Istate.t): stepped => {
           let parent_update =
             UpdateQueue.update_syn(
               parent.upper,
-              arrow_unless(t.contents, body.child.syn, ana_of_parent(parent.upper.parent)),
+              arrow_unless(
+                t.contents,
+                body.child.syn,
+                ana_of_parent(parent.upper.parent),
+              ),
             );
           body.marked = Unmarked;
           let update_list = parent_update;
@@ -98,7 +112,11 @@ let update_step = (state: Istate.t): stepped => {
           let parent_update =
             UpdateQueue.update_syn(
               parent.upper,
-              product_unless(e1.child.syn, e2.child.syn, ana_of_parent(parent.upper.parent)),
+              product_unless(
+                e1.child.syn,
+                e2.child.syn,
+                ana_of_parent(parent.upper.parent),
+              ),
             );
           parent.marked = Unmarked; // Removes the mark from the originating child
           let update_list = parent_update;
@@ -115,7 +133,11 @@ let update_step = (state: Istate.t): stepped => {
           let parent_update =
             UpdateQueue.update_syn(
               parent.upper,
-              forall_unless(x^, e_body.child.syn, ana_of_parent(parent.upper.parent))
+              forall_unless(
+                x^,
+                e_body.child.syn,
+                ana_of_parent(parent.upper.parent),
+              ),
             );
           e_body.marked = Unmarked;
           let update_list = parent_update;
@@ -131,7 +153,13 @@ let update_step = (state: Istate.t): stepped => {
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana)
-        | _ => failwith("Bad NewSyn case " ++ string_of_update(update, state) ++ " in parent " ++ string_of_pexp(pexp_of_iexp(parent.upper, state)))
+        | _ =>
+          failwith(
+            "Bad NewSyn case "
+            ++ string_of_update(update, state)
+            ++ " in parent "
+            ++ string_of_pexp(pexp_of_iexp(parent.upper, state)),
+          )
         }
       }
     | NewAna(parent) =>
@@ -178,10 +206,11 @@ let update_step = (state: Istate.t): stepped => {
         let (t_body_ana, m') = matched_forall_typ_of_bind_opt(ana, x^);
         m := m';
         let e_body_update = UpdateQueue.update_ana(e_body, t_body_ana);
-        let syn_update = UpdateQueue.update_syn(
-          child,
-          forall_unless(x^, e_body.child.syn, ana)
-        );
+        let syn_update =
+          UpdateQueue.update_syn(
+            child,
+            forall_unless(x^, e_body.child.syn, ana),
+          );
         mark_parent(Unmarked);
         let update_list = e_body_update @ syn_update;
         UpdateQueue.update_push_list(update_list, q);
@@ -252,7 +281,13 @@ let update_step = (state: Istate.t): stepped => {
     | NewITE(e) =>
       switch (e.middle) {
       | ITE(t, _) =>
-        let syn_type: option(Htyp.t) = Some(Arrow(Bool, Arrow(Arrow(Unit, t^), Arrow(Arrow(Unit, t^), t^))));
+        let syn_type: option(Htyp.t) =
+          Some(
+            Arrow(
+              Bool,
+              Arrow(Arrow(Unit, t^), Arrow(Arrow(Unit, t^), t^)),
+            ),
+          );
         let syn_update = UpdateQueue.update_syn(e, syn_type);
         let update_list = syn_update;
         UpdateQueue.update_push_list(update_list, q);

@@ -142,33 +142,35 @@ let matched_forall_typ = (t: Htyp.t): (Bind.t, Htyp.t, Mark.t) => {
   | ForAll(x, t) => (x, t, Mark.Unmarked)
   | Hole => (Bind.Hole, Htyp.Hole, Mark.Unmarked)
   | _ => (Bind.Hole, Htyp.Hole, Mark.Marked)
-  }
-}
+  };
+};
 
-let matched_forall_typ_opt = (t: option(Htyp.t)): (Bind.t, option(Htyp.t), Mark.t) => {
+let matched_forall_typ_opt =
+    (t: option(Htyp.t)): (Bind.t, option(Htyp.t), Mark.t) => {
   switch (t) {
   | Some(t) =>
     let (x, t1, m) = matched_forall_typ(t);
-    (x, Some(t1), m)
+    (x, Some(t1), m);
   | None => (Bind.Hole, None, Mark.Unmarked)
-  }
-}
+  };
+};
 
 let matched_forall_typ_of_bind = (t: Htyp.t, x: Bind.t): (Htyp.t, Mark.t) => {
   switch (t) {
   | ForAll(y, t) when x == y => (t, Mark.Unmarked)
   | Hole => (Htyp.Hole, Mark.Unmarked)
   | _ => (Htyp.Hole, Mark.Marked)
-  }
+  };
 };
 
-let matched_forall_typ_of_bind_opt = (t: option(Htyp.t), x: Bind.t): (option(Htyp.t), Mark.t) => {
+let matched_forall_typ_of_bind_opt =
+    (t: option(Htyp.t), x: Bind.t): (option(Htyp.t), Mark.t) => {
   switch (t) {
   | Some(t) =>
     let (t1, m) = matched_forall_typ_of_bind(t, x);
-    (Some(t1), m)
+    (Some(t1), m);
   | None => (None, Mark.Unmarked)
-  }
+  };
 };
 
 module RenamingMap = Map.Make(String);
@@ -254,40 +256,47 @@ let product_unless =
 };
 
 let forall_unless =
-    (alpha: Bind.t, body_t: option(Htyp.t), unless: option(Htyp.t)): option(Htyp.t) => {
+    (alpha: Bind.t, body_t: option(Htyp.t), unless: option(Htyp.t))
+    : option(Htyp.t) => {
   switch (unless, alpha, body_t) {
-  | (Some(_), _, _ )
+  | (Some(_), _, _)
   | (None, _, None) => None
   | (None, alpha, Some(body_t)) => Some(ForAll(alpha, body_t))
-  }
-}
+  };
+};
 
 // Sub
 let rec substitute = (arg: Htyp.t, bind: Bind.t, target: Htyp.t): Htyp.t => {
   switch (bind) {
   | Hole => target
-  | Var(x) => switch (target) {
-    | TypVar(name, _) => switch (name) {
+  | Var(x) =>
+    switch (target) {
+    | TypVar(name, _) =>
+      switch (name) {
       | Var(y) when x == y => arg
       | _ => target
       }
-    | ForAll(forall_bind, body) => switch (forall_bind) {
+    | ForAll(forall_bind, body) =>
+      switch (forall_bind) {
       | Var(y) when x == y => target // Shadowing
       | _ => ForAll(forall_bind, substitute(arg, bind, body))
-      } 
-    | Arrow(input, output) => Arrow(substitute(arg, bind, input), substitute(arg, bind, output))
-    | Product(first, second) => Product(substitute(arg, bind, first), substitute(arg, bind, second))
+      }
+    | Arrow(input, output) =>
+      Arrow(substitute(arg, bind, input), substitute(arg, bind, output))
+    | Product(first, second) =>
+      Product(substitute(arg, bind, first), substitute(arg, bind, second))
     | _ => target
     }
-  }
+  };
 };
 
 // DSub
-let substitute_opt = (arg: Htyp.t, bind: Bind.t, target: option(Htyp.t)): option(Htyp.t) => {
+let substitute_opt =
+    (arg: Htyp.t, bind: Bind.t, target: option(Htyp.t)): option(Htyp.t) => {
   switch (target) {
   | None => None
   | Some(target) => Some(substitute(arg, bind, target))
-  }
+  };
 };
 
 exception Unimplemented;

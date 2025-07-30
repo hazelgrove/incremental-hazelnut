@@ -189,7 +189,12 @@ module Tree = {
   let rec insert_t = (entry: 'a, left: Order.t, right: Order.t) =>
     fun
     | Leaf => {
-        let info = {entry, left, right, max_right: right};
+        let info = {
+          entry,
+          left,
+          right,
+          max_right: right,
+        };
         (Leaf, info, Leaf);
       }
     // already present

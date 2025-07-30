@@ -74,18 +74,8 @@ module Iexp = {
     | ListRec(ref(Htyp.t), typ_binders)
     | Y(ref(Htyp.t), typ_binders)
     | ITE(ref(Htyp.t), typ_binders)
-    | TypFun(
-        ref(Bind.t),
-        ref(Mark.t),
-        lower,
-        var_set,
-      )
-    | TypAp(
-        lower,
-        ref(Mark.t),
-        ref(Htyp.t),
-        typ_binders,
-      )
+    | TypFun(ref(Bind.t), ref(Mark.t), lower, var_set)
+    | TypAp(lower, ref(Mark.t), ref(Htyp.t), typ_binders)
     | EHole
 
   and upper = {

@@ -4,7 +4,7 @@ module Bind: {
     | Hole
     | Var(string);
 
-  let compare: (t, t) => int; 
+  let compare: (t, t) => int;
 };
 
 module Mark: {
@@ -77,10 +77,12 @@ let matched_proj_typ_opt:
   (ProdSide.t, option(Htyp.t)) => (option(Htyp.t), Mark.t);
 let type_consistent: (Htyp.t, Htyp.t) => Mark.t;
 let type_consistent_opt: (option(Htyp.t), option(Htyp.t)) => Mark.t;
-let matched_forall_typ: (Htyp.t) => (Bind.t, Htyp.t, Mark.t);
-let matched_forall_typ_opt: (option(Htyp.t)) => (Bind.t, option(Htyp.t), Mark.t);
+let matched_forall_typ: Htyp.t => (Bind.t, Htyp.t, Mark.t);
+let matched_forall_typ_opt:
+  option(Htyp.t) => (Bind.t, option(Htyp.t), Mark.t);
 let matched_forall_typ_of_bind: (Htyp.t, Bind.t) => (Htyp.t, Mark.t);
-let matched_forall_typ_of_bind_opt: (option(Htyp.t), Bind.t) => (option(Htyp.t), Mark.t);
+let matched_forall_typ_of_bind_opt:
+  (option(Htyp.t), Bind.t) => (option(Htyp.t), Mark.t);
 let arrow_unless:
   (Htyp.t, option(Htyp.t), option(Htyp.t)) => option(Htyp.t);
 let product_unless:

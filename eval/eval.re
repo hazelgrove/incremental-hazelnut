@@ -9,7 +9,7 @@ open Hazelnut_lib.Incremental;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Actions;
 open Hazelnut_lib.Actions_random;
-open Hazelnut_lib.Update;
+open Hazelnut_lib.UpdateProcess;
 open Hazelnut_lib.Marking;
 open Ocaml_intrinsics;
 open Gc;

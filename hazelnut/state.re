@@ -14,7 +14,6 @@ module Icursor = {
     | CursorBind(Iexp.upper);
 };
 
-
 module BinderSet = {
   type t = Hashtbl.t((string, BinderKind.t), Tree.t(Iexp.upper));
   let sexp_of_t = _ => Sexp.Atom("unimplemented");
@@ -63,5 +62,8 @@ let initial_state = (): Istate.t => {
 
   let initial_cursor: Icursor.t = CursorExp(initial_exp);
   let initial_persistent: Istate.persistent = {c: initial_cursor};
-  {ephemeral: initial_ephemeral, persistent: initial_persistent};
+  {
+    ephemeral: initial_ephemeral,
+    persistent: initial_persistent,
+  };
 };

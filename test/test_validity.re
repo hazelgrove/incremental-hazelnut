@@ -338,20 +338,67 @@ let test_actionses_all =
 let test_typfuns_1: list(list(Iaction.t)) = [
   [WrapAsc, MoveDown(Two), InsertTypVar("x"), MoveUp],
   [WrapTypFun],
-  [MoveDown(One), InsertTypVar("x"), MoveUp, WrapTypAp, MoveDown(Two), InsertTypVar("x")],
+  [
+    MoveDown(One),
+    InsertTypVar("x"),
+    MoveUp,
+    WrapTypAp,
+    MoveDown(Two),
+    InsertTypVar("x"),
+  ],
 ];
 
 let test_typfuns_2: list(list(Iaction.t)) = [
-  [WrapTypFun, MoveDown(One), InsertTypVar("x"), MoveUp, WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
+  [
+    WrapTypFun,
+    MoveDown(One),
+    InsertTypVar("x"),
+    MoveUp,
+    WrapLam,
+    MoveDown(One),
+    InsertVar("x"),
+    MoveUp,
+  ],
   [MoveDown(Three), MoveDown(Two), InsertVar("x"), WrapAsc],
-  [MoveDown(Two), InsertTypVar("x")]
+  [MoveDown(Two), InsertTypVar("x")],
 ];
 
 let test_typfuns_3: list(list(Iaction.t)) = [
-  [WrapTypFun, MoveDown(One), InsertTypVar("x"), MoveUp, MoveDown(Two), WrapForAll, MoveDown(One), InsertTypVar("x"), MoveUp, MoveDown(Two), WrapArrow(One)],
-  [MoveDown(One), InsertTypVar("x"), MoveUp, MoveDown(Two), InsertNumType, MoveUp, MoveUp],
+  [
+    WrapTypFun,
+    MoveDown(One),
+    InsertTypVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    WrapForAll,
+    MoveDown(One),
+    InsertTypVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    WrapArrow(One),
+  ],
+  [
+    MoveDown(One),
+    InsertTypVar("x"),
+    MoveUp,
+    MoveDown(Two),
+    InsertNumType,
+    MoveUp,
+    MoveUp,
+  ],
   [MoveDown(One), Delete],
-  [InsertTypVar("x"), MoveUp, MoveUp, WrapTypAp, MoveDown(Two), InsertNumType, MoveUp, MoveDown(One), MoveDown(One), Delete],
+  [
+    InsertTypVar("x"),
+    MoveUp,
+    MoveUp,
+    WrapTypAp,
+    MoveDown(Two),
+    InsertNumType,
+    MoveUp,
+    MoveDown(One),
+    MoveDown(One),
+    Delete,
+  ],
 ];
 
 let minimized_test: list(list(Iaction.t)) = [

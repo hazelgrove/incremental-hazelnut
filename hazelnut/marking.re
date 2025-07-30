@@ -71,7 +71,7 @@ module TypVarSet = Set.Make(String);
 module Ctx = {
   type t = {
     vars: Hashtbl.t(string, Htyp.t),
-    mutable typ_vars: TypVarSet.t
+    mutable typ_vars: TypVarSet.t,
   };
 
   let lookup = (ctx: t, x: string): (Htyp.t, Mark.t) => {
@@ -82,11 +82,8 @@ module Ctx = {
   };
 
   let lookup_typ = (ctx: t, x: string): Mark.t => {
-    switch (TypVarSet.mem(x, ctx.typ_vars)) {
-    | true => Unmarked
-    | false => Marked
-    }
-  }
+    TypVarSet.mem(x, ctx.typ_vars) ? Unmarked : Marked;
+  };
 
   let empty: t = {
     vars: Hashtbl.create(100),
@@ -104,8 +101,8 @@ module Ctx = {
     switch (x) {
     | Hole => ()
     | Var(x) => ctx.typ_vars = TypVarSet.add(x, ctx.typ_vars)
-    }
-  }
+    };
+  };
 
   let remove_bind = (ctx: t, x: Bind.t) => {
     switch (x) {
@@ -118,13 +115,14 @@ module Ctx = {
     switch (x) {
     | Hole => ()
     | Var(x) => ctx.typ_vars = TypVarSet.remove(x, ctx.typ_vars)
-    }
-  }
+    };
+  };
 };
 
 let rec mark_htyp = (ctx: Ctx.t): (Htyp.t => Htyp.t) =>
   fun
-  | TypVar(x, _) => switch (x) {
+  | TypVar(x, _) =>
+    switch (x) {
     | Hole => TypVar(Hole, Unmarked)
     | Var(x) => TypVar(Var(x), Ctx.lookup_typ(ctx, x))
     }
@@ -132,10 +130,11 @@ let rec mark_htyp = (ctx: Ctx.t): (Htyp.t => Htyp.t) =>
       Ctx.extend_bind_typ(ctx, x);
       let marked_body = mark_htyp(ctx, t);
       Ctx.remove_bind_typ(ctx, x);
-      ForAll(x, marked_body)
+      ForAll(x, marked_body);
     }
   | Arrow(tin, tout) => Arrow(mark_htyp(ctx, tin), mark_htyp(ctx, tout))
-  | Product(tfst, tsnd) => Product(mark_htyp(ctx, tfst), mark_htyp(ctx, tsnd))
+  | Product(tfst, tsnd) =>
+    Product(mark_htyp(ctx, tfst), mark_htyp(ctx, tsnd))
   | t => t;
 
 let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
@@ -157,7 +156,10 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       Ctx.extend_bind(ctx, x, marked_t);
       let (body, syn) = performance_mark_syn(ctx, e);
       Ctx.remove_bind(ctx, x);
-      (Lam(x, marked_t, Mark.Unmarked, Mark.Unmarked, body), Arrow(marked_t, syn));
+      (
+        Lam(x, marked_t, Mark.Unmarked, Mark.Unmarked, body),
+        Arrow(marked_t, syn),
+      );
     }
   | Ap(b1, b2) => {
       let (e1, syn) = performance_mark_syn(ctx, b1);
@@ -177,7 +179,7 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
     }
   | Asc(e, t) => {
       let marked_t = mark_htyp(ctx, t);
-      (Asc(performance_mark_ana(ctx, marked_t, e), marked_t), marked_t)
+      (Asc(performance_mark_ana(ctx, marked_t, e), marked_t), marked_t);
     }
   | Nil => (Nil, List)
   | Cons => (Cons, Arrow(Num, Arrow(List, List)))
@@ -186,31 +188,31 @@ let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
       (
         ListRec(t),
         Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t))),
-      )
+      );
     }
   | Y(t) => {
       let t = mark_htyp(ctx, t);
-      (Y(t), Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t)))
+      (Y(t), Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t)));
     }
   | ITE(t) => {
       let t = mark_htyp(ctx, t);
       (
         ITE(t),
         Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t))),
-      )
+      );
     }
   | TypFun(x, e) => {
       Ctx.extend_bind_typ(ctx, x);
       let (e, syn) = performance_mark_syn(ctx, e);
       Ctx.remove_bind_typ(ctx, x);
-      (TypFun(x, Unmarked, e), syn)
+      (TypFun(x, Unmarked, e), syn);
     }
   | TypAp(b_fun, t_arg) => {
       let t_arg = mark_htyp(ctx, t_arg);
       let (e_fun, t_fun) = performance_mark_syn(ctx, b_fun);
       let (x, t_fun_body, m_fun) = matched_forall_typ(t_fun);
       let t_syn = substitute(t_arg, x, t_fun_body);
-      (TypAp(e_fun, m_fun, t_arg), t_syn)
+      (TypAp(e_fun, m_fun, t_arg), t_syn);
     }
   | EHole => (EHole, Hole)
 
@@ -236,7 +238,7 @@ and performance_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => markedExp) =>
       Ctx.extend_bind_typ(ctx, x);
       let e_body = performance_mark_ana(ctx, t_body_ana, b_body);
       Ctx.remove_bind_typ(ctx, x);
-      TypFun(x, m_ana, e_body)
+      TypFun(x, m_ana, e_body);
     }
   | b => {
       let (e, syn) = performance_mark_syn(ctx, b);
@@ -306,7 +308,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
           ref(Mark.Unmarked),
           wrap_lower(body, Unmarked, None),
           ref(Tree.empty),
-          Hashtbl.create(0)
+          Hashtbl.create(0),
         ),
         Some(Arrow(t, syn)),
       );
@@ -346,7 +348,10 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
     }
   | Asc(e, t) => {
       let t = mark_htyp(ctx, t);
-      wrap_upper(Asc(validity_mark_ana(ctx, t, e), ref(t), Hashtbl.create(0)), Some(t))
+      wrap_upper(
+        Asc(validity_mark_ana(ctx, t, e), ref(t), Hashtbl.create(0)),
+        Some(t),
+      );
     }
   | Nil => wrap_upper(Nil, Some(List))
   | Cons => wrap_upper(Cons, Some(Arrow(Num, Arrow(List, List))))
@@ -355,21 +360,23 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
       wrap_upper(
         ListRec(ref(t), Hashtbl.create(0)),
         Some(Arrow(t, Arrow(Arrow(Num, Arrow(t, t)), Arrow(List, t)))),
-      )
+      );
     }
   | Y(t) => {
       let t = mark_htyp(ctx, t);
       wrap_upper(
         Y(ref(t), Hashtbl.create(0)),
         Some(Arrow(Arrow(Arrow(t, t), Arrow(t, t)), Arrow(t, t))),
-      )
+      );
     }
   | ITE(t) => {
       let t = mark_htyp(ctx, t);
       wrap_upper(
         ListRec(ref(t), Hashtbl.create(0)),
-        Some(Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t)))),
-      )
+        Some(
+          Arrow(Bool, Arrow(Arrow(Unit, t), Arrow(Arrow(Unit, t), t))),
+        ),
+      );
     }
   | TypFun(x, b) => {
       Ctx.extend_bind_typ(ctx, x);
@@ -381,7 +388,7 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
           ref(x),
           ref(Mark.Unmarked),
           wrap_lower(body, Mark.Unmarked, None),
-          ref(Tree.empty)
+          ref(Tree.empty),
         ),
         Some(ForAll(x, syn)),
       );
@@ -397,10 +404,10 @@ let rec validity_mark_syn = (ctx: Ctx.t): (bareExp => Iexp.upper) =>
           wrap_lower(e_fun, Mark.Unmarked, None),
           ref(m_fun),
           ref(t_arg),
-          Hashtbl.create(0)
+          Hashtbl.create(0),
         ),
-        Some(t_syn)
-      )
+        Some(t_syn),
+      );
     }
   | EHole => wrap_upper(EHole, Some(Hole))
 
@@ -414,7 +421,15 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       let body = validity_mark_ana(ctx, t2, e);
       Ctx.remove_bind(ctx, x);
       let middle: Iexp.middle =
-        Lam(ref(x), ref(t), ref(m1), ref(m2), body, ref(Tree.empty), Hashtbl.create(0));
+        Lam(
+          ref(x),
+          ref(t),
+          ref(m1),
+          ref(m2),
+          body,
+          ref(Tree.empty),
+          Hashtbl.create(0),
+        );
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | Pair(b1, b2) => {
@@ -429,7 +444,8 @@ and validity_mark_ana = (ctx: Ctx.t, ana: Htyp.t): (bareExp => Iexp.lower) =>
       Ctx.extend_bind_typ(ctx, x);
       let e_body = validity_mark_ana(ctx, t_body_ana, b_body);
       Ctx.remove_bind_typ(ctx, x);
-      let middle: Iexp.middle = TypFun(ref(x), ref(m_ana), e_body, ref(Tree.empty));
+      let middle: Iexp.middle =
+        TypFun(ref(x), ref(m_ana), e_body, ref(Tree.empty));
       wrap_lower(wrap_upper(middle, None), Unmarked, Some(ana));
     }
   | b => {
@@ -460,7 +476,9 @@ and equiv_middle = (e1: Iexp.middle, e2: Iexp.middle): bool => {
     return(equiv_lower(e1, e3) && equiv_lower(e2, e4))
   | (Lam(x1, t1, m1, m2, e1, _, _), Lam(x2, t2, m3, m4, e2, _, _)) =>
     //print_endine("comparing lam");
-    return((x1^, t1^, m1^, m2^) == (x2^, t2^, m3^, m4^) && equiv_lower(e1, e2))
+    return(
+      (x1^, t1^, m1^, m2^) == (x2^, t2^, m3^, m4^) && equiv_lower(e1, e2),
+    )
   | (Ap(e1, m1, e2), Ap(e3, m2, e4)) =>
     //print_endine("comparing ap");
     return(equiv_lower(e1, e3) && m1^ == m2^ && equiv_lower(e2, e4))

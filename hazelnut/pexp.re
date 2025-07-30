@@ -142,8 +142,8 @@ let rec pexp_of_ztyp: Hazelnut.Ztyp.t => Pexp.t =
   | LProduct(z, t) => Product(pexp_of_ztyp(z), pexp_of_htyp(t))
   | RProduct(t, z) => Product(pexp_of_htyp(t), pexp_of_ztyp(z))
   | ForAll(x, t) => ForAll(pexp_of_bind(x), pexp_of_ztyp(t))
-  | ForAllCursorBind(x, t) => ForAll(Cursor(pexp_of_bind(x)), pexp_of_htyp(t));
-
+  | ForAllCursorBind(x, t) =>
+    ForAll(Cursor(pexp_of_bind(x)), pexp_of_htyp(t));
 
 let rec unwrap_extras: Pexp.t => (Pexp.t, Pexp.t => Pexp.t) =
   fun
@@ -334,11 +334,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | _ => pexp_of_bind(x.contents)
       };
     let body_lower = pexp_of_iexp_lower(e_body, s);
-    pexp_markif(
-      m.contents,
-      NonForAllTypFun,
-      TypFun(pb, body_lower)
-    )
+    pexp_markif(m.contents, NonForAllTypFun, TypFun(pb, body_lower));
   | TypAp(e_fun, m, t_arg, _typ_binders) =>
     let pt =
       switch (s.persistent.c) {
@@ -346,11 +342,7 @@ and pexp_of_iexp_middle = (e: Iexp.middle, s: Istate.t): Pexp.t => {
       | _ => pexp_of_htyp(t_arg.contents)
       };
     let fun_lower = pexp_of_iexp_lower(e_fun, s);
-    pexp_markif(
-      m.contents,
-      NonForAllTypAp,
-      TypAp(fun_lower, pt)
-    )
+    pexp_markif(m.contents, NonForAllTypAp, TypAp(fun_lower, pt));
   };
 }
 
@@ -517,18 +509,12 @@ let rec string_of_pexp: Pexp.t => string =
   | ITE(t) => "ITE[" ++ string_of_pexp(t) ++ "]"
   | ListRec(t) => "ListRec[" ++ string_of_pexp(t) ++ "]"
   | Y(t) => "Y[" ++ string_of_pexp(t) ++ "]"
-  | TypFun(x, e) => "typfun "
-      ++ string_of_pexp(x)
-      ++ " ↦ ("
-      ++ string_of_pexp(e)
-      ++ ")"
+  | TypFun(x, e) =>
+    "typfun " ++ string_of_pexp(x) ++ " ↦ (" ++ string_of_pexp(e) ++ ")"
   | TypAp(e, t) as outer =>
     paren(e, outer, Side.Left) ++ " " ++ paren(t, outer, Side.Right)
-  | ForAll(x, t) => "forall "
-      ++ string_of_pexp(x)
-      ++ " ↦ ("
-      ++ string_of_pexp(t)
-      ++ ")"
+  | ForAll(x, t) =>
+    "forall " ++ string_of_pexp(x) ++ " ↦ (" ++ string_of_pexp(t) ++ ")"
   | Interval(n1, e, n2) =>
     "{" ++ n1 ++ "]" ++ string_of_pexp(e) ++ "[" ++ n2 ++ "}"
   | Mark(e, m) => "{" ++ string_of_pexp(e) ++ " | " ++ m ++ "}"
