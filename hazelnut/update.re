@@ -238,7 +238,7 @@ let update_step = (state: Istate.t): stepped => {
     | NewITE(e) =>
       switch (e.middle) {
       | ITE(t, _) =>
-        let syn_type: option(Htyp.t) = failwith("Unimplemented");
+        let syn_type: option(Htyp.t) = Some(Arrow(Bool, Arrow(Arrow(Unit, t^), Arrow(Arrow(Unit, t^), t^))));
         let syn_update = UpdateQueue.update_syn(e, syn_type);
         let update_list = syn_update;
         UpdateQueue.update_push_list(update_list, q);
