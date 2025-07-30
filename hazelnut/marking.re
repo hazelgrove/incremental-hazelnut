@@ -136,7 +136,7 @@ let rec mark_htyp = (ctx: Ctx.t): (Htyp.t => Htyp.t) =>
     }
   | Arrow(tin, tout) => Arrow(mark_htyp(ctx, tin), mark_htyp(ctx, tout))
   | Product(tfst, tsnd) => Arrow(mark_htyp(ctx, tfst), mark_htyp(ctx, tsnd))
-  | t => t
+  | t => t;
 
 let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
   fun
