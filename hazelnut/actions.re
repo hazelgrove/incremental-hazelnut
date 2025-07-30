@@ -888,7 +888,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         let newly_bound_list = Tree.list_of_t(bound_vars.contents);
         let update_list =
           [Update.NewAna(e.parent)]
-          @ List.map(e => typ_update_of_upper(e), newly_bound_list)
+          @ List.map(e => Update.NewSyn(e), newly_bound_list)
           @ [NewAna(Lower(body)), NewSyn(body.child)];
         UpdateQueue.update_push_list(update_list, q);
         no_movement;
