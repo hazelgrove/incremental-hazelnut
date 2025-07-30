@@ -122,6 +122,22 @@ module Ctx = {
   }
 };
 
+let rec mark_htyp = (ctx: Ctx.t): (Htyp.t => Htyp.t) =>
+  fun
+  | TypVar(x, _) => switch (x) {
+    | Hole => TypVar(Hole, Unmarked)
+    | Var(x) => TypVar(Var(x), Ctx.lookup_typ(ctx, x))
+    }
+  | ForAll(x, t) => {
+      Ctx.extend_bind_typ(ctx, x);
+      let marked_body = mark_htyp(ctx, t);
+      Ctx.remove_bind_typ(ctx, x);
+      ForAll(x, marked_body)
+    }
+  | Arrow(tin, tout) => Arrow(mark_htyp(ctx, tin), mark_htyp(ctx, tout))
+  | Product(tfst, tsnd) => Arrow(mark_htyp(ctx, tfst), mark_htyp(ctx, tsnd))
+  | t => t
+
 let rec performance_mark_syn = (ctx: Ctx.t): (bareExp => (markedExp, Htyp.t)) =>
   fun
   | Var(x) => {
