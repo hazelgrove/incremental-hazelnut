@@ -1147,7 +1147,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
       };
       delete_upper(e);
       replace(e, e');
-      let update_list = [Update.NewAna(e'.parent), Update.NewSyn(e')];
+      let update_list = [Update.NewAna(e'.parent), Update.NewY(e')];
       UpdateQueue.update_push_list(update_list, q);
       return_cursor(CursorExp(e'));
     | _ => no_movement
