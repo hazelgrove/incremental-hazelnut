@@ -4,7 +4,7 @@ open Monad_lib.Monad;
 open Hazelnut_lib.Hazelnut;
 open Hazelnut_lib.State;
 open Hazelnut_lib.Actions;
-open Hazelnut_lib.Update;
+open Hazelnut_lib.UpdateProcess;
 open Hazelnut_lib.Pexp;
 open Hazelnut_lib.Marking;
 

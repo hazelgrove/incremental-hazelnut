@@ -3,6 +3,20 @@ open Incremental;
 open UpdateQueue;
 open Tree;
 open State;
+open Pexp;
+
+let string_of_update = (update: Update.t, state: Istate.t): string => {
+  switch (update) {
+  | NewSyn(upper) => "NewSyn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewAna(parent) => "NewAna(" ++ string_of_pexp(pexp_of_iexp(child_of_parent(parent), state)) ++ ")"
+  | NewAnn(upper) => "NewAnn(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewAsc(upper) => "NewAsc(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewListRec(upper) => "NewListRec(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewY(upper) => "NewY(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewITE(upper) => "NewITE(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  | NewTypAp(upper) => "NewTypAp(" ++ string_of_pexp(pexp_of_iexp(upper, state)) ++ ")"
+  }
+}
 
 type stepped =
   | Settled
@@ -117,7 +131,7 @@ let update_step = (state: Istate.t): stepped => {
         | _ when Option.is_some(parent.ana) =>
           //print_endine("STEP: StepSynConsist");
           parent.marked = type_consistent_opt(e.syn, parent.ana)
-        | _ => failwith("unrecognized update step")
+        | _ => failwith("unrecognized update step " ++ string_of_update(update, state))
         }
       }
     | NewAna(parent) =>
