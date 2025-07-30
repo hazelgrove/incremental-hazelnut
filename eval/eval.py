@@ -85,7 +85,10 @@ with doc:
         times = times1 + times2
         xs = [times[i][0] for i in range(len(times))]
         ys = [times[i][1] for i in range(len(times))]
-        speedup = [math.log(xs[i]/ys[i]) for i in range(len(xs))]
+        def safe_div(a, b):
+            if b == 0: return 1
+            else: return a/b
+        speedup = [math.log(safe_div(xs[i],ys[i])) for i in range(len(xs))]
         n_clusters = 1
         mp = []
         for nc in range(n_clusters):
