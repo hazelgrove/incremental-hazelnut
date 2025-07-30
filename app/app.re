@@ -462,8 +462,8 @@ let view =
           button("Insert Y", Action.HazelnutAction(InsertY), None),
           button(
             "Construct TypVar",
-            Action.HazelnutAction(InsertTypVar(state.var_input)),
-            Some((TypVar, state.var_input)),
+            Action.HazelnutAction(InsertTypVar(state.typvar_input)),
+            Some((TypVar, state.typvar_input)),
           ),
           button(
             "WrapTypFun",
