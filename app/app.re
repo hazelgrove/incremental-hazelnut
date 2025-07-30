@@ -14,6 +14,7 @@ type state = {
   // t: Htyp.t,
   warning: option(string),
   var_input: string,
+  typvar_input: string,
   let_input: string,
   lit_input: string,
   bool_input: string,
@@ -176,6 +177,7 @@ module Model = {
       // t: Hole,
       warning: None,
       var_input: "",
+      typvar_input: "",
       let_input: "",
       lit_input: "",
       bool_input: "true | false",
@@ -191,6 +193,7 @@ module Action = {
   [@deriving sexp]
   type input_location =
     | Var
+    | TypVar
     | Let
     | NumLit
     | BoolLit;
@@ -255,6 +258,7 @@ let apply_action =
       let _ = update_step(state.istate);
       Model.set({...state, vizbit: !state.vizbit});
     | UpdateInput(Var, var_input) => Model.set({...state, var_input})
+    | UpdateInput(TypVar, typvar_input) => Model.set({...state, typvar_input})
     | UpdateInput(Let, let_input) => Model.set({...state, let_input})
     | UpdateInput(NumLit, lit_input) => Model.set({...state, lit_input})
     | UpdateInput(BoolLit, bool_input) => Model.set({...state, bool_input})
@@ -456,6 +460,26 @@ let view =
             None,
           ),
           button("Insert Y", Action.HazelnutAction(InsertY), None),
+          button(
+            "Construct TypVar",
+            Action.HazelnutAction(InsertTypVar(state.var_input)),
+            Some((TypVar, state.var_input)),
+          ),
+          button(
+            "WrapTypFun",
+            Action.HazelnutAction(WrapTypFun),
+            None,
+          ),
+          button(
+            "WrapTypAp",
+            Action.HazelnutAction(WrapTypAp),
+            None,
+          ),
+          button(
+            "WrapForAll",
+            Action.HazelnutAction(WrapForAll),
+            None,
+          ),
         ]);
 
       let unwrap_buttons =
