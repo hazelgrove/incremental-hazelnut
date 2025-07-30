@@ -894,6 +894,10 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         no_movement;
       | Var(_) => no_movement
       }
+    | _ => failwith("CursorBind on non lambda when inserting var")
+    }
+  | (CursorBind(e), InsertTypVar(x)) =>
+    switch (e.middle) {
     | TypFun(bind, _, body, bound_vars) =>
       switch (bind^) {
       | Hole =>
@@ -923,7 +927,7 @@ let rec apply_action = (state: Istate.t, a: Iaction.t): Istate.t => {
         no_movement
       | Var(_) => no_movement
       }
-    | _ => failwith("CursorBind on non lambda and non typfun")
+    | _ => failwith("CursorBind on non typfun when inserting typvar")
     }
   | (CursorBind(_), _) => no_movement
   | (CursorTyp(e, Cursor(_)), MoveUp) => return_cursor(CursorExp(e))
