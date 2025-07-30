@@ -235,8 +235,16 @@ let apply_action =
             ),
           ),
         );
+        print_endline("synthesizing " ++ switch (state.istate.ephemeral.root.root_child.syn) {
+        | Some(syn) => string_of_pexp(pexp_of_htyp(syn))
+        | None => "nothing"
+        });
         print_endline("should see:");
         print_endline(string_of_pexp(pexp_of_iexp(e', state.istate)));
+        print_endline("synthesizing " ++ switch (e'.syn) {
+        | Some(syn) => string_of_pexp(pexp_of_htyp(syn))
+        | None => "nothing"
+        });
         failwith("Marking failure");
       };
 
