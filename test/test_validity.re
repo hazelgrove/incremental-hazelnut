@@ -361,6 +361,25 @@ let test_actionses_all =
     @ nonsense,
   );
 
+let test_typfuns_1: list(list(Iaction.t)) = [
+  [WrapAsc, MoveDown(Two), InsertTypVar("x"), MoveUp],
+  [WrapTypFun],
+  [MoveDown(One), InsertTypVar("x"), MoveUp, WrapTypAp, MoveDown(Two), InsertTypVar("x")],
+];
+
+let test_typfuns_2: list(list(Iaction.t)) = [
+  [WrapTypFun, MoveDown(One), InsertTypVar("x"), MoveUp, WrapLam, MoveDown(One), InsertVar("x"), MoveUp],
+  [MoveDown(Three), MoveDown(Two), InsertVar("x"), WrapAsc],
+  [MoveDown(Two), InsertTypVar("x")]
+];
+
+let test_typfuns_3: list(list(Iaction.t)) = [
+  [WrapTypFun, MoveDown(One), InsertTypVar("x"), MoveUp, MoveDown(Two), WrapForAll, MoveDown(One), InsertTypVar("x"), MoveUp, MoveDown(Two), WrapArrow(One)],
+  [MoveDown(One), InsertTypVar("x"), MoveUp, MoveDown(Two), InsertNumType, MoveUp, MoveUp],
+  [MoveDown(One), Delete],
+  [InsertTypVar("x"), MoveUp, MoveUp, WrapTypAp, MoveDown(Two), InsertNumType, MoveUp, MoveDown(One), MoveDown(One), Delete],
+];
+
 let minimized_test: list(list(Iaction.t)) = [
   [
     InsertVar("x"),
@@ -992,6 +1011,9 @@ let actual_tests = [
   ("nonsense", `Quick, test_actionses(nonsense)),
   ("excise", `Quick, test_actionses(excise)),
   ("excise2", `Quick, test_actionses(excise2)),
+  ("typfuns1", `Quick, test_actionses(test_typfuns_1)),
+  ("typfuns2", `Quick, test_actionses(test_typfuns_2)),
+  ("typfuns3", `Quick, test_actionses(test_typfuns_3)),
   ("minimized", `Quick, test_actionses(minimized_test)),
   ("minimized 2", `Quick, test_actionses(minimized_2)),
   ("minimized 3", `Quick, test_actionses(minimized_3)),
